@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{6989167D-11E4-40FE-8C1A-2192A86A7E90}") = "sparsereg", "sparsereg.vfproj", "{56CE380B-2D1F-4F88-8E64-4B972DF1DADB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{56CE380B-2D1F-4F88-8E64-4B972DF1DADB}.Debug|Win32.ActiveCfg = Debug|Win32
+		{56CE380B-2D1F-4F88-8E64-4B972DF1DADB}.Debug|Win32.Build.0 = Debug|Win32
+		{56CE380B-2D1F-4F88-8E64-4B972DF1DADB}.Release|Win32.ActiveCfg = Release|Win32
+		{56CE380B-2D1F-4F88-8E64-4B972DF1DADB}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
