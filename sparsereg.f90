@@ -39,7 +39,7 @@
 !     Check nonnegativity of tuning parameter
 !
       IF (RHO<ZERO) THEN
-         !PRINT*,"THEN TUNING PARAMETER MUST BE NONNEGATIVE."
+         !PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
          RETURN
       END IF
 !
@@ -74,16 +74,74 @@
             DPENDRHO = DPENDRHO*(ONE-HALF*ETA*DPENDRHO)
          END IF
       END IF
-      END SUBROUTINE
+      END SUBROUTINE LOG_PENALTY
 !
-      FUNCTION LOG_THRESHOLDING(A,B,RHO,ETA)
+      SUBROUTINE POWER_PENALTY(BETA,RHO,ETA,PEN,D1PEN,D2PEN,DPENDRHO)
+!
+!     This subroutine calculates the penalty value, first derivative, 
+!     and second derivatives of the power penalty: RHO*ABS(BETA)**ETA 
+!     for 0<eta<=2
+!
+      IMPLICIT NONE
+      REAL(KIND=DBLE_PREC) :: ETA,EPS=1E-8,RHO
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: BETA
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: PEN
+      REAL(KIND=DBLE_PREC), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
+!
+!     Check nonnegativity of tuning parameter and parameter eta
+!
+      IF (RHO<ZERO) THEN
+         !PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
+         RETURN
+      END IF
+      IF (ETA<=ZERO.OR.ETA>TWO) THEN
+         !PRINT*,"THE EXPONENT PARAMETER ETA SHOULD BE IN (0,2]."
+         RETURN
+      END IF
+!
+!     Penalty values
+!
+      PEN = RHO*ABS(BETA)**ETA
+!
+!     First derivative of penalty function
+!
+      IF (PRESENT(D1PEN)) THEN
+         WHERE (ABS(BETA)<EPS)
+            D1PEN = RHO*ETA*EPS**(ETA-1)
+         ELSEWHERE
+            D1PEN = RHO*ETA*ABS(BETA)**(ETA-1)
+         END WHERE   
+      END IF
+!
+!     Second derivative of penalty function
+!
+      IF (PRESENT(D2PEN)) THEN
+         WHERE (ABS(BETA)<EPS)
+            D2PEN = RHO*ETA*(ETA-ONE)*EPS**(ETA-TWO)
+         ELSEWHERE
+            D2PEN = RHO*ETA*(ETA-ONE)*ABS(BETA)**(ETA-TWO)
+         END WHERE
+      END IF
+!
+!     Second mixed derivative of penalty function
+!
+      IF (PRESENT(DPENDRHO)) THEN
+         WHERE (ABS(BETA)<EPS)
+            DPENDRHO = ETA*EPS**(ETA-ONE)
+         ELSEWHERE
+            DPENDRHO = ETA*ABS(BETA)**(ETA-ONE)
+         END WHERE
+      END IF
+      END SUBROUTINE POWER_PENALTY
+!
+      FUNCTION LOG_THRESHOLDING(A,B,RHO,ETA) RESULT(XMIN)
 !
 !     This subroutine performs univariate soft thresholding with log penalty:
 !     min .5*a*x^2+b*x+rho*log(eta+x). Input with eta=0 implies using
 !     eta=sqrt(rho), i.e., continuous log penalty.
 !
       IMPLICIT NONE
-      REAL(KIND=DBLE_PREC) :: A,B,ETA,F1,F2,LOG_THRESHOLDING,RHO
+      REAL(KIND=DBLE_PREC) :: A,B,EPS=TEN**-8,ETA,F1,F2,RHO,XMIN
 !
 !     Check inputs
 !      
@@ -104,43 +162,127 @@
 !
 !     Thresholding
 !
-      IF (RHO>=A*(ETA+ABS(B))**2/FOUR) THEN
-         LOG_THRESHOLDING = ZERO
-      ELSE IF (RHO<=ABS(A*B*ETA)) THEN
-         LOG_THRESHOLDING = SIGN(HALF*(ABS(B)-ETA+ &
-            SQRT((ABS(B)+ETA)**2-FOUR*RHO/A)),B)
+      IF (RHO<EPS) THEN
+         XMIN = B
+         RETURN
+      ELSEIF (RHO>=A*(ETA+ABS(B))*(ETA+ABS(B))/FOUR) THEN
+         XMIN = ZERO
+      ELSEIF (RHO<=ABS(A*B*ETA)) THEN
+         XMIN = SIGN(HALF*(ABS(B)-ETA+ &
+            SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
       ELSE
-         LOG_THRESHOLDING = SIGN(HALF*(ABS(B)-ETA+ &
-            SQRT((ABS(B)+ETA)**2-FOUR*RHO/A)),B)
+         XMIN = SIGN(HALF*(ABS(B)-ETA+ &
+            SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
          F1 = HALF*A*B*B+RHO*LOG(ETA)
-         F2 = HALF*A*(LOG_THRESHOLDING-B)**2+RHO*LOG(ETA+ABS(LOG_THRESHOLDING))
+         F2 = HALF*A*(XMIN-B)*(XMIN-B)+RHO*LOG(ETA+ABS(XMIN))
          IF (F1<F2) THEN
-            LOG_THRESHOLDING = ZERO
+            XMIN = ZERO
          END IF
       END IF
       END FUNCTION LOG_THRESHOLDING
+!
+      FUNCTION POWER_THRESHOLDING(A,B,RHO,ETA) RESULT(XMIN)
+!
+!     This subroutine performs univariate soft thresholding with power penalty:
+!     min .5*a*x^2+b*x+rho*abs(x)**eta.
+!
+      IMPLICIT NONE
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: A,B,DL,DM,DR,ETA,RHO,XL,XM,XMIN,XR
+!
+!     Check inputs
+!      
+      IF (ETA<=ZERO.OR.ETA>TWO) THEN
+         !PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
+         RETURN
+      END IF
+!
+!     Transform to format 0.5*a*(x-b)^2 + rho*abs(x)^eta
+!
+      IF (A<=ZERO) THEN
+         !PRINT*, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
+         RETURN
+      END IF
+      B = -B/A
+!
+!     Thresholding
+!
+      IF (RHO<EPS) THEN
+         XMIN = B
+         RETURN
+      ELSEIF (ABS(ETA-ONE)<EPS) THEN
+         IF (B-RHO/A>ZERO) THEN
+            XMIN = B-RHO/A
+         ELSEIF (B+RHO/A<ZERO) THEN
+            XMIN = B+RHO/A
+         ELSE
+            XMIN = ZERO
+         END IF
+         RETURN
+      ELSE
+!
+!     Bisection search
+!      
+         IF (ETA<ONE) THEN
+            XL = SIGN((A/ETA/(ONE-ETA)/RHO)**(ONE/(ETA-TWO)),B)
+         ELSE
+            XL = ZERO
+         END IF
+         IF (B<ZERO) THEN
+            XR = XL
+            XL = B
+         ELSE
+            XR = B
+         END IF            
+         DL = A*(XL-B)+SIGN(RHO*ETA*ABS(XL)**(ETA-1),XL)
+         DR = A*(XR-B)+SIGN(RHO*ETA*ABS(XR)**(ETA-1),XR)
+         DO
+            XM = HALF*(XL+XR)
+            DM = A*(XM-B)+SIGN(RHO*ETA*ABS(XM)**(ETA-1),XM)
+            IF (DL*DM<ZERO) THEN
+               XR = XM
+               DR = DM
+            ELSE IF (DR*DM<ZERO) THEN
+               XL = XM
+               DL = DM
+            ELSE
+               XMIN = XM
+               EXIT
+            END IF
+            IF (ABS(XL-XR)<EPS) THEN
+               XMIN = XM
+               EXIT
+            END IF
+         END DO
+         IF ( (ETA<ONE) .AND. &
+            (HALF*A*(XMIN-B)**2+RHO*ABS(XMIN)**ETA>HALF*A*B**2)) THEN
+            XMIN = ZERO
+         END IF
+      END IF
+      END FUNCTION POWER_THRESHOLDING
 !
       FUNCTION MAX_RHO(A,B,PENTYPE,PENPARAM) RESULT(MAXRHO)
 !
 !     This subroutine finds the maximum penalty constant rho such that
 !     argmin 0.5*A*x^2+B*x+penalty(x,rho) is nonzero. Current options for
-!     PENTYPE are "LOG","SCAD","MCP","POWER". PENPARAM contains the
+!     PENTYPE are "ENET","LOG","SCAD","MCP","POWER". PENPARAM contains the
 !     optional parameter for the penalty function.
 !
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
-      REAL(KIND=DBLE_PREC) :: A,B,EPS=1E-6,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: A,B,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
       REAL(KIND=DBLE_PREC), DIMENSION(:) :: PENPARAM
 !
-!     Set search interverl for rho
+!     Set search interval for rho
 !
       SELECT CASE(PENTYPE)
       CASE("LOG")
          IF (PENPARAM(1)==ZERO) THEN
             IF (A<=ONE) THEN
-               MAXRHO = A*A*B*B
+               MAXRHO = B*B
                RETURN
             ELSE
-               L = A*A*B*B
+               L = B*B
                R = TWO*L
                DO WHILE(LOG_THRESHOLDING(A,B,R,PENPARAM(1))>ZERO)
                   L = R
@@ -148,41 +290,72 @@
                END DO
             END IF
          ELSE
-            L = ABS(A*B*PENPARAM(1))
-            R = A*(PENPARAM(1)+ABS(B))**2/FOUR
+            L = ABS(B*PENPARAM(1))
+            R = A*(PENPARAM(1)+ABS(B)/A)**2/FOUR
          END IF
+         ROOTL = LOG_THRESHOLDING(A,B,L,PENPARAM(1))
+         ROOTR = LOG_THRESHOLDING(A,B,R,PENPARAM(1))
+         DO
+            M = HALF*(L+R)
+            ROOTM = LOG_THRESHOLDING(A,B,M,PENPARAM(1))
+            IF (ROOTM==ZERO) THEN
+               R = M
+               ROOTR = ROOTM
+            ELSE
+               L = M
+               ROOTL = ROOTM
+            END IF
+            IF (ABS(R-L)<EPS) THEN
+               MAXRHO = M
+               EXIT
+            END IF
+         END DO
+         RETURN                  
       CASE("SCAD")
       CASE("MCP")
       CASE("ENET")
       CASE("POWER")
+         IF (PENPARAM(1)==ONE) THEN
+            MAXRHO = ABS(B)
+            RETURN
+         ELSEIF (PENPARAM(1)<ONE) THEN
+            L = ZERO
+            ROOTL = POWER_THRESHOLDING(A,B,L,PENPARAM(1))
+            R = ONE
+            ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+            DO WHILE(ROOTR>ZERO)
+               L = R
+               ROOTL = ROOTR
+               R = TWO*R
+               ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+            END DO
+            DO
+               M = HALF*(L+R)
+               ROOTM = POWER_THRESHOLDING(A,B,M,PENPARAM(1))
+               IF (ROOTM==ZERO) THEN
+                  R = M
+                  ROOTR = ROOTM
+               ELSE
+                  L = M
+                  ROOTL = ROOTM
+               END IF
+               IF (ABS(R-L)<EPS) THEN
+                  MAXRHO = M
+                  EXIT
+               END IF
+            END DO
+            RETURN                  
+         ELSEIF (PENPARAM(1)>ONE) THEN
+            R = ONE
+            ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+            DO WHILE(ABS(ROOTR)>ABS(B)/A/1E2)
+               R = TWO*R
+               ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+            END DO
+            MAXRHO = R
+            RETURN
+         END IF
       END SELECT
-!
-!     Bisection search
-!
-      ROOTL = LOG_THRESHOLDING(A,B,L,PENPARAM(1))
-      ROOTR = LOG_THRESHOLDING(A,B,R,PENPARAM(1))
-      DO
-         M = HALF*(L+R)
-         SELECT CASE(PENTYPE)
-         CASE("LOG")
-            ROOTM = LOG_THRESHOLDING(A,B,M,PENPARAM(1))
-         CASE("SCAD")
-         CASE("MCP")
-         CASE("ENET")
-         CASE("POWER")
-         END SELECT
-         IF (ROOTM==ZERO) THEN
-            R = M
-            ROOTR = ROOTM
-         ELSE
-            L = M
-            ROOTL = ROOTM
-         END IF
-         IF (ABS(R-L)<EPS) THEN
-            MAXRHO = M
-            EXIT
-         END IF
-      END DO
       END FUNCTION MAX_RHO
 !
       SUBROUTINE PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
@@ -196,7 +369,7 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
       INTEGER :: I,ITERATION,M,MAXITERS,N
-      REAL(KIND=DBLE_PREC) :: CRITERION=TEN**(-4),EPS=TEN**(-8)
+      REAL(KIND=DBLE_PREC) :: CRITERION=1E-4,EPS=1E-8
       REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,NEW_OBJECTIVE,OLDROOT
       REAL(KIND=DBLE_PREC) :: OBJECTIVE,ROOTDIFF
       LOGICAL, DIMENSION(:) :: PENIDX
@@ -244,8 +417,12 @@
       SELECT CASE(PENTYPE)
       CASE("LOG")
          CALL LOG_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
+      CASE("POWER")
+         CALL POWER_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
       END SELECT
-      OBJECTIVE = HALF*SUM(WT*R**2)+SUM(PENALTY,PENIDX)
+      OBJECTIVE = HALF*SUM(WT*R*R)+SUM(PENALTY,PENIDX)
+      !PRINT*, "OBJECTIVE = "
+      !PRINT*, OBJECTIVE
 !
 !     Initialize maximum number of iterations
 !
@@ -268,13 +445,14 @@
                CASE("MCP")
                CASE("ENET")
                CASE("POWER")
+                  ESTIMATE(I) = POWER_THRESHOLDING(A,B,LAMBDA,PENPARAM(1))
                END SELECT
             ELSE
                ESTIMATE(I) = -B/A
             END IF
             ROOTDIFF = ESTIMATE(I)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
-                   R = R - ROOTDIFF*X(:,I)
+               R = R - ROOTDIFF*X(:,I)
             END IF
          END DO
 !
@@ -287,6 +465,7 @@
          CASE("MCP")
          CASE("ENET")
          CASE("POWER")
+            CALL POWER_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
          END SELECT
          NEW_OBJECTIVE = HALF*SUM(WT*R**2)+SUM(PENALTY,PENIDX)
          IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN

@@ -1,8 +1,8 @@
 %% simulate (non-orthogonal design)
 
 clear;
-n = 10;
-p = 100;
+n = 100;
+p = 10000;
 maxpreds = [];
 
 X = randn(n,p);   % design matrix
@@ -13,13 +13,15 @@ b(1:10) = 1;
 y = normrnd(X*b,1,n,1);   % response vector
 wt = ones(n,1);
 % penidx = [false; true(size(X,2)-1,1)];
-penidx = true(size(X,2),1);
+penidx = [true(size(X,2),1)];
 sum_x_squares = sum(bsxfun(@times, wt, X.^2),1)';
 x0 = zeros(size(X,2),1);
 
 %% mex function
-betahat = lsqsparse(x0,X,y,wt,0,sum_x_squares,penidx,0,'LOG',0.5);
-display(betahat');
+tic;
+betahat = lsqsparse(x0,X,y,wt,0.1,sum_x_squares,penidx,0,'POWER',0.5);
+toc;
+display(betahat(1:20)');
 
 %% sparse regression - double pareto penalty with parameter eta
 eta = .5;    % parameter for double pareto

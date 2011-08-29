@@ -39,7 +39,7 @@
 !     Check nonnegativity of tuning parameter
 !
       IF (RHO<ZERO) THEN
-         PRINT*,"THEN TUNING PARAMETER MUST BE NONNEGATIVE."
+         PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
          RETURN
       END IF
 !
@@ -84,18 +84,18 @@
 !
       IMPLICIT NONE
       REAL(KIND=DBLE_PREC) :: ETA,EPS=1E-8,RHO
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: BETA
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: BETA
       REAL(KIND=DBLE_PREC), DIMENSION(:) :: PEN
       REAL(KIND=DBLE_PREC), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
 !
 !     Check nonnegativity of tuning parameter and parameter eta
 !
       IF (RHO<ZERO) THEN
-         PRINT*,"THEN TUNING PARAMETER MUST BE NONNEGATIVE."
+         PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
          RETURN
       END IF
       IF (ETA<=ZERO.OR.ETA>TWO) THEN
-         PRINT*,"THEN EXPONENT ETA SHOULD BE IN (0,2]."
+         PRINT*,"THE EXPONENT PARAMETER ETA SHOULD BE IN (0,2]."
          RETURN
       END IF
 !
@@ -103,26 +103,34 @@
 !
       PEN = RHO*ABS(BETA)**ETA
 !
-!     Avoid infinity during computation
-!
-      WHERE(ABS(BETA)<EPS) BETA=EPS
-!
 !     First derivative of penalty function
 !
       IF (PRESENT(D1PEN)) THEN
-         D1PEN = RHO*ETA*ABS(BETA)**(ETA-1)
+         WHERE (ABS(BETA)<EPS)
+            D1PEN = RHO*ETA*EPS**(ETA-1)
+         ELSEWHERE
+            D1PEN = RHO*ETA*ABS(BETA)**(ETA-1)
+         END WHERE   
       END IF
 !
 !     Second derivative of penalty function
 !
       IF (PRESENT(D2PEN)) THEN
-         D2PEN = RHO*ETA*(ETA-ONE)*ABS(BETA)**(ETA-TWO)
+         WHERE (ABS(BETA)<EPS)
+            D2PEN = RHO*ETA*(ETA-ONE)*EPS**(ETA-TWO)
+         ELSEWHERE
+            D2PEN = RHO*ETA*(ETA-ONE)*ABS(BETA)**(ETA-TWO)
+         END WHERE
       END IF
 !
 !     Second mixed derivative of penalty function
 !
       IF (PRESENT(DPENDRHO)) THEN
-         DPENDRHO = ETA*ABS(BETA)**(ETA-ONE)
+         WHERE (ABS(BETA)<EPS)
+            DPENDRHO = ETA*EPS**(ETA-ONE)
+         ELSEWHERE
+            DPENDRHO = ETA*ABS(BETA)**(ETA-ONE)
+         END WHERE
       END IF
       END SUBROUTINE POWER_PENALTY
 !
@@ -133,7 +141,7 @@
 !     eta=sqrt(rho), i.e., continuous log penalty.
 !
       IMPLICIT NONE
-      REAL(KIND=DBLE_PREC) :: A,B,ETA,F1,F2,XMIN,RHO
+      REAL(KIND=DBLE_PREC) :: A,B,EPS=TEN**-8,ETA,F1,F2,RHO,XMIN
 !
 !     Check inputs
 !      
@@ -154,19 +162,19 @@
 !
 !     Thresholding
 !
-      IF (RHO<1E-6) THEN
+      IF (RHO<EPS) THEN
          XMIN = B
          RETURN
-      ELSEIF (RHO>=A*(ETA+ABS(B))**2/FOUR) THEN
+      ELSEIF (RHO>=A*(ETA+ABS(B))*(ETA+ABS(B))/FOUR) THEN
          XMIN = ZERO
       ELSEIF (RHO<=ABS(A*B*ETA)) THEN
          XMIN = SIGN(HALF*(ABS(B)-ETA+ &
-            SQRT((ABS(B)+ETA)**2-FOUR*RHO/A)),B)
+            SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
       ELSE
          XMIN = SIGN(HALF*(ABS(B)-ETA+ &
-            SQRT((ABS(B)+ETA)**2-FOUR*RHO/A)),B)
+            SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
          F1 = HALF*A*B*B+RHO*LOG(ETA)
-         F2 = HALF*A*(XMIN-B)**2+RHO*LOG(ETA+ABS(XMIN))
+         F2 = HALF*A*(XMIN-B)*(XMIN-B)+RHO*LOG(ETA+ABS(XMIN))
          IF (F1<F2) THEN
             XMIN = ZERO
          END IF
@@ -180,12 +188,12 @@
 !
       IMPLICIT NONE
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: A,B,DL,DM,DR,ETA,RHO,XL,XM,XR,XMIN
+      REAL(KIND=DBLE_PREC) :: A,B,DL,DM,DR,ETA,RHO,XL,XM,XMIN,XR
 !
 !     Check inputs
 !      
       IF (ETA<=ZERO.OR.ETA>TWO) THEN
-         PRINT*,"THEN EXPONENT ETA SHOULD BE IN (0,2]."
+         PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
          RETURN
       END IF
 !
@@ -226,11 +234,11 @@
          ELSE
             XR = B
          END IF            
-         DL = A*(XL-B)+SIGN(RHO*ETA*ABS(XL)**(ETA-1),B)
-         DR = A*(XR-B)+SIGN(RHO*ETA*ABS(XR)**(ETA-1),B)
+         DL = A*(XL-B)+SIGN(RHO*ETA*ABS(XL)**(ETA-1),XL)
+         DR = A*(XR-B)+SIGN(RHO*ETA*ABS(XR)**(ETA-1),XR)
          DO
             XM = HALF*(XL+XR)
-            DM = A*(XM-B)+SIGN(RHO*ETA*ABS(XM)**(ETA-1),B)
+            DM = A*(XM-B)+SIGN(RHO*ETA*ABS(XM)**(ETA-1),XM)
             IF (DL*DM<ZERO) THEN
                XR = XM
                DR = DM
@@ -257,7 +265,7 @@
 !
 !     This subroutine finds the maximum penalty constant rho such that
 !     argmin 0.5*A*x^2+B*x+penalty(x,rho) is nonzero. Current options for
-!     PENTYPE are "LOG","SCAD","MCP","POWER". PENPARAM contains the
+!     PENTYPE are "ENET","LOG","SCAD","MCP","POWER". PENPARAM contains the
 !     optional parameter for the penalty function.
 !
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
@@ -265,7 +273,7 @@
       REAL(KIND=DBLE_PREC) :: A,B,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
       REAL(KIND=DBLE_PREC), DIMENSION(:) :: PENPARAM
 !
-!     Set search interverl for rho
+!     Set search interval for rho
 !
       SELECT CASE(PENTYPE)
       CASE("LOG")
@@ -361,7 +369,7 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
       INTEGER :: I,ITERATION,M,MAXITERS,N
-      REAL(KIND=DBLE_PREC) :: CRITERION=TEN**(-4),EPS=TEN**(-8)
+      REAL(KIND=DBLE_PREC) :: CRITERION=1E-4,EPS=1E-8
       REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,NEW_OBJECTIVE,OLDROOT
       REAL(KIND=DBLE_PREC) :: OBJECTIVE,ROOTDIFF
       LOGICAL, DIMENSION(:) :: PENIDX
@@ -412,7 +420,7 @@
       CASE("POWER")
          CALL POWER_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
       END SELECT
-      OBJECTIVE = HALF*SUM(WT*R**2)+SUM(PENALTY,PENIDX)
+      OBJECTIVE = HALF*SUM(WT*R*R)+SUM(PENALTY,PENIDX)
       PRINT*, "OBJECTIVE = "
       PRINT*, OBJECTIVE
 !
@@ -444,7 +452,7 @@
             END IF
             ROOTDIFF = ESTIMATE(I)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
-                   R = R - ROOTDIFF*X(:,I)
+               R = R - ROOTDIFF*X(:,I)
             END IF
          END DO
 !
@@ -550,9 +558,9 @@
       SUM_X_SQUARES = MATMUL(WT,X**2)
       ESTIMATE = ZERO
       MAXITERS = 0
-      LAMBDA = ZERO
+      LAMBDA = TEN**3
       CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
-         SUM_X_SQUARES,PENIDX,MAXITERS,"POWER",(/ONE/))
+         SUM_X_SQUARES,PENIDX,MAXITERS,"LOG",(/FIVE/TEN/))
       PRINT*, "ESTIMATE = "
       PRINT*, ESTIMATE
       PAUSE
