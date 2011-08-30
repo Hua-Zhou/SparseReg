@@ -20,21 +20,25 @@
 !
       CONTAINS
 !
-      SUBROUTINE LOG_PENALTY(BETA,RHO,ETA,PEN,D1PEN,D2PEN,DPENDRHO)
+      SUBROUTINE PENALTY_FUN(BETA,RHO,ETA,PENTYPE,PEN,D1PEN,D2PEN,DPENDRHO)
 !
 !     This subroutine calculates the penalty value, first derivative, 
-!     and second derivatives of the log penalty: RHO*LOG(ETA+ABS(BETA)) for
-!     eta>0 or RHO*LOG(SQRT(RHO)+ABS(BETA)) for eta=0
+!     and second derivatives of the ENET, LOG, MCP, POWER, or SCAD penalties
+!     with index parameter ETA
+!       ENET: rho*((eta-1)*beta**2/2+(2-eta)*abs(beta)), 1<=eta<=2
+!       LOG: rho*log(eta+abs(beta)), eta>0 (eta=0 implies continuous LOG)
+!       MCP: eta>0
+!       POWER: rho*abs(beta)**eta, 0<eta<=2
+!       SCAD: eta>2
 !
       IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
+      LOGICAL :: CONTLOG
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC) :: ETA,RHO
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: BETA
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: PEN
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: BETA,PEN
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(BETA)) :: ABSBETA
       REAL(KIND=DBLE_PREC), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
-!
-!     Local variable
-!
-      LOGICAL :: CONTLOG=.FALSE.
 !
 !     Check nonnegativity of tuning parameter
 !
@@ -43,159 +47,160 @@
          RETURN
       END IF
 !
-!     Use continuous log penalty if eta=0
-!
-      IF (ETA==ZERO) THEN
-         ETA = SQRT(RHO)
-         CONTLOG = .TRUE.
-      END IF
-!
 !     Penalty values
 !
-      PEN = RHO*LOG(ETA+ABS(BETA))
+      ABSBETA = ABS(BETA)
+      SELECT CASE(PENTYPE)
+      CASE("ENET")
+         IF (ETA<ONE.OR.ETA>TWO) THEN
+            PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
+            RETURN
+         END IF
+         PEN = RHO*(HALF*(ETA-ONE)*BETA*BETA+(TWO-ETA)*ABSBETA)
+      CASE("LOG")
+         IF (ETA==ZERO) THEN
+            ETA = SQRT(RHO)
+            CONTLOG = .TRUE.
+         ELSEIF (ETA<ZERO) THEN
+            PRINT*,"THE LOG PARAMETER ETA SHOULD BE NONNEGATIVE."
+            RETURN
+         END IF
+         PEN = RHO*LOG(ETA+ABSBETA)      
+      CASE("MCP")
+         IF (ETA<=ZERO) THEN
+            PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
+            RETURN
+         END IF
+         WHERE (ABSBETA<RHO*ETA)
+            PEN = RHO*ABSBETA - HALF*BETA*BETA/ETA
+         ELSEWHERE
+            PEN = HALF*RHO*RHO*ETA
+         END WHERE
+      CASE("POWER")
+         IF (ETA<=ZERO.OR.ETA>TWO) THEN
+            PRINT*,"THE EXPONENT PARAMETER ETA SHOULD BE IN (0,2]."
+            RETURN
+         END IF
+         PEN = RHO*ABSBETA**ETA
+      CASE("SCAD")
+         IF (ETA<=TWO) THEN
+            PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
+            RETURN
+         END IF
+         WHERE (ABSBETA<RHO)
+            PEN = RHO*ABSBETA
+         ELSEWHERE (ABSBETA<ETA*RHO)
+            PEN = RHO*RHO + ETA*RHO*(ABSBETA-RHO)/(ETA-ONE) &
+               + HALF*(BETA*BETA-RHO*RHO)/(ETA-ONE)
+         ELSEWHERE
+            PEN = HALF*RHO*RHO*(ETA+ONE)
+         END WHERE         
+      END SELECT
 !
 !     First derivative of penalty function
 !
       IF (PRESENT(D1PEN)) THEN
-         D1PEN = RHO/(ETA+ABS(BETA))
+         SELECT CASE(PENTYPE)
+         CASE("ENET")
+            D1PEN = RHO*((ETA-ONE)*ABSBETA+TWO-ETA)
+         CASE("LOG")
+            D1PEN = RHO/(ETA+ABSBETA)
+         CASE("MCP")
+            WHERE (ABSBETA<RHO*ETA)
+               D1PEN = RHO - ABSBETA/ETA
+            ELSEWHERE
+               D1PEN = ZERO
+            END WHERE
+         CASE("POWER")
+            WHERE (ABSBETA<EPS)
+               D1PEN = RHO*ETA*EPS**(ETA-ONE)
+            ELSEWHERE
+               D1PEN = RHO*ETA*ABSBETA**(ETA-ONE)
+            END WHERE               
+         CASE("SCAD")
+            WHERE (ABSBETA<RHO)
+               D1PEN = RHO
+            ELSEWHERE (ABSBETA<ETA*RHO)
+               D1PEN = (ETA*RHO-ABSBETA)/(ETA-ONE)
+            ELSEWHERE
+               D1PEN = ZERO
+            END WHERE         
+         END SELECT
       END IF
 !
 !     Second derivative of penalty function
 !
       IF (PRESENT(D2PEN)) THEN
-         D2PEN = -D1PEN/(ETA+ABS(BETA))
+         SELECT CASE(PENTYPE)
+         CASE("ENET")
+            D2PEN = RHO*(ETA-ONE)
+         CASE("LOG")
+            D2PEN = -D1PEN/(ETA+ABSBETA)
+         CASE("MCP")
+            WHERE (ABSBETA<RHO*ETA)
+               D2PEN = -ONE/ETA
+            ELSEWHERE
+               D2PEN = ZERO
+            END WHERE
+         CASE("POWER")
+            WHERE (ABSBETA<EPS)
+               D2PEN = RHO*ETA*(ETA-ONE)*EPS**(ETA-TWO)
+            ELSEWHERE
+               D2PEN = RHO*ETA*(ETA-ONE)*ABSBETA**(ETA-TWO)
+            END WHERE           
+         CASE("SCAD")
+            WHERE (ABSBETA<RHO.OR.ABSBETA>ETA*RHO)
+               D2PEN = ZERO
+            ELSEWHERE
+               D2PEN = ONE/(ONE-ETA)
+            END WHERE         
+         END SELECT
       END IF
 !
 !     Second mixed derivative of penalty function
 !
       IF (PRESENT(DPENDRHO)) THEN
-         DPENDRHO = ONE/(ETA+ABS(BETA))
-         IF (CONTLOG) THEN
-            DPENDRHO = DPENDRHO*(ONE-HALF*ETA*DPENDRHO)
-         END IF
+         SELECT CASE(PENTYPE)
+         CASE("ENET")
+            DPENDRHO = (ETA-ONE)*ABSBETA+TWO-ETA
+         CASE("LOG")
+            DPENDRHO = ONE/(ETA+ABSBETA)
+            IF (CONTLOG) THEN
+               DPENDRHO = DPENDRHO*(ONE-HALF*ETA*DPENDRHO)
+            END IF         
+         CASE("MCP")
+            WHERE (ABSBETA<RHO*ETA)
+               DPENDRHO = ONE
+            ELSEWHERE
+               DPENDRHO = ZERO
+            END WHERE
+         CASE("POWER")
+            WHERE (ABSBETA<EPS)
+               DPENDRHO = ETA*EPS**(ETA-ONE)
+            ELSEWHERE
+               DPENDRHO = ETA*ABSBETA**(ETA-ONE)
+            END WHERE         
+         CASE("SCAD")
+            WHERE (ABSBETA<RHO)
+               DPENDRHO = ONE
+            ELSEWHERE (ABSBETA<ETA*RHO)
+               DPENDRHO = ETA/(ETA-ONE)
+            ELSEWHERE
+               DPENDRHO = ZERO
+            END WHERE         
+         END SELECT
       END IF
-      END SUBROUTINE LOG_PENALTY
+      END SUBROUTINE PENALTY_FUN
 !
-      SUBROUTINE POWER_PENALTY(BETA,RHO,ETA,PEN,D1PEN,D2PEN,DPENDRHO)
+      FUNCTION LSQ_THRESHOLDING(A,B,RHO,ETA,PENTYPE) RESULT(XMIN)
 !
-!     This subroutine calculates the penalty value, first derivative, 
-!     and second derivatives of the power penalty: RHO*ABS(BETA)**ETA 
-!     for 0<eta<=2
+!     This subroutine performs univariate soft thresholding for least squares:
+!        argmin .5*a*x^2+b*x+PEN(abs(x),eta).
 !
       IMPLICIT NONE
-      REAL(KIND=DBLE_PREC) :: ETA,EPS=1E-8,RHO
-      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: BETA
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: PEN
-      REAL(KIND=DBLE_PREC), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
-!
-!     Check nonnegativity of tuning parameter and parameter eta
-!
-      IF (RHO<ZERO) THEN
-         PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
-         RETURN
-      END IF
-      IF (ETA<=ZERO.OR.ETA>TWO) THEN
-         PRINT*,"THE EXPONENT PARAMETER ETA SHOULD BE IN (0,2]."
-         RETURN
-      END IF
-!
-!     Penalty values
-!
-      PEN = RHO*ABS(BETA)**ETA
-!
-!     First derivative of penalty function
-!
-      IF (PRESENT(D1PEN)) THEN
-         WHERE (ABS(BETA)<EPS)
-            D1PEN = RHO*ETA*EPS**(ETA-1)
-         ELSEWHERE
-            D1PEN = RHO*ETA*ABS(BETA)**(ETA-1)
-         END WHERE   
-      END IF
-!
-!     Second derivative of penalty function
-!
-      IF (PRESENT(D2PEN)) THEN
-         WHERE (ABS(BETA)<EPS)
-            D2PEN = RHO*ETA*(ETA-ONE)*EPS**(ETA-TWO)
-         ELSEWHERE
-            D2PEN = RHO*ETA*(ETA-ONE)*ABS(BETA)**(ETA-TWO)
-         END WHERE
-      END IF
-!
-!     Second mixed derivative of penalty function
-!
-      IF (PRESENT(DPENDRHO)) THEN
-         WHERE (ABS(BETA)<EPS)
-            DPENDRHO = ETA*EPS**(ETA-ONE)
-         ELSEWHERE
-            DPENDRHO = ETA*ABS(BETA)**(ETA-ONE)
-         END WHERE
-      END IF
-      END SUBROUTINE POWER_PENALTY
-!
-      FUNCTION LOG_THRESHOLDING(A,B,RHO,ETA) RESULT(XMIN)
-!
-!     This subroutine performs univariate soft thresholding with log penalty:
-!     min .5*a*x^2+b*x+rho*log(eta+x). Input with eta=0 implies using
-!     eta=sqrt(rho), i.e., continuous log penalty.
-!
-      IMPLICIT NONE
-      REAL(KIND=DBLE_PREC) :: A,B,EPS=TEN**-8,ETA,F1,F2,RHO,XMIN
-!
-!     Check inputs
-!      
-      IF (ETA<ZERO) THEN
-         PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
-         RETURN
-      ELSE IF (ETA==ZERO) THEN
-         ETA = SQRT(RHO)
-      END IF
-!
-!     Transform to format 0.5*a*(x-b)^2 + rho*log(eta+abs(x))
-!
-      IF (A<=ZERO) THEN
-         PRINT *, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
-         RETURN
-      END IF
-      B = -B/A
-!
-!     Thresholding
-!
-      IF (RHO<EPS) THEN
-         XMIN = B
-         RETURN
-      ELSEIF (RHO>=A*(ETA+ABS(B))*(ETA+ABS(B))/FOUR) THEN
-         XMIN = ZERO
-      ELSEIF (RHO<=ABS(A*B*ETA)) THEN
-         XMIN = SIGN(HALF*(ABS(B)-ETA+ &
-            SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
-      ELSE
-         XMIN = SIGN(HALF*(ABS(B)-ETA+ &
-            SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
-         F1 = HALF*A*B*B+RHO*LOG(ETA)
-         F2 = HALF*A*(XMIN-B)*(XMIN-B)+RHO*LOG(ETA+ABS(XMIN))
-         IF (F1<F2) THEN
-            XMIN = ZERO
-         END IF
-      END IF
-      END FUNCTION LOG_THRESHOLDING
-!
-      FUNCTION POWER_THRESHOLDING(A,B,RHO,ETA) RESULT(XMIN)
-!
-!     This subroutine performs univariate soft thresholding with power penalty:
-!     min .5*a*x^2+b*x+rho*abs(x)**eta.
-!
-      IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: PENTYPE      
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: A,B,DL,DM,DR,ETA,RHO,XL,XM,XMIN,XR
-!
-!     Check inputs
-!      
-      IF (ETA<=ZERO.OR.ETA>TWO) THEN
-         PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
-         RETURN
-      END IF
+      REAL(KIND=DBLE_PREC) :: A,B,DL,DM,DR,ETA,F1,F2,FXMIN,FXMIN2,RHO,XL,XM,XMIN,XMIN2,XR
 !
 !     Transform to format 0.5*a*(x-b)^2 + rho*abs(x)^eta
 !
@@ -210,72 +215,163 @@
       IF (RHO<EPS) THEN
          XMIN = B
          RETURN
-      ELSEIF (ABS(ETA-ONE)<EPS) THEN
-         IF (B-RHO/A>ZERO) THEN
-            XMIN = B-RHO/A
-         ELSEIF (B+RHO/A<ZERO) THEN
-            XMIN = B+RHO/A
-         ELSE
-            XMIN = ZERO
-         END IF
-         RETURN
       ELSE
-!
-!     Bisection search
-!      
-         IF (ETA<ONE) THEN
-            XL = SIGN((A/ETA/(ONE-ETA)/RHO)**(ONE/(ETA-TWO)),B)
-         ELSE
-            XL = ZERO
-         END IF
-         IF (B<ZERO) THEN
-            XR = XL
-            XL = B
-         ELSE
-            XR = B
-         END IF            
-         DL = A*(XL-B)+SIGN(RHO*ETA*ABS(XL)**(ETA-1),XL)
-         DR = A*(XR-B)+SIGN(RHO*ETA*ABS(XR)**(ETA-1),XR)
-         DO
-            XM = HALF*(XL+XR)
-            DM = A*(XM-B)+SIGN(RHO*ETA*ABS(XM)**(ETA-1),XM)
-            IF (DL*DM<ZERO) THEN
-               XR = XM
-               DR = DM
-            ELSE IF (DR*DM<ZERO) THEN
-               XL = XM
-               DL = DM
-            ELSE
-               XMIN = XM
-               EXIT
+         SELECT CASE(PENTYPE)
+         CASE("ENET")
+            IF (ETA<ONE.OR.ETA>TWO) THEN
+               PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
+               RETURN
             END IF
-            IF (ABS(XL-XR)<EPS) THEN
-               XMIN = XM
-               EXIT
+            XMIN = A*B-RHO*(TWO-ETA)
+            IF (XMIN>ZERO) THEN
+               XMIN = XMIN/(A+RHO*(ETA-1))
+               RETURN
             END IF
-         END DO
-         IF ( (ETA<ONE) .AND. &
-            (HALF*A*(XMIN-B)**2+RHO*ABS(XMIN)**ETA>HALF*A*B**2)) THEN
+            XMIN = A*B+RHO*(TWO-ETA)
+            IF (XMIN<ZERO) THEN
+               XMIN = XMIN/(A+RHO*(ETA-1))
+               RETURN
+            END IF
             XMIN = ZERO
-         END IF
+         CASE("LOG")
+            IF (ETA<ZERO) THEN
+               PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
+               RETURN
+            ELSE IF (ETA==ZERO) THEN
+               ETA = SQRT(RHO)
+            END IF
+            IF (RHO>=A*(ETA+ABS(B))*(ETA+ABS(B))/FOUR) THEN
+               XMIN = ZERO
+            ELSEIF (RHO<=ABS(A*B*ETA)) THEN
+               XMIN = SIGN(HALF*(ABS(B)-ETA+ &
+                  SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
+            ELSE
+               XMIN = SIGN(HALF*(ABS(B)-ETA+ &
+                  SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
+               F1 = HALF*A*B*B+RHO*LOG(ETA)
+               F2 = HALF*A*(XMIN-B)*(XMIN-B)+RHO*LOG(ETA+ABS(XMIN))
+               IF (F1<F2) THEN
+                  XMIN = ZERO
+               END IF
+            END IF
+         CASE("MCP")
+            IF (ETA<=ZERO) THEN
+               PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
+               RETURN
+            END IF
+            B = -A*B
+            XMIN = SIGN(MIN(ABS(B/A),RHO*ETA),-B)
+            FXMIN = XMIN*(HALF*(A-ONE/ETA)*XMIN+SIGN(RHO,XMIN)+B)
+            IF (FXMIN>ZERO) THEN
+               XMIN = ZERO
+               FXMIN = ZERO
+            END IF
+            IF (ABS(B/A)>RHO*ETA.AND.HALF*(-B*B/A+RHO*RHO*ETA)<FXMIN) THEN
+               XMIN = -B/A
+            END IF            
+         CASE("POWER")
+            IF (ETA<=ZERO.OR.ETA>TWO) THEN
+               PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
+               RETURN
+            END IF
+            IF (ABS(ETA-ONE)<EPS) THEN
+               IF (B-RHO/A>ZERO) THEN
+                  XMIN = B-RHO/A
+               ELSEIF (B+RHO/A<ZERO) THEN
+                  XMIN = B+RHO/A
+               ELSE
+                  XMIN = ZERO
+               END IF
+               RETURN
+            ELSE
+               IF (ETA<ONE) THEN
+                  XL = SIGN((A/ETA/(ONE-ETA)/RHO)**(ONE/(ETA-TWO)),B)
+               ELSE
+                  XL = ZERO
+               END IF
+               IF (B<ZERO) THEN
+                  XR = XL
+                  XL = B
+               ELSE
+                  XR = B
+               END IF            
+               DL = A*(XL-B)+SIGN(RHO*ETA*ABS(XL)**(ETA-1),XL)
+               DR = A*(XR-B)+SIGN(RHO*ETA*ABS(XR)**(ETA-1),XR)
+               DO
+                  XM = HALF*(XL+XR)
+                  DM = A*(XM-B)+SIGN(RHO*ETA*ABS(XM)**(ETA-1),XM)
+                  IF (DL*DM<ZERO) THEN
+                     XR = XM
+                     DR = DM
+                  ELSE IF (DR*DM<ZERO) THEN
+                     XL = XM
+                     DL = DM
+                  ELSE
+                     XMIN = XM
+                     EXIT
+                  END IF
+                  IF (ABS(XL-XR)<EPS) THEN
+                     XMIN = XM
+                     EXIT
+                  END IF
+               END DO
+               IF ( (ETA<ONE) .AND. &
+                  (HALF*A*(XMIN-B)**2+RHO*ABS(XMIN)**ETA>HALF*A*B**2)) THEN
+                  XMIN = ZERO
+               END IF
+            END IF
+         CASE("SCAD")
+            IF (ETA<=TWO) THEN
+               PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
+               RETURN
+            END IF 
+            XMIN = ZERO
+            IF (RHO>=A*ABS(B)) RETURN
+            FXMIN = HALF*A*B*B
+            XMIN2 = B-SIGN(RHO,B)/A
+            FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B)+RHO*ABS(XMIN2)
+            IF (FXMIN2<FXMIN) THEN
+               XMIN = XMIN2
+               FXMIN = FXMIN2
+            END IF
+            IF (RHO>A/(A+ONE)*ABS(B)) RETURN
+            IF (RHO<ABS(B)/ETA) THEN
+               XMIN2 = B
+               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + HALF*RHO*RHO*(ETA+ONE)
+            ELSE
+               XMIN2 = (A*B*(ETA-1)-ETA*SIGN(RHO,B))/(A*(ETA-ONE)-ONE)
+               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + RHO*RHO &
+                  + ETA/(ETA-ONE)*RHO*(ABS(XMIN2)-RHO) &
+                  - HALF*(XMIN2*XMIN2-RHO*RHO)/(ETA-ONE)
+            END IF
+            IF (FXMIN2<FXMIN) THEN
+               XMIN = XMIN2
+            END IF                    
+         END SELECT
       END IF
-      END FUNCTION POWER_THRESHOLDING
+      END FUNCTION LSQ_THRESHOLDING
 !
       FUNCTION MAX_RHO(A,B,PENTYPE,PENPARAM) RESULT(MAXRHO)
 !
 !     This subroutine finds the maximum penalty constant rho such that
 !     argmin 0.5*A*x^2+B*x+penalty(x,rho) is nonzero. Current options for
-!     PENTYPE are "ENET","LOG","SCAD","MCP","POWER". PENPARAM contains the
+!     PENTYPE are "ENET","LOG","MCP","POWER","SCAD". PENPARAM contains the
 !     optional parameter for the penalty function.
 !
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
-      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC) :: A,B,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC), DIMENSION(:) :: PENPARAM
 !
-!     Set search interval for rho
+!     Locate the max rho
 !
       SELECT CASE(PENTYPE)
+      CASE("ENET")
+         IF (PENPARAM(1)==TWO) THEN
+            MAXRHO = TEN*TEN*A
+         ELSE
+            MAXRHO = ABS(B)/(TWO-PENPARAM(1))
+         END IF
       CASE("LOG")
          IF (PENPARAM(1)==ZERO) THEN
             IF (A<=ONE) THEN
@@ -284,7 +380,7 @@
             ELSE
                L = B*B
                R = TWO*L
-               DO WHILE(LOG_THRESHOLDING(A,B,R,PENPARAM(1))>ZERO)
+               DO WHILE(LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"LOG")>ZERO)
                   L = R
                   R = TWO*R
                END DO
@@ -293,11 +389,11 @@
             L = ABS(B*PENPARAM(1))
             R = A*(PENPARAM(1)+ABS(B)/A)**2/FOUR
          END IF
-         ROOTL = LOG_THRESHOLDING(A,B,L,PENPARAM(1))
-         ROOTR = LOG_THRESHOLDING(A,B,R,PENPARAM(1))
+         ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"LOG")
+         ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"LOG")
          DO
             M = HALF*(L+R)
-            ROOTM = LOG_THRESHOLDING(A,B,M,PENPARAM(1))
+            ROOTM = LSQ_THRESHOLDING(A,B,M,PENPARAM(1),"LOG")
             IF (ROOTM==ZERO) THEN
                R = M
                ROOTR = ROOTM
@@ -311,27 +407,44 @@
             END IF
          END DO
          RETURN                  
-      CASE("SCAD")
       CASE("MCP")
-      CASE("ENET")
+         L = ZERO
+         R = ABS(B)/PENPARAM(1)
+         ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"MCP")
+         ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"MCP")
+         DO
+            M = HALF*(L+R)
+            ROOTM = LSQ_THRESHOLDING(A,B,M,PENPARAM(1),"MCP")
+            IF (ROOTM==ZERO) THEN
+               R = M
+               ROOTR = ROOTM
+            ELSE
+               L = M
+               ROOTL = ROOTM
+            END IF
+            IF (ABS(R-L)<EPS) THEN
+               MAXRHO = M
+               EXIT
+            END IF
+         END DO
       CASE("POWER")
          IF (PENPARAM(1)==ONE) THEN
             MAXRHO = ABS(B)
             RETURN
          ELSEIF (PENPARAM(1)<ONE) THEN
             L = ZERO
-            ROOTL = POWER_THRESHOLDING(A,B,L,PENPARAM(1))
+            ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"POWER")
             R = ONE
-            ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+            ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
             DO WHILE(ROOTR>ZERO)
                L = R
                ROOTL = ROOTR
                R = TWO*R
-               ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+               ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
             END DO
             DO
                M = HALF*(L+R)
-               ROOTM = POWER_THRESHOLDING(A,B,M,PENPARAM(1))
+               ROOTM = LSQ_THRESHOLDING(A,B,M,PENPARAM(1),"POWER")
                IF (ROOTM==ZERO) THEN
                   R = M
                   ROOTR = ROOTM
@@ -347,14 +460,36 @@
             RETURN                  
          ELSEIF (PENPARAM(1)>ONE) THEN
             R = ONE
-            ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+            ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
             DO WHILE(ABS(ROOTR)>ABS(B)/A/1E2)
                R = TWO*R
-               ROOTR = POWER_THRESHOLDING(A,B,R,PENPARAM(1))
+               ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
             END DO
             MAXRHO = R
             RETURN
          END IF
+      CASE("SCAD")
+         B = -B/A
+         L = A/(A+ONE)*ABS(B)
+         R = A*ABS(B)
+         ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"SCAD")
+         ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"SCAD")
+         DO
+            M = HALF*(L+R)
+            ROOTM = LSQ_THRESHOLDING(A,B,M,PENPARAM(1),"SCAD")
+            IF (ROOTM==ZERO) THEN
+               R = M
+               ROOTR = ROOTM
+            ELSE
+               L = M
+               ROOTL = ROOTM
+            END IF
+            IF (ABS(R-L)<EPS) THEN
+               MAXRHO = M
+               EXIT
+            END IF
+         END DO
+         RETURN
       END SELECT
       END FUNCTION MAX_RHO
 !
@@ -414,12 +549,7 @@
       ELSE
          R = Y
       END IF
-      SELECT CASE(PENTYPE)
-      CASE("LOG")
-         CALL LOG_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
-      CASE("POWER")
-         CALL POWER_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
-      END SELECT
+      CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
       OBJECTIVE = HALF*SUM(WT*R*R)+SUM(PENALTY,PENIDX)
       PRINT*, "OBJECTIVE = "
       PRINT*, OBJECTIVE
@@ -438,15 +568,7 @@
             A = SUM_X_SQUARES(I)
             B = - SUM(WT*R*X(:,I)) - A*OLDROOT
             IF (PENIDX(I)) THEN
-               SELECT CASE(PENTYPE)
-               CASE("LOG")
-                  ESTIMATE(I) = LOG_THRESHOLDING(A,B,LAMBDA,PENPARAM(1))
-               CASE("SCAD")
-               CASE("MCP")
-               CASE("ENET")
-               CASE("POWER")
-                  ESTIMATE(I) = POWER_THRESHOLDING(A,B,LAMBDA,PENPARAM(1))
-               END SELECT
+               ESTIMATE(I) = LSQ_THRESHOLDING(A,B,LAMBDA,PENPARAM(1),PENTYPE)
             ELSE
                ESTIMATE(I) = -B/A
             END IF
@@ -458,16 +580,8 @@
 !
 !     Output the iteration number and value of the objective function.
 !
-         SELECT CASE(PENTYPE)
-         CASE("LOG")
-            CALL LOG_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
-         CASE("SCAD")
-         CASE("MCP")
-         CASE("ENET")
-         CASE("POWER")
-            CALL POWER_PENALTY(ESTIMATE,LAMBDA,PENPARAM(1),PENALTY)
-         END SELECT
-         NEW_OBJECTIVE = HALF*SUM(WT*R**2)+SUM(PENALTY,PENIDX)
+         CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
+         NEW_OBJECTIVE = HALF*SUM(WT*R*R)+SUM(PENALTY,PENIDX)
          IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
             PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
          END IF
@@ -505,7 +619,7 @@
 !!
 !      RHO = TWO
 !      ETA = ONE
-!      CALL POWER_PENALTY(BETA,RHO,ETA,PEN,D1PEN,D2PEN,DPENDRHO)
+!      CALL PENALTY_FUN(BETA,RHO,ETA,"ENET",PEN,D1PEN,D2PEN,DPENDRHO)
 !      PRINT*, "BETA="
 !      PRINT*, BETA
 !      PRINT*, "RHO="
@@ -525,8 +639,8 @@
 !!
 !      A = ONE
 !      B = -ONE
-!      RHO = ONE/TEN
-!      ETA = TWO
+!      RHO = ONE
+!      ETA = THREE
 !      PRINT*, "A = "
 !      PRINT*, A
 !      PRINT*, "B = "
@@ -536,7 +650,7 @@
 !      PRINT*, "ETA="
 !      PRINT*, ETA
 !      PRINT*, "XMIN = "
-!      PRINT*, POWER_THRESHOLDING(A,B,RHO,ETA)       
+!      PRINT*, LSQ_THRESHOLDING(A,B,RHO,ETA,"SCAD")       
 !!
 !!     Test find max rho function
 !!
@@ -546,7 +660,7 @@
 !      PRINT*, A
 !      PRINT*, "B = "
 !      PRINT*, B
-!      PRINT*, "MAXRHO = ", MAX_RHO(A,B,"LOG",(/FIVE/TEN/))
+!      PRINT*, "MAXRHO = ", MAX_RHO(A,B,"MCP",(/FOUR/))
 !
 !     Test coordinate descent algorithm
 !      
@@ -558,9 +672,9 @@
       SUM_X_SQUARES = MATMUL(WT,X**2)
       ESTIMATE = ZERO
       MAXITERS = 0
-      LAMBDA = TEN**3
+      LAMBDA = FOUR*TEN**2
       CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
-         SUM_X_SQUARES,PENIDX,MAXITERS,"LOG",(/FIVE/TEN/))
+         SUM_X_SQUARES,PENIDX,MAXITERS,"SCAD",(/THREE/))
       PRINT*, "ESTIMATE = "
       PRINT*, ESTIMATE
       PAUSE
