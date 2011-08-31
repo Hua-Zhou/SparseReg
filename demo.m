@@ -19,7 +19,7 @@ x0 = zeros(size(X,2),1);
 
 %% mex function
 tic;
-betahat = lsqsparse(x0,X,y,wt,0.1,sum_x_squares,penidx,50,'POWER',0.5);
+betahat = lsqsparse(x0,X,y,wt,.0075,sum_x_squares,penidx,50,'POWER',3);
 toc;
 display(betahat(1:20)');
 

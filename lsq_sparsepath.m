@@ -1,5 +1,5 @@
 function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsereg(X,y,wt,penidx,maxpreds,penname,penargs)
+    lsq_sparsepath(X,y,wt,penidx,maxpreds,penname,penargs)
 % LSQ_SPARSEREG: 
 %   Solution path for sparse least squares regression
 %       .5*sum(wt.*(y-X*beta).^2)+rho*sum(penfun(beta(penidx)))

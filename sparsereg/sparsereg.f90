@@ -26,7 +26,7 @@
 !     and second derivatives of the ENET, LOG, MCP, POWER, or SCAD penalties
 !     with index parameter ETA
 !       ENET: rho*((eta-1)*beta**2/2+(2-eta)*abs(beta)), 1<=eta<=2
-!       LOG: rho*log(eta+abs(beta)), eta>0 (eta=0 implies continuous LOG)
+!       LOG: rho*log(eta+abs(beta)), eta>0 (eta=0 implies continuous LOG penalty)
 !       MCP: eta>0
 !       POWER: rho*abs(beta)**eta, 0<eta<=2
 !       SCAD: eta>2
@@ -62,7 +62,7 @@
             ETA = SQRT(RHO)
             CONTLOG = .TRUE.
          ELSEIF (ETA<ZERO) THEN
-            PRINT*,"THE LOG PARAMETER ETA SHOULD BE NONNEGATIVE."
+            PRINT*,"THE LOG PENALTY PARAMETER ETA SHOULD BE NONNEGATIVE."
             RETURN
          END IF
          PEN = RHO*LOG(ETA+ABSBETA)      
@@ -672,7 +672,7 @@
       SUM_X_SQUARES = MATMUL(WT,X**2)
       ESTIMATE = ZERO
       MAXITERS = 0
-      LAMBDA = FOUR*TEN**2
+      LAMBDA = TEN
       CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
          SUM_X_SQUARES,PENIDX,MAXITERS,"SCAD",(/THREE/))
       PRINT*, "ESTIMATE = "
