@@ -1,10 +1,9 @@
 function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsepath(X,y,wt,penidx,maxpreds,penname,penargs)
-% LSQ_SPARSEREG: 
-%   Solution path for sparse least squares regression
-%       .5*sum(wt.*(y-X*beta).^2)+rho*sum(penfun(beta(penidx)))
+    lsq_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam)
+% LSQ_SPARSEREG Solution path for sparse least squares regression
+%   argmin .5*sum(wt.*(y-X*beta).^2)+rho*sum(penfun(beta(penidx)))
 %
-% Arguments:
+% INPUT:
 %   X - n-by-p design matrix
 %   y - n-by-1 responses
 %   wt - n-by-1 weights; wt = ones(p,1) by default
@@ -12,8 +11,8 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %       penalizing all coefficients by default
 %   maxpreds - maximum number of top predictors requested; min(n,p) by
 %       default
-%   penname - 'enet'|'log'|'scad'|'mcp'|'bridge'
-%   penargs - optional arguments for penalty function penname
+%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
+%   penargs - index parameter for penalty function penname
 %
 % Output:
 %   rho_path - rhos along the path
@@ -27,43 +26,74 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 
 % check arguments
 [n,p] = size(X);
-if (size(y,1)~=n)
-    error('dimension of y does not match size(X,1)');
+
+if (numel(y)~=n)
+    error('y has incompatible size');
+elseif (size(y,1)==1)
+    y = y';    
 end
+
 if (isempty(wt))
     wt = ones(n,1);
+elseif (numel(wt)~=n)
+    error('wt has incompatible size');
+elseif (size(wt,1)==1)
+    wt = wt';
 end
-if (size(wt,1)~=n)
-    error('dimension of wt does not match size(X,1)');
-end
+
 if (isempty(penidx))
-    penidx = true(p,1); % penalize all coefficients by default
+    penidx = true(p,1);
+elseif (numel(penidx)~=p)
+    error('penidx has incompatible size');
+elseif (size(penidx,1)==1)
+    penidx = penidx';
 end
-if (size(penidx,1)~=p)
-    error('dimension of penidx does not match size(X,2)');
-end
+
 if (isempty(maxpreds) || maxpreds>=min(n,p))
     maxpreds = min(n,p);
+elseif (maxpreds<=0)
+    error('maxpreds should be a positive integer');
 end
-if (isempty(penname))
-    error('please specify the penalty: ''enet''|''log''|''scad''|''mcp''|''bridge''');
-end
-if (strcmpi(penname,'bridge'))
-    PENFUN = @bridge_penalty;
-elseif (strcmpi(penname,'enet'))
-    PENFUN = @enet_penalty;
-elseif (strcmpi(penname,'log'))
-    PENFUN = @log_penalty;
-elseif (strcmpi(penname,'mcp'))
-    PENFUN = @mcp_penalty;
-elseif (strcmpi(penname,'scad'))
-    PENFUN = @scad_penalty;
+
+pentype = upper(pentype);
+if (strcmp(pentype,'ENET'))
+    if (isempty(penparam))
+        penparam = 1;   % lasso by default
+    elseif (penparam<1 || penparam>2)
+        error('index parameter for ENET penalty should be in [1,2]');
+    end
+elseif (strcmp(pentype,'LOG'))
+    if (isempty(penparam))
+        penparam = 1;
+    elseif (penparam<0)
+        error('index parameter for LOG penalty should be nonnegative');
+    end
+elseif (strcmp(pentype,'MCP'))
+    if (isempty(penparam))
+        penparam = 1;   % lasso by default
+    elseif (penparam<=0)
+        error('index parameter for MCP penalty should be positive');
+    end
+elseif (strcmp(pentype,'POWER'))
+    if (isempty(penparam))
+        penparam = 1;   % lasso by default
+    elseif (penparam<=0 || penparam>2)
+        error('index parameter for POWER penalty should be in (0,2]');
+    end
+elseif (strcmp(pentype,'SCAD'))
+    if (isempty(penparam))
+        penparam = 3.7;
+    elseif (penparam<=2)
+        error('index parameter for SCAD penalty should be larger than 2');
+    end
+else
+    error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
 % precompute and allocate storage for path
 tiny = 1e-4;
-b = - X'*(wt.*y);               % p-by-1
-predl2 = sum(bsxfun(@times,X.^2,wt),1)';  % p-by-1, predictor l2 norms
+b = - X'*(wt.*y);
+sum_x_squares = wt'*(X.*X);
 largep = p>1e4;
 if (largep)
     A = sparse(p,p);    % compute A on-the-fly
@@ -78,9 +108,9 @@ rho_path = 0;
 setKeep = ~penidx;      % set of unpenalized coefficients
 setPenZ = penidx;       % set of penalized coefficients that are zero
 setPenNZ = false(p,1);  % set of penalized coefficients that are non-zero
-coeff = zeros(p,1);
+coeff = zeros(p,1);     % subgradient coefficients
 if (nnz(setKeep)>min(n,p))
-    error('number of unpenalized coefficients exceeds rank of X!');
+    error('number of unpenalized coefficients exceeds rank of X');
 end
 if (largep)
     A(:,setKeep) = X'*bsxfun(@times,X(:,setKeep),wt);
@@ -89,9 +119,9 @@ if (largep)
 end
 beta_path(setKeep,1) = - A(setKeep,setKeep)\b(setKeep);
 
-% set up ODE solver
+% set up ODE solver and unconstrained optimizer
 maxiters = 2*min([n,p]); % max iterations for path algorithm
-maxrounds = 2;  % max iterations for optimizer OPTALGO
+maxrounds = 3;  % max iterations for lsq_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events, 'Refine',refine);
 fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
@@ -100,17 +130,14 @@ tfinal = 0;
 % determine the maximum rho to start
 d1f = A(:,setKeep)*beta_path(setKeep,1)+b;
 [d1fnext,inext] = max(abs(d1f));
-rho = PENFUN([predl2(inext) d1fnext],inf,penargs);
+rho = lsq_maxlambda(sum_x_squares(inext),d1fnext,pentype,penparam);
 rho_path(1) = rho;
 
 % determin active set and refine solution
 rho = max(rho-tiny,0);
 % update activeSet
-% x0 = cdesc_wrapper_xyformat(OPTALGO,A,b,rho,beta_path(:,end),...
-%     penidx,maxrounds,penargs);
-x0 = cdesc_wrapper(OPTALGO,X,y,wt,rho,beta_path(:,end),...
-    penidx,maxrounds,penargs);
-setPenZ = abs(x0)<1e-9;
+x0 = lsq_sparsereg(X,y,wt,rho,[],sum_x_squares,penidx,maxrounds,pentype,penparam);
+setPenZ = abs(x0)<1e-8;
 setPenNZ = ~setPenZ;
 setPenZ(setKeep) = false;
 setPenNZ(setKeep) = false;
@@ -146,9 +173,9 @@ for k=2:maxiters
     rho = max(rho_path(end)-tiny,0);
     x0 = beta_path(:,end);
     x0(setPenZ) = coeff(setPenZ);
-%     x0 = cdesc_wrapper_xyformat(OPTALGO,A,b,rho,x0,penidx,maxrounds,penargs);
-    x0 = cdesc_wrapper(OPTALGO,X,y,wt,rho,x0,penidx,maxrounds,penargs);
-    setPenZ = abs(x0)<1e-9;
+    x0 = lsq_sparsereg(X,y,wt,rho,x0,sum_x_squares,...
+        penidx,maxrounds,pentype,penparam);
+    setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
     setPenZ(setKeep) = false;
     setPenNZ(setKeep) = false;
@@ -162,7 +189,6 @@ for k=2:maxiters
     end
     % improve parameter estimates
     [x0,fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
-%     display(fval);
     rho_path = [rho_path rho];
     beta_path(setActive,end+1) = x0;
     rho_kinks = [rho_kinks length(rho_path)];
@@ -184,18 +210,19 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
         value(setPenNZ) = x(penidx(setActive));
         % try coordinate descent direction for zero coeffs
         if (any(setPenZ))
-            d2PenZ = predl2(setPenZ);
+            d2PenZ = sum_x_squares(setPenZ);
             d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
-            xPenz_trial = OPTALGO(d2PenZ,d1PenZ,t,penargs);
-            value(setPenZ) = abs(xPenz_trial)==0;
-            coeff(setPenZ) = xPenz_trial;
+            xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
+            coeff(setPenZ) = xPenZ_trial;
+            value(setPenZ) = abs(xPenZ_trial)==0;
         end
         isterminal = true(p,1);
         direction = zeros(p,1);
     end%EVENTS
 
     function dx = odefun(t, x)
-        [~,~,d2pen,dpendrho] = PENFUN(x(penidx(setActive)),t,penargs);
+        [~,~,d2pen,dpendrho] = ...
+            penalty_function(x(penidx(setActive)),t,pentype,penparam);
         dx = zeros(length(x),1);
         dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
         M = A(setActive,setActive);
@@ -209,7 +236,8 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
     end%ODEFUN
 
     function [f, d1f, d2f] = objfun(x, t)
-        [pen,d1pen,d2pen] = PENFUN(x(penidx(setActive)),t,penargs);
+        [pen,d1pen,d2pen] = ...
+            penalty_function(x(penidx(setActive)),t,pentype,penparam);
         f = 0.5*x'*A(setActive,setActive)*x + b(setActive)'*x ...
             + sum(pen);
         if (nargout>1)
