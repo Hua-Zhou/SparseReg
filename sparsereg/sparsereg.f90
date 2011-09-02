@@ -368,7 +368,7 @@
       SELECT CASE(PENTYPE)
       CASE("ENET")
          IF (PENPARAM(1)==TWO) THEN
-            MAXRHO = TEN*TEN*A
+            MAXRHO = TEN*A
          ELSE
             MAXRHO = ABS(B)/(TWO-PENPARAM(1))
          END IF
@@ -461,7 +461,7 @@
          ELSEIF (PENPARAM(1)>ONE) THEN
             R = ONE
             ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
-            DO WHILE(ABS(ROOTR)>ABS(B)/A/1E2)
+            DO WHILE(ABS(ROOTR)>ABS(B)/A/TEN)
                R = TWO*R
                ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
             END DO

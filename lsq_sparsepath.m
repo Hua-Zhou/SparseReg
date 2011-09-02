@@ -6,13 +6,15 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 % INPUT:
 %   X - n-by-p design matrix
 %   y - n-by-1 responses
-%   wt - n-by-1 weights; wt = ones(p,1) by default
+%   wt - n-by-1 weights; wt = ones(p,1) if not supplied
 %   penidx - p-by-1 logical index of the coefficients being penalized;
-%       penalizing all coefficients by default
-%   maxpreds - maximum number of top predictors requested; min(n,p) by
-%       default
+%       penidx = true(p,1) if not supplied
+%   maxpreds - maximum number of top predictors requested; maxpreds=min(n,p)
+%       if not supplied
 %   penname - 'enet'|'log'|'mcp'|'power'|'scad'
-%   penargs - index parameter for penalty function penname
+%   penargs - index parameter for penalty function penname; if not supplied
+%       penargs takes the following default values: enet (1, lasso), log
+%       (1), mcp (1), power (1, lasso), scad (3.7)
 %
 % Output:
 %   rho_path - rhos along the path
@@ -21,7 +23,7 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %   fval_kinks - objective values at kinks
 %
 % COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
+% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu)
 % RELEASE DATE: ??/??/????
 
 % check arguments
@@ -94,8 +96,8 @@ end
 tiny = 1e-4;
 b = - X'*(wt.*y);
 sum_x_squares = wt'*(X.*X);
-largep = p>1e4;
-if (largep)
+islargep = maxpreds<p || p>=1000;
+if (islargep)
     A = sparse(p,p);    % compute A on-the-fly
     beta_path = sparse(p,1);
 else
@@ -112,7 +114,7 @@ coeff = zeros(p,1);     % subgradient coefficients
 if (nnz(setKeep)>min(n,p))
     error('number of unpenalized coefficients exceeds rank of X');
 end
-if (largep)
+if (islargep)
     A(:,setKeep) = X'*bsxfun(@times,X(:,setKeep),wt);
     A(setKeep,:) = A(:,setKeep)';
     setAcomputed = setKeep;
@@ -120,8 +122,8 @@ end
 beta_path(setKeep,1) = - A(setKeep,setKeep)\b(setKeep);
 
 % set up ODE solver and unconstrained optimizer
-maxiters = 2*min([n,p]); % max iterations for path algorithm
-maxrounds = 3;  % max iterations for lsq_sparsereg
+maxiters = 2*min([n,p]);    % max iterations for path algorithm
+maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events, 'Refine',refine);
 fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
@@ -133,17 +135,18 @@ d1f = A(:,setKeep)*beta_path(setKeep,1)+b;
 rho = lsq_maxlambda(sum_x_squares(inext),d1fnext,pentype,penparam);
 rho_path(1) = rho;
 
-% determin active set and refine solution
+% determine active set and refine solution
 rho = max(rho-tiny,0);
 % update activeSet
-x0 = lsq_sparsereg(X,y,wt,rho,[],sum_x_squares,penidx,maxrounds,pentype,penparam);
+x0 = lsq_sparsereg(X,y,wt,rho,full(beta_path(:,1)),sum_x_squares,...
+    penidx,maxrounds,pentype,penparam);
 setPenZ = abs(x0)<1e-8;
 setPenNZ = ~setPenZ;
 setPenZ(setKeep) = false;
 setPenNZ(setKeep) = false;
 setActive = setKeep|setPenNZ;
 coeff(setPenNZ) = sign(x0(setPenNZ));
-if (largep)
+if (islargep)
     setAnew = find(setActive&(~setAcomputed));
     A(:,setAnew) = X'*bsxfun(@times,X(:,setAnew),wt);
     A(setAnew,:) = A(:,setAnew)';
@@ -159,7 +162,6 @@ fval_kinks = fval;
 % main loop for path following
 for k=2:maxiters
 
-%     display(k);
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
     [tseg,xseg] = ode15s(@odefun,[tstart tfinal],x0,odeopt);
@@ -168,12 +170,11 @@ for k=2:maxiters
     rho_path = [rho_path tseg']; %#ok<*AGROW>
     beta_path(setActive,(end+1):(end+size(xseg,1))) = xseg';
 
-    % set up options for next round of ode
     % update activeSet
     rho = max(rho_path(end)-tiny,0);
     x0 = beta_path(:,end);
     x0(setPenZ) = coeff(setPenZ);
-    x0 = lsq_sparsereg(X,y,wt,rho,x0,sum_x_squares,...
+    x0 = lsq_sparsereg(X,y,wt,rho,full(x0),sum_x_squares,...
         penidx,maxrounds,pentype,penparam);
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
@@ -181,7 +182,7 @@ for k=2:maxiters
     setPenNZ(setKeep) = false;
     setActive = setKeep|setPenNZ;
     coeff(setPenNZ) = sign(x0(setPenNZ));
-    if (largep)
+    if (islargep)
         setAnew = find(setActive&(~setAcomputed));
         A(:,setAnew) = X'*bsxfun(@times,X(:,setAnew),wt);  %#ok<SPRIX>
         A(setAnew,:) = A(:,setAnew)'; %#ok<SPRIX>
@@ -224,14 +225,16 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
         [~,~,d2pen,dpendrho] = ...
             penalty_function(x(penidx(setActive)),t,pentype,penparam);
         dx = zeros(length(x),1);
-        dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
+        if (any(setPenNZ))
+            dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
+        end
         M = A(setActive,setActive);
         diagidx = find(penidx(setActive));
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
         dx = - M\dx;
         if (any(isinf(dx)))
-            dx(isinf(dx)) = 1e12*sign(dx(isinf(dx)));
+            dx(isinf(dx)) = 1e9*sign(dx(isinf(dx)));
         end
     end%ODEFUN
 
@@ -242,8 +245,10 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
             + sum(pen);
         if (nargout>1)
             d1f = A(setActive,setActive)*x + b(setActive);
-            d1f(penidx(setActive)) = d1f(penidx(setActive)) + ...
-                coeff(setPenNZ).*d1pen;
+            if (any(setPenNZ))
+                d1f(penidx(setActive)) = d1f(penidx(setActive)) + ...
+                    coeff(setPenNZ).*d1pen;
+            end
         end
         if (nargout>2)
             d2f = A(setActive,setActive);
