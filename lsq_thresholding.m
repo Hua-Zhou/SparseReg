@@ -6,15 +6,16 @@ function [xmin] = lsq_thresholding(a,b,lambda,pentype,penparam)
 %   a: n-by-1 quadratic coefficient
 %   b: n-by-1 linear coefficient
 %   lambda: penalty constant (>=0)
-%   pentype: ENET|LOG|MCP|POWER|SCAD
-%   penparam: index parameter for penalty; if empty, set to default values:
-%       ENET, 1, LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
+%   penargs - index parameter for penalty function penname; allowed range
+%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
+%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
 %
 % OUTPUT
-%   xmin: minimum of 0.5*a*x^2 + b*x + pen(abs(x),lambda)
+%   xmin: argmin 0.5*a*x^2 + b*x + pen(abs(x),lambda)
 %
 % COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
+% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 % RELEASE DATE: ??/??/????
 
 % check proper input arguments

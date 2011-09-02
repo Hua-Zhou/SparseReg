@@ -12,9 +12,9 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %   maxpreds - maximum number of top predictors requested; maxpreds=min(n,p)
 %       if not supplied
 %   penname - 'enet'|'log'|'mcp'|'power'|'scad'
-%   penargs - index parameter for penalty function penname; if not supplied
-%       penargs takes the following default values: enet (1, lasso), log
-%       (1), mcp (1), power (1, lasso), scad (3.7)
+%   penargs - index parameter for penalty function penname; allowed range
+%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
+%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
 %
 % Output:
 %   rho_path - rhos along the path
@@ -23,7 +23,7 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %   fval_kinks - objective values at kinks
 %
 % COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu)
+% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 % RELEASE DATE: ??/??/????
 
 % check arguments

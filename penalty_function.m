@@ -6,17 +6,19 @@ function [pen,d1pen,d2pen,dpendlambda] = ...
 % INPUT:
 %   beta - regression coefficients
 %   lambda - penalty constant    
-%   penname - 'enet'|'log'|'scad'|'mcp'|'bridge'
-%   penargs - optional arguments for penalty function penname
+%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
+%   penargs - index parameter for penalty function penname; allowed range
+%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
+%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
 %
 % Output:
-%   pen - p-by-1 penalty values
-%   d1pen - p-by-1 first derivatives
-%   d2pen - p-by-1 second derivatives
-%   dpendlambda - p-by-1 second mixed derivatives
+%   pen - penalty values
+%   d1pen - first derivatives
+%   d2pen - second derivatives
+%   dpendlambda - second mixed derivatives
 %
 % COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
+% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 % RELEASE DATE: ??/??/????
 
 % check arguments
