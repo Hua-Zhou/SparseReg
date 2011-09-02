@@ -1,8 +1,8 @@
 %% simulate data (non-orthogonal design)
 
 clear;
-n = 200;
-p = 10000;
+n = 100;
+p = 10;
 maxpreds = 50;
 
 X = randn(n,p);   % design matrix
