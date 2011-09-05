@@ -64,23 +64,31 @@ if (strcmp(pentype,'ENET'))
     elseif (penparam<1 || penparam>2)
         error('index parameter for ENET penalty should be in [1,2]');
     end
+    isconvex = true;
 elseif (strcmp(pentype,'LOG'))
     if (isempty(penparam))
         penparam = 1;
     elseif (penparam<0)
         error('index parameter for LOG penalty should be nonnegative');
     end
+    isconvex = false;
 elseif (strcmp(pentype,'MCP'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0)
         error('index parameter for MCP penalty should be positive');
     end
+    isconvex = false;
 elseif (strcmp(pentype,'POWER'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0 || penparam>2)
         error('index parameter for POWER penalty should be in (0,2]');
+    end
+    if (penparam<=1)
+        isconvex = false;
+    else
+        isconvex = true;
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
@@ -88,6 +96,7 @@ elseif (strcmp(pentype,'SCAD'))
     elseif (penparam<=2)
         error('index parameter for SCAD penalty should be larger than 2');
     end
+    isconvex = false;
 else
     error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
@@ -164,7 +173,11 @@ for k=2:maxiters
 
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
-    [tseg,xseg] = ode15s(@odefun,[tstart tfinal],x0,odeopt);
+    if (isconvex)
+        [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
+    else
+        [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
+    end
 
     % accumulate solution path
     rho_path = [rho_path tseg']; %#ok<*AGROW>

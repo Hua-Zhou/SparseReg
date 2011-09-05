@@ -1,8 +1,8 @@
 %% simulate data (non-orthogonal design)
 
 clear;
-n = 100;
-p = 10;
+n = 90;
+p = 20000;
 maxpreds = 50;
 
 X = randn(n,p);   % design matrix
@@ -13,6 +13,15 @@ b(2:11) = 1;
 y = normrnd(X*b,1,n,1);   % response vector
 wt = ones(n,1);
 penidx = [false; true(size(X,2)-1,1)];
+
+%% individual tests
+
+profile on;
+tic;
+[rho_path,beta_path,rho_kinks,fval_kinks] = ...
+    lsq_sparsepath(X,y,wt,penidx,maxpreds,'enet',1);
+toc;
+profile viewer;
 
 %% test lsq_sparsepath
 
@@ -48,5 +57,5 @@ end
 text(1.2*max(rho_path),0,['n=' num2str(n) ', p=' num2str(p) ', ' ...
     ' maxpreds=' num2str(maxpreds)],'FontSize',15,'HorizontalAlignment','left');
 
-% orient landscape
-% print -depsc2 ../../manuscripts/notes/testing03.eps;
+orient landscape
+print -depsc2 ../../manuscripts/notes/testing03.eps;

@@ -91,10 +91,10 @@
             PEN = RHO*ABSBETA
          ELSEWHERE (ABSBETA<ETA*RHO)
             PEN = RHO*RHO + ETA*RHO*(ABSBETA-RHO)/(ETA-ONE) &
-               + HALF*(BETA*BETA-RHO*RHO)/(ETA-ONE)
+               - HALF*(BETA*BETA-RHO*RHO)/(ETA-ONE)
          ELSEWHERE
             PEN = HALF*RHO*RHO*(ETA+ONE)
-         END WHERE         
+         END WHERE
       END SELECT
 !
 !     First derivative of penalty function
@@ -199,16 +199,27 @@
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE      
+      LOGICAL :: DOBISECTION
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: A,B,DL,DM,DR,ETA,F1,F2,FXMIN,FXMIN2,RHO,XL,XM,XMIN,XMIN2,XR
+      REAL(KIND=DBLE_PREC) :: A,ABSB,B,DL,DM,DR,ETA,F1,F2,FXMIN,FXMIN2
+      REAL(KIND=DBLE_PREC) :: RHO,XL,XM,XMIN,XMIN2,XR
 !
-!     Transform to format 0.5*a*(x-b)^2 + rho*abs(x)^eta
+!     Check tuning parameter
+!
+      IF (RHO<ZERO) THEN
+         PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
+         RETURN
+      END IF
+      
+!
+!     Transform to format 0.5*a*(x-b)^2
 !
       IF (A<=ZERO) THEN
          PRINT*, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
          RETURN
       END IF
       B = -B/A
+      ABSB = ABS(B)
 !
 !     Thresholding
 !
@@ -220,6 +231,9 @@
          CASE("ENET")
             IF (ETA<ONE.OR.ETA>TWO) THEN
                PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
+               RETURN
+            ELSEIF (ABS(ETA-TWO)<EPS) THEN
+               XMIN = A*B/(A+RHO)
                RETURN
             END IF
             XMIN = A*B-RHO*(TWO-ETA)
@@ -240,41 +254,54 @@
             ELSE IF (ETA==ZERO) THEN
                ETA = SQRT(RHO)
             END IF
-            IF (RHO>=A*(ETA+ABS(B))*(ETA+ABS(B))/FOUR) THEN
+            IF (RHO<=A*ABSB*ETA) THEN
+               XMIN = SIGN(HALF*(ABSB-ETA+ &
+                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A)),B)            
+            ELSEIF (RHO<=A*ETA*ETA) THEN
                XMIN = ZERO
-            ELSEIF (RHO<=ABS(A*B*ETA)) THEN
-               XMIN = SIGN(HALF*(ABS(B)-ETA+ &
-                  SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
+            ELSEIF (RHO>=A*(ETA+ABSB)*(ETA+ABSB)/FOUR) THEN
+               XMIN = ZERO
             ELSE
-               XMIN = SIGN(HALF*(ABS(B)-ETA+ &
-                  SQRT((ABS(B)+ETA)*(ABS(B)+ETA)-FOUR*RHO/A)),B)
+               XMIN = SIGN(HALF*(ABSB-ETA+ &
+                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A)),B)
                F1 = HALF*A*B*B+RHO*LOG(ETA)
                F2 = HALF*A*(XMIN-B)*(XMIN-B)+RHO*LOG(ETA+ABS(XMIN))
                IF (F1<F2) THEN
                   XMIN = ZERO
                END IF
             END IF
+            XMIN = SIGN(XMIN,B)
          CASE("MCP")
             IF (ETA<=ZERO) THEN
                PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
                RETURN
             END IF
-            B = -A*B
-            XMIN = SIGN(MIN(ABS(B/A),RHO*ETA),-B)
-            FXMIN = XMIN*(HALF*(A-ONE/ETA)*XMIN+SIGN(RHO,XMIN)+B)
-            IF (FXMIN>ZERO) THEN
+            IF (RHO<=A*ABSB) THEN
+               IF (ABSB<=RHO*ETA) THEN
+                  XMIN = ETA*(A*ABSB-RHO)/(A*ETA-ONE)
+               ELSE
+                  XMIN = ABSB
+               END IF
+            ELSEIF (A*ETA>=ONE) THEN
                XMIN = ZERO
-               FXMIN = ZERO
+            ELSEIF (RHO*ETA>=ABSB) THEN
+               XMIN = ZERO
+            ELSE
+               IF (A*B*B<RHO*RHO*ETA) THEN
+                  XMIN = ZERO
+               ELSE
+                  XMIN = ABSB
+               END IF
             END IF
-            IF (ABS(B/A)>RHO*ETA.AND.HALF*(-B*B/A+RHO*RHO*ETA)<FXMIN) THEN
-               XMIN = -B/A
-            END IF            
+            XMIN = SIGN(XMIN,B)
          CASE("POWER")
             IF (ETA<=ZERO.OR.ETA>TWO) THEN
                PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
                RETURN
-            END IF
-            IF (ABS(ETA-ONE)<EPS) THEN
+            ELSEIF (ABS(ETA-TWO)<EPS) THEN
+               XMIN = A*B/(A+TWO*RHO)
+               RETURN
+            ELSEIF (ABS(ETA-ONE)<EPS) THEN
                IF (B-RHO/A>ZERO) THEN
                   XMIN = B-RHO/A
                ELSEIF (B+RHO/A<ZERO) THEN
@@ -283,27 +310,33 @@
                   XMIN = ZERO
                END IF
                RETURN
+            END IF
+            DOBISECTION = .FALSE.
+            IF (ETA>ONE) THEN
+               XL = ZERO
+               DL = -A*ABSB
+               DOBISECTION = .TRUE.
+            ELSEIF (A+RHO*ETA*(ETA-ONE)*ABSB**(ETA-TWO)<=ZERO) THEN
+               XMIN = ZERO
             ELSE
-               IF (ETA<ONE) THEN
-                  XL = SIGN((A/ETA/(ONE-ETA)/RHO)**(ONE/(ETA-TWO)),B)
+               XL = (A/RHO/ETA/(ONE-ETA))**(ONE/(ETA-TWO))
+               DL = A*(XL-ABSB)+RHO*ETA*XL**(ETA-ONE)
+               IF (DL>=ZERO) THEN
+                  XMIN = ZERO
                ELSE
-                  XL = ZERO
+                  DOBISECTION = .TRUE.
                END IF
-               IF (B<ZERO) THEN
-                  XR = XL
-                  XL = B
-               ELSE
-                  XR = B
-               END IF            
-               DL = A*(XL-B)+SIGN(RHO*ETA*ABS(XL)**(ETA-1),XL)
-               DR = A*(XR-B)+SIGN(RHO*ETA*ABS(XR)**(ETA-1),XR)
+            END IF
+            IF (DOBISECTION) THEN
+               XR = ABSB
+               DR = RHO*ETA*XR**(ETA-ONE)
                DO
                   XM = HALF*(XL+XR)
-                  DM = A*(XM-B)+SIGN(RHO*ETA*ABS(XM)**(ETA-1),XM)
-                  IF (DL*DM<ZERO) THEN
+                  DM = A*(XM-ABSB)+RHO*ETA*XM**(ETA-ONE)
+                  IF (DM>EPS) THEN
                      XR = XM
                      DR = DM
-                  ELSE IF (DR*DM<ZERO) THEN
+                  ELSEIF (DM<-EPS) THEN
                      XL = XM
                      DL = DM
                   ELSE
@@ -315,38 +348,57 @@
                      EXIT
                   END IF
                END DO
-               IF ( (ETA<ONE) .AND. &
-                  (HALF*A*(XMIN-B)**2+RHO*ABS(XMIN)**ETA>HALF*A*B**2)) THEN
+               IF ((ETA<ONE) .AND. &
+                  (HALF*A*(XMIN-ABSB)**2+RHO*ABS(XMIN)**ETA>HALF*A*ABSB**2)) THEN
                   XMIN = ZERO
                END IF
             END IF
+            XMIN = SIGN(XMIN,B)
          CASE("SCAD")
             IF (ETA<=TWO) THEN
                PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
                RETURN
             END IF 
-            XMIN = ZERO
-            IF (RHO>=A*ABS(B)) RETURN
-            FXMIN = HALF*A*B*B
-            XMIN2 = B-SIGN(RHO,B)/A
-            FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B)+RHO*ABS(XMIN2)
-            IF (FXMIN2<FXMIN) THEN
-               XMIN = XMIN2
-               FXMIN = FXMIN2
-            END IF
-            IF (RHO>A/(A+ONE)*ABS(B)) RETURN
-            IF (RHO<ABS(B)/ETA) THEN
-               XMIN2 = B
-               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + HALF*RHO*RHO*(ETA+ONE)
+            IF (RHO<=A*ABSB) THEN
+               IF (A*(RHO-ABSB)+RHO>=ZERO) THEN
+                  XMIN = ABSB - RHO/A
+               ELSEIF (RHO*ETA-ABSB>=ZERO) THEN
+                  XMIN = (A*ABSB*(ETA-ONE)-RHO*ETA)/(A*(ETA-ONE)-ONE)
+               ELSE
+                  XMIN = ABSB
+               END IF
+            ELSEIF (ABSB<=RHO*ETA.OR.A*(ETA-ONE)>=ONE) THEN
+               XMIN = ZERO
             ELSE
-               XMIN2 = (A*B*(ETA-1)-ETA*SIGN(RHO,B))/(A*(ETA-ONE)-ONE)
-               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + RHO*RHO &
-                  + ETA/(ETA-ONE)*RHO*(ABS(XMIN2)-RHO) &
-                  - HALF*(XMIN2*XMIN2-RHO*RHO)/(ETA-ONE)
+               IF (A*B*B<RHO*RHO*(ETA+ONE)) THEN
+                  XMIN = ZERO
+               ELSE
+                  XMIN = ABSB
+               END IF
             END IF
-            IF (FXMIN2<FXMIN) THEN
-               XMIN = XMIN2
-            END IF                    
+            XMIN = SIGN(XMIN,B)
+!            XMIN = ZERO
+!            IF (RHO>=A*ABS(B)) RETURN
+!            FXMIN = HALF*A*B*B
+!            XMIN2 = B-SIGN(RHO,B)/A
+!            FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B)+RHO*ABS(XMIN2)
+!            IF (FXMIN2<FXMIN) THEN
+!               XMIN = XMIN2
+!               FXMIN = FXMIN2
+!            END IF
+!            IF (RHO>A/(A+ONE)*ABS(B)) RETURN
+!            IF (RHO<ABS(B)/ETA) THEN
+!               XMIN2 = B
+!               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + HALF*RHO*RHO*(ETA+ONE)
+!            ELSE
+!               XMIN2 = (A*B*(ETA-1)-ETA*SIGN(RHO,B))/(A*(ETA-ONE)-ONE)
+!               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + RHO*RHO &
+!                  + ETA/(ETA-ONE)*RHO*(ABS(XMIN2)-RHO) &
+!                  - HALF*(XMIN2*XMIN2-RHO*RHO)/(ETA-ONE)
+!            END IF
+!            IF (FXMIN2<FXMIN) THEN
+!               XMIN = XMIN2
+!            END IF                    
          END SELECT
       END IF
       END FUNCTION LSQ_THRESHOLDING
@@ -672,9 +724,9 @@
       SUM_X_SQUARES = MATMUL(WT,X**2)
       ESTIMATE = ZERO
       MAXITERS = 0
-      LAMBDA = TEN
+      LAMBDA = TEN**2
       CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
-         SUM_X_SQUARES,PENIDX,MAXITERS,"SCAD",(/THREE/))
+         SUM_X_SQUARES,PENIDX,MAXITERS,"SCAD",(/FOUR/))
       PRINT*, "ESTIMATE = "
       PRINT*, ESTIMATE
       PAUSE
