@@ -251,21 +251,21 @@
             IF (ETA<ZERO) THEN
                PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
                RETURN
-            ELSE IF (ETA==ZERO) THEN
+            ELSEIF (ABS(ETA)<EPS) THEN
                ETA = SQRT(RHO)
             END IF
             IF (RHO<=A*ABSB*ETA) THEN
-               XMIN = SIGN(HALF*(ABSB-ETA+ &
-                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A)),B)            
+               XMIN = HALF*(ABSB-ETA+ &
+                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A))
             ELSEIF (RHO<=A*ETA*ETA) THEN
                XMIN = ZERO
             ELSEIF (RHO>=A*(ETA+ABSB)*(ETA+ABSB)/FOUR) THEN
                XMIN = ZERO
             ELSE
-               XMIN = SIGN(HALF*(ABSB-ETA+ &
-                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A)),B)
+               XMIN = HALF*(ABSB-ETA+ &
+                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A))
                F1 = HALF*A*B*B+RHO*LOG(ETA)
-               F2 = HALF*A*(XMIN-B)*(XMIN-B)+RHO*LOG(ETA+ABS(XMIN))
+               F2 = HALF*A*(XMIN-ABSB)**2+RHO*LOG(ETA+ABS(XMIN))
                IF (F1<F2) THEN
                   XMIN = ZERO
                END IF
@@ -377,28 +377,6 @@
                END IF
             END IF
             XMIN = SIGN(XMIN,B)
-!            XMIN = ZERO
-!            IF (RHO>=A*ABS(B)) RETURN
-!            FXMIN = HALF*A*B*B
-!            XMIN2 = B-SIGN(RHO,B)/A
-!            FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B)+RHO*ABS(XMIN2)
-!            IF (FXMIN2<FXMIN) THEN
-!               XMIN = XMIN2
-!               FXMIN = FXMIN2
-!            END IF
-!            IF (RHO>A/(A+ONE)*ABS(B)) RETURN
-!            IF (RHO<ABS(B)/ETA) THEN
-!               XMIN2 = B
-!               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + HALF*RHO*RHO*(ETA+ONE)
-!            ELSE
-!               XMIN2 = (A*B*(ETA-1)-ETA*SIGN(RHO,B))/(A*(ETA-ONE)-ONE)
-!               FXMIN2 = HALF*A*(XMIN2-B)*(XMIN2-B) + RHO*RHO &
-!                  + ETA/(ETA-ONE)*RHO*(ABS(XMIN2)-RHO) &
-!                  - HALF*(XMIN2*XMIN2-RHO*RHO)/(ETA-ONE)
-!            END IF
-!            IF (FXMIN2<FXMIN) THEN
-!               XMIN = XMIN2
-!            END IF                    
          END SELECT
       END IF
       END FUNCTION LSQ_THRESHOLDING
@@ -411,12 +389,13 @@
 !     optional parameter for the penalty function.
 !
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
-      REAL(KIND=DBLE_PREC) :: A,B,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
+      REAL(KIND=DBLE_PREC) :: A,B,ETA,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC), DIMENSION(:) :: PENPARAM
 !
 !     Locate the max rho
 !
+      ETA = PENPARAM(1)
       SELECT CASE(PENTYPE)
       CASE("ENET")
          IF (PENPARAM(1)==TWO) THEN
@@ -425,27 +404,18 @@
             MAXRHO = ABS(B)/(TWO-PENPARAM(1))
          END IF
       CASE("LOG")
-         IF (PENPARAM(1)==ZERO) THEN
-            IF (A<=ONE) THEN
-               MAXRHO = B*B
-               RETURN
-            ELSE
-               L = B*B
-               R = TWO*L
-               DO WHILE(LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"LOG")>ZERO)
-                  L = R
-                  R = TWO*R
-               END DO
-            END IF
+         IF (ABS(ETA)<EPS) THEN
+            MAXRHO = B*B
+            RETURN
          ELSE
-            L = ABS(B*PENPARAM(1))
-            R = A*(PENPARAM(1)+ABS(B)/A)**2/FOUR
+            L = ABS(B*ETA)
+            R = MAX(ETA*ABS(B),A*ETA*ETA,A*(ETA+ABS(B)/A)**2/FOUR)
          END IF
-         ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"LOG")
-         ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"LOG")
+         ROOTL = LSQ_THRESHOLDING(A,B,L,ETA,"LOG")
+         ROOTR = LSQ_THRESHOLDING(A,B,R,ETA,"LOG")
          DO
             M = HALF*(L+R)
-            ROOTM = LSQ_THRESHOLDING(A,B,M,PENPARAM(1),"LOG")
+            ROOTM = LSQ_THRESHOLDING(A,B,M,ETA,"LOG")
             IF (ROOTM==ZERO) THEN
                R = M
                ROOTR = ROOTM
@@ -480,23 +450,17 @@
             END IF
          END DO
       CASE("POWER")
-         IF (PENPARAM(1)==ONE) THEN
+         IF (ABS(ETA-ONE)<EPS) THEN
             MAXRHO = ABS(B)
             RETURN
-         ELSEIF (PENPARAM(1)<ONE) THEN
+         ELSEIF (ETA<ONE) THEN
             L = ZERO
-            ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"POWER")
-            R = ONE
-            ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
-            DO WHILE(ROOTR>ZERO)
-               L = R
-               ROOTL = ROOTR
-               R = TWO*R
-               ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
-            END DO
+            ROOTL = ABS(LSQ_THRESHOLDING(A,B,L,ETA,"POWER"))
+            R = A/ETA/(ONE-ETA)/ABS(B/A)**(ETA-TWO)
+            ROOTR = ZERO
             DO
                M = HALF*(L+R)
-               ROOTM = LSQ_THRESHOLDING(A,B,M,PENPARAM(1),"POWER")
+               ROOTM = ABS(LSQ_THRESHOLDING(A,B,M,ETA,"POWER"))
                IF (ROOTM==ZERO) THEN
                   R = M
                   ROOTR = ROOTM
@@ -509,13 +473,13 @@
                   EXIT
                END IF
             END DO
-            RETURN                  
-         ELSEIF (PENPARAM(1)>ONE) THEN
+            RETURN
+         ELSEIF (ETA>ONE) THEN
             R = ONE
-            ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
+            ROOTR = LSQ_THRESHOLDING(A,B,R,ETA,"POWER")
             DO WHILE(ABS(ROOTR)>ABS(B)/A/TEN)
                R = TWO*R
-               ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"POWER")
+               ROOTR = LSQ_THRESHOLDING(A,B,R,ETA,"POWER")
             END DO
             MAXRHO = R
             RETURN
@@ -724,9 +688,9 @@
       SUM_X_SQUARES = MATMUL(WT,X**2)
       ESTIMATE = ZERO
       MAXITERS = 0
-      LAMBDA = TEN**2
+      LAMBDA = ONE
       CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
-         SUM_X_SQUARES,PENIDX,MAXITERS,"SCAD",(/FOUR/))
+         SUM_X_SQUARES,PENIDX,MAXITERS,"LOG",(/ONE/))
       PRINT*, "ESTIMATE = "
       PRINT*, ESTIMATE
       PAUSE
