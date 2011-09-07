@@ -20,6 +20,29 @@
 !
       CONTAINS
 !
+      SUBROUTINE READ_DATA(INPUT_FILE,X,Y,N,P)
+!
+!     THIS SUBROUTINE READS IN THE DATA AND INITIALIZES CONSTANTS AND ARRAYS.
+!
+      IMPLICIT NONE
+      CHARACTER(LEN=100) :: INPUT_FILE
+      INTEGER :: I,INPUT_UNIT=1,N,P
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:,:) :: X
+!
+!     Open the input file.
+!
+      OPEN(UNIT=INPUT_UNIT,FILE=INPUT_FILE)
+!
+!     Read the exponents
+!
+      DO I = 1,N
+	      READ(INPUT_UNIT,*) Y(I),X(I,2:P)
+	      X(I,1) = ONE
+      END DO
+      CLOSE(INPUT_UNIT)
+      END SUBROUTINE READ_DATA      
+!
       SUBROUTINE PENALTY_FUN(BETA,RHO,ETA,PENTYPE,PEN,D1PEN,D2PEN,DPENDRHO)
 !
 !     This subroutine calculates the penalty value, first derivative, 
@@ -210,7 +233,6 @@
          !PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
          RETURN
       END IF
-      
 !
 !     Transform to format 0.5*a*(x-b)^2
 !
@@ -381,6 +403,192 @@
       END IF
       END FUNCTION LSQ_THRESHOLDING
 !
+      FUNCTION GLM_THRESHOLDING(X,C,Y,WT,RHO,ETA,PENTYPE,MODEL) RESULT(XMIN)
+!
+!     This subroutine performs univariate thresholding for GLM with linear
+!     part X*BETA+C: argmin loss(beta)+PEN(abs(x),rho,eta).
+!
+      IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
+      INTEGER, PARAMETER :: BRACKETS=10
+      INTEGER :: I,IDX
+      LOGICAL :: DOBISECTION=.FALSE.,ISNEGROOT=.FALSE.
+      LOGICAL, DIMENSION(BRACKETS) :: NEGIDX
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: BETA,DELTAX,ETA,LOSS,LOSSD1,LOSSD2,PEN,PEND1,RHO,XMIN
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: C,WT,X,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(3) :: XBRACKET,D1BRACKET
+      REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: BETAVEC,LOSSVEC,LOSSD1VEC
+      REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: PENVEC,PEND1VEC
+!
+!     Check tuning parameter
+!
+      IF (RHO<ZERO) THEN
+         !PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
+         RETURN
+      END IF
+!
+!     LOCATE THE UNPENALIZED ESTIMATE BY NEWTON-RALPHSON
+!
+      BETA = ZERO
+      DO I=1,BRACKETS
+         BETAVEC(I) = BETA
+         CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSS,LOSSD1VEC(I),LOSSD2)
+         BETA = BETA - LOSSD1VEC(I)/LOSSD2
+      END DO
+      IF (ABS(RHO)<EPS) THEN
+         XMIN = BETA
+         RETURN
+      END IF
+!
+!     Flip to positive axis if necessary
+!
+      IF (BETA<ZERO) THEN
+         ISNEGROOT = .TRUE.
+         BETA = -BETA
+         BETAVEC = -BETAVEC
+         LOSSD1VEC = -LOSSD1VEC
+         X = -X
+      END IF
+!
+!     Search for negative derivative and use as bracket for bisection
+!
+      CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
+      NEGIDX = (BETAVEC>=ZERO).AND.(BETAVEC<=BETA).AND.(LOSSD1VEC+PEND1VEC<ZERO)
+      IF (ANY(NEGIDX)) THEN
+         DOBISECTION = .TRUE.
+         IDX = MAXLOC(BETAVEC,1,NEGIDX)
+         XBRACKET(1) = BETAVEC(IDX)
+         D1BRACKET(1) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
+         IDX = MINLOC(BETAVEC,1,(BETAVEC>XBRACKET(1)).AND.(LOSSD1VEC+PEND1VEC>=ZERO))
+         XBRACKET(3) = BETAVEC(IDX)
+         D1BRACKET(3) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
+      ELSE
+         DELTAX = BETA/(BRACKETS-1)
+         DO I=2,BRACKETS-1
+            BETAVEC(I) = DELTAX*(I-1)
+            CALL SIMPLE_GLM_LOSS(BETAVEC(I),X,C,Y,WT,MODEL,LOSSVEC(I), &
+               LOSSD1VEC(I))
+         END DO
+         CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
+         NEGIDX = LOSSD1VEC+PEND1VEC<ZERO
+         IF (ANY(NEGIDX)) THEN
+            DOBISECTION = .TRUE.
+            IDX = MAXLOC(BETAVEC,1,NEGIDX)
+            XBRACKET(1) = BETAVEC(IDX)
+            D1BRACKET(1) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
+            IDX = MINLOC(BETAVEC,1,(BETAVEC>XBRACKET(1)).AND.(LOSSD1VEC+PEND1VEC>=ZERO))
+            XBRACKET(3) = BETAVEC(IDX)
+            D1BRACKET(3) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
+         ELSE
+            XMIN = ZERO
+         END IF
+      END IF
+!
+!     Bisection
+!
+      IF (DOBISECTION) THEN
+         DO
+            XBRACKET(2) = HALF*(XBRACKET(1)+XBRACKET(3))
+            CALL SIMPLE_GLM_LOSS(XBRACKET(2),X,C,Y,WT,MODEL,LOSSVEC(2),LOSSD1VEC(2))
+            CALL PENALTY_FUN(XBRACKET(2:2),RHO,ETA,PENTYPE,PENVEC(2:2),PEND1VEC(2:2))
+            D1BRACKET(2) = LOSSD1VEC(2) + PEND1VEC(2)
+            IF (ABS(D1BRACKET(2))<=EPS) THEN
+               XMIN = XBRACKET(2)
+               EXIT
+            ELSEIF (D1BRACKET(2)<-EPS) THEN
+               XBRACKET(1) = XBRACKET(2)
+               D1BRACKET(1) = D1BRACKET(2)
+            ELSE
+               XBRACKET(3) = XBRACKET(2)
+               D1BRACKET(3) = D1BRACKET(2)
+            END IF
+            IF (ABS(XBRACKET(3)-XBRACKET(1))<EPS) THEN
+               XMIN = HALF*(XBRACKET(1)+XBRACKET(3))
+               EXIT
+            END IF
+         END DO
+      END IF
+!
+!     Restore X if necessary
+!
+      IF (ISNEGROOT) THEN
+         XMIN = -XMIN
+         X = -X
+      END IF
+      RETURN
+      END FUNCTION GLM_THRESHOLDING
+!
+      SUBROUTINE SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSS,D1,D2)
+!
+!     This subroutine computes the loss, derivative, and second derivative
+!     of a GLM model with linear part: X*BETA+C
+!
+      CHARACTER(LEN=*), INTENT(IN) :: MODEL
+      INTEGER :: I,N
+      REAL(KIND=DBLE_PREC) :: BETA,LOSS
+      REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
+      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: C,WT,X,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: INNER,PROB
+!
+!     Check argument
+!
+      N = SIZE(X)      
+      IF (SIZE(C)/=N) THEN
+         !PRINT*, " SIZE OF C INCOMPATIBLE WITH X"
+         RETURN
+      END IF
+      IF (SIZE(Y)/=N) THEN
+         !PRINT*, " SIZE OF Y INCOMPATIBLE WITH X"
+         RETURN
+      END IF
+      IF (SIZE(WT)/=N) THEN
+         !PRINT*, " SIZE OF WT INCOMPATIBLE WITH X"
+         RETURN
+      END IF      
+!
+!     Compute loss function
+!
+      INNER = BETA*X+C
+      SELECT CASE(MODEL)
+      CASE("LOGISTIC")
+         WHERE (INNER>=BIG)
+            PROB = INNER
+         ELSEWHERE (INNER<=-BIG)
+            PROB = ZERO
+         ELSEWHERE
+            PROB = LOG(ONE+EXP(INNER))
+         END WHERE
+         LOSS = - SUM(WT*(Y*INNER-PROB))
+      END SELECT
+!
+!     Compute first derivative
+!
+      IF (PRESENT(D1)) THEN
+         SELECT CASE(MODEL)
+         CASE("LOGISTIC")
+            WHERE (INNER>=BIG)
+               PROB = ONE
+            ELSEWHERE (INNER<=-BIG)
+               PROB = ZERO
+            ELSEWHERE
+               PROB = EXP(INNER)/(ONE+EXP(INNER))
+            END WHERE
+            D1 = - SUM(WT*(Y-PROB)*X)
+         END SELECT
+      END IF
+!
+!     Compute second derivative
+!
+      IF (PRESENT(D2)) THEN
+         SELECT CASE(MODEL)
+         CASE("LOGISTIC")
+            D2 = SUM(WT*PROB*(ONE-PROB)*X*X)
+         END SELECT
+      END IF
+      END SUBROUTINE SIMPLE_GLM_LOSS
+!
       FUNCTION MAX_RHO(A,B,PENTYPE,PENPARAM) RESULT(MAXRHO)
 !
 !     This subroutine finds the maximum penalty constant rho such that
@@ -430,8 +638,12 @@
          END DO
          RETURN                  
       CASE("MCP")
-         L = ZERO
-         R = ABS(B)/PENPARAM(1)
+         L = ABS(B)
+         IF (A*PENPARAM(1)>=ZERO) THEN
+            R = ABS(B)
+         ELSE
+            R = MAX(ABS(B)/PENPARAM(1),A*ABS(B))
+         END IF
          ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"MCP")
          ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"MCP")
          DO
@@ -617,5 +829,119 @@
       END DO
       END SUBROUTINE PENALIZED_L2_REGRESSION
 !
+      SUBROUTINE PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
+         PENIDX,MAXITERS,PENTYPE,PENPARAM,MODEL)
+!
+!     This subroutine carries out penalized GLM regression with design
+!     matrix X, dependent variable Y, weights WT and penalty constant 
+!     LAMBDA. Note that the rows of X correspond to cases and the columns
+!     to predictors.
+!
+      IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: PENTYPE,MODEL
+      INTEGER :: ITERATION,J,MAXITERS,N,P
+      REAL(KIND=DBLE_PREC) :: CRITERION=1E-4,EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: LAMBDA,LOSS,NEW_OBJECTIVE,OLDROOT
+      REAL(KIND=DBLE_PREC) :: OBJECTIVE,ROOTDIFF
+      LOGICAL, DIMENSION(:) :: PENIDX
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: ESTIMATE,PENPARAM,WT,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:,:) :: X
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(Y)) :: C,INNER
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(ESTIMATE)) :: PENALTY
+!
+!     Check that the number of cases is well defined.
+!
+      IF (SIZE(Y)/=SIZE(X,1)) THEN
+         !PRINT*," THE NUMBER OF CASES IS NOT WELL DEFINED."
+         RETURN
+      END IF
+!
+!     Check that the number of predictors is well defined.
+!
+      IF (SIZE(ESTIMATE)/=SIZE(X,2)) THEN
+         !PRINT*, " THE NUMBER OF PREDICTORS IS NOT WELL DEFINED."
+         RETURN
+      END IF
+!
+!     Check the index for penalized predictors
+!
+      IF (SIZE(PENIDX)/=SIZE(X,2)) THEN
+         !PRINT*, " THE PENALTY INDEX ARRAY IS NOT WELL DEFINED"
+         RETURN
+      END IF
+!
+!     Initialize the number of cases M and the number of regression
+!     coefficients N.
+!
+      N = SIZE(Y)
+      P = SIZE(ESTIMATE)
+!
+!     Initialize the residual vector R, the PENALTY, the loss L2, and the
+!     objective function.
+!
+      IF (ANY(ABS(ESTIMATE)>EPS)) THEN
+         INNER = MATMUL(X,ESTIMATE)
+      ELSE
+         INNER = ZERO
+      END IF
+      C = ZERO
+      CALL SIMPLE_GLM_LOSS(ONE,INNER,C,Y,WT,MODEL,LOSS)
+      CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
+      OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
+      !PRINT*, "OBJECTIVE = "
+      !PRINT*, OBJECTIVE
+!
+!     Initialize maximum number of iterations
+!
+      IF (MAXITERS<=0) THEN
+         MAXITERS = 1000
+      END IF
+!
+!     Enter the main iteration loop.
+!
+      DO ITERATION = 1,MAXITERS
+         DO J = 1,P
+            OLDROOT = ESTIMATE(J)
+            C = INNER - X(:,J)*OLDROOT
+            IF (PENIDX(J)) THEN
+               ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,LAMBDA,PENPARAM(1),PENTYPE,MODEL)
+            ELSE
+               ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
+            END IF
+!            !PRINT*, "OLDROOT = ", OLDROOT
+!            !PRINT*, "ESTIMATE(J) = ", ESTIMATE(J)
+            ROOTDIFF = ESTIMATE(J)-OLDROOT
+            IF (ABS(ROOTDIFF)>EPS) THEN
+               INNER = INNER + ROOTDIFF*X(:,J)
+            END IF
+         END DO
+!
+!     Output the iteration number and value of the objective function.
+!
+         C = ZERO
+         CALL SIMPLE_GLM_LOSS(ONE,INNER,C,Y,WT,MODEL,LOSS)
+         CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
+         !PRINT*, "ESTIMATE = ", ESTIMATE         
+         !PRINT*, "LOSS = ", LOSS
+         !!PRINT*, "PENALTY = ", PENALTY
+         NEW_OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
+         IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
+            !PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
+         END IF
+!
+!     Check for a descent failure or convergence.  If neither occurs,
+!     record the new value of the objective function.
+!
+         IF (NEW_OBJECTIVE>OBJECTIVE+EPS) THEN
+            !PRINT*," *** ERROR *** OBJECTIVE FUNCTION INCREASE AT ITERATION",ITERATION
+            RETURN
+         END IF
+         IF ((OBJECTIVE-NEW_OBJECTIVE)<CRITERION*(ABS(OBJECTIVE)+ONE)) THEN
+            RETURN
+         ELSE
+            OBJECTIVE = NEW_OBJECTIVE
+         END IF
+      END DO
+      END SUBROUTINE PENALIZED_GLM_REGRESSION
+!
       END MODULE SPARSEREG
-

@@ -173,11 +173,7 @@ for k=2:maxiters
 
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
-    if (isconvex)
-        [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
-    else
-        [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
-    end
+    [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
 
     % accumulate solution path
     rho_path = [rho_path tseg']; %#ok<*AGROW>

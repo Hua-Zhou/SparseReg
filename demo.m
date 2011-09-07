@@ -1,9 +1,9 @@
 %% simulate data (non-orthogonal design)
 
 clear;
-n = 100;
-p = 10000;
-maxpreds = 20;
+n = 1000;
+p = 100;
+maxpreds = [];
 
 X = randn(n,p);   % design matrix
 X = [ones(size(X,1),1) X];
@@ -12,16 +12,27 @@ b = zeros(p+1,1);
 b(2:11) = 1;
 y = normrnd(X*b,1,n,1);   % response vector
 wt = ones(n,1);
-penidx = [false; true(size(X,2)-1,1)];
+penidx = [false; false; true(size(X,2)-2,1)];
 
 %% individual tests
 
-profile on;
+penalty = 'mcp';
+penparam = 5;
+% profile on;
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsepath(X,y,wt,penidx,maxpreds,'log',1);
-toc;
-profile viewer;
+    lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam);
+timing = toc;
+% profile viewer;
+
+figure;
+set(gca,'FontSize',15);
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
+
 
 %% test lsq_sparsepath
 
