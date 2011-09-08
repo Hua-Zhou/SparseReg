@@ -113,8 +113,8 @@
          WHERE (ABSBETA<RHO)
             PEN = RHO*ABSBETA
          ELSEWHERE (ABSBETA<ETA*RHO)
-            PEN = RHO*RHO + ETA*RHO*(ABSBETA-RHO)/(ETA-ONE) &
-               - HALF*(BETA*BETA-RHO*RHO)/(ETA-ONE)
+            PEN = RHO*RHO + (ETA*RHO*(ABSBETA-RHO) &
+               - HALF*(BETA*BETA-RHO*RHO))/(ETA-ONE)
          ELSEWHERE
             PEN = HALF*RHO*RHO*(ETA+ONE)
          END WHERE
@@ -412,11 +412,11 @@
       CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
       INTEGER, PARAMETER :: BRACKETS=10
       INTEGER :: I,IDX
-      LOGICAL :: DOBISECTION=.FALSE.,ISNEGROOT=.FALSE.
+      LOGICAL :: DOBISECTION,ISNEGROOT
       LOGICAL, DIMENSION(BRACKETS) :: NEGIDX
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC) :: BETA,DELTAX,ETA,LOSS,LOSSD1,LOSSD2,PEN,PEND1,RHO,XMIN
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: C,WT,X,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
       REAL(KIND=DBLE_PREC), DIMENSION(3) :: XBRACKET,D1BRACKET
       REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: BETAVEC,LOSSVEC,LOSSD1VEC
       REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: PENVEC,PEND1VEC
@@ -443,35 +443,53 @@
 !
 !     Flip to positive axis if necessary
 !
+      !PRINT*, "LOSSD1VEC = ", LOSSD1VEC
+      !PRINT*, "BETAVEC = ", BETAVEC
+      PAUSE
       IF (BETA<ZERO) THEN
          ISNEGROOT = .TRUE.
          BETA = -BETA
          BETAVEC = -BETAVEC
          LOSSD1VEC = -LOSSD1VEC
-         X = -X
+      ELSE
+         ISNEGROOT = .FALSE.         
       END IF
 !
 !     Search for negative derivative and use as bracket for bisection
 !
       CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
-      NEGIDX = (BETAVEC>=ZERO).AND.(BETAVEC<=BETA).AND.(LOSSD1VEC+PEND1VEC<ZERO)
+      NEGIDX = (BETAVEC>=ZERO).AND.(BETAVEC<=BETA).AND.(LOSSD1VEC+PEND1VEC<-EPS)
+      !PRINT*, "D1VEC = ", LOSSD1VEC+PEND1VEC
+      !PRINT*, "BETAVEC = ", BETAVEC
+      PAUSE
       IF (ANY(NEGIDX)) THEN
          DOBISECTION = .TRUE.
          IDX = MAXLOC(BETAVEC,1,NEGIDX)
          XBRACKET(1) = BETAVEC(IDX)
          D1BRACKET(1) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
-         IDX = MINLOC(BETAVEC,1,(BETAVEC>XBRACKET(1)).AND.(LOSSD1VEC+PEND1VEC>=ZERO))
+         IDX = MIN(MINLOC(BETAVEC,1,(BETAVEC>=XBRACKET(1)).AND.(LOSSD1VEC+PEND1VEC>=-EPS)),BRACKETS)
          XBRACKET(3) = BETAVEC(IDX)
          D1BRACKET(3) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
       ELSE
+!
+!     Grid search for negative derivative
+!
          DELTAX = BETA/(BRACKETS-1)
          DO I=2,BRACKETS-1
             BETAVEC(I) = DELTAX*(I-1)
-            CALL SIMPLE_GLM_LOSS(BETAVEC(I),X,C,Y,WT,MODEL,LOSSVEC(I), &
-               LOSSD1VEC(I))
+            IF (ISNEGROOT) THEN
+               CALL SIMPLE_GLM_LOSS(BETAVEC(I),-X,C,Y,WT,MODEL,LOSSVEC(I), &
+                  LOSSD1VEC(I))
+            ELSE
+               CALL SIMPLE_GLM_LOSS(BETAVEC(I),X,C,Y,WT,MODEL,LOSSVEC(I), &
+                  LOSSD1VEC(I))
+            END IF
          END DO
          CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
-         NEGIDX = LOSSD1VEC+PEND1VEC<ZERO
+         !PRINT*, "D1VEC = ", LOSSD1VEC+PEND1VEC
+         !PRINT*, "BETAVEC = ", BETAVEC
+         PAUSE
+         NEGIDX = LOSSD1VEC+PEND1VEC<-EPS
          IF (ANY(NEGIDX)) THEN
             DOBISECTION = .TRUE.
             IDX = MAXLOC(BETAVEC,1,NEGIDX)
@@ -481,7 +499,9 @@
             XBRACKET(3) = BETAVEC(IDX)
             D1BRACKET(3) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
          ELSE
+            DOBISECTION = .FALSE.
             XMIN = ZERO
+            RETURN
          END IF
       END IF
 !
@@ -490,7 +510,11 @@
       IF (DOBISECTION) THEN
          DO
             XBRACKET(2) = HALF*(XBRACKET(1)+XBRACKET(3))
-            CALL SIMPLE_GLM_LOSS(XBRACKET(2),X,C,Y,WT,MODEL,LOSSVEC(2),LOSSD1VEC(2))
+            IF (ISNEGROOT) THEN
+               CALL SIMPLE_GLM_LOSS(XBRACKET(2),-X,C,Y,WT,MODEL,LOSSVEC(2),LOSSD1VEC(2))
+            ELSE
+               CALL SIMPLE_GLM_LOSS(XBRACKET(2),X,C,Y,WT,MODEL,LOSSVEC(2),LOSSD1VEC(2))
+            END IF
             CALL PENALTY_FUN(XBRACKET(2:2),RHO,ETA,PENTYPE,PENVEC(2:2),PEND1VEC(2:2))
             D1BRACKET(2) = LOSSD1VEC(2) + PEND1VEC(2)
             IF (ABS(D1BRACKET(2))<=EPS) THEN
@@ -510,13 +534,12 @@
          END DO
       END IF
 !
-!     Restore X if necessary
+!     Correct root sign
 !
       IF (ISNEGROOT) THEN
          XMIN = -XMIN
-         X = -X
       END IF
-      RETURN
+      RETURN    
       END FUNCTION GLM_THRESHOLDING
 !
       SUBROUTINE SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSS,D1,D2)
@@ -528,8 +551,8 @@
       INTEGER :: I,N
       REAL(KIND=DBLE_PREC) :: BETA,LOSS
       REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
-      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: C,WT,X,Y
+      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=FIVE*TEN
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: INNER,PROB
 !
 !     Check argument
@@ -901,6 +924,7 @@
 !
       DO ITERATION = 1,MAXITERS
          DO J = 1,P
+            !PRINT*, "J = ", J
             OLDROOT = ESTIMATE(J)
             C = INNER - X(:,J)*OLDROOT
             IF (PENIDX(J)) THEN
@@ -908,8 +932,8 @@
             ELSE
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
             END IF
-!            !PRINT*, "OLDROOT = ", OLDROOT
-!            !PRINT*, "ESTIMATE(J) = ", ESTIMATE(J)
+            !PRINT*, "OLDROOT = ", OLDROOT
+            !PRINT*, "ESTIMATE(J) = ", ESTIMATE(J)
             ROOTDIFF = ESTIMATE(J)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
                INNER = INNER + ROOTDIFF*X(:,J)
@@ -921,13 +945,11 @@
          C = ZERO
          CALL SIMPLE_GLM_LOSS(ONE,INNER,C,Y,WT,MODEL,LOSS)
          CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
-         !PRINT*, "ESTIMATE = ", ESTIMATE         
-         !PRINT*, "LOSS = ", LOSS
-         !!PRINT*, "PENALTY = ", PENALTY
          NEW_OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
          IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
             !PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
          END IF
+         !PRINT*, "ESTIMATE = ", ESTIMATE         
 !
 !     Check for a descent failure or convergence.  If neither occurs,
 !     record the new value of the objective function.
