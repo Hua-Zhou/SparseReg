@@ -443,9 +443,6 @@
 !
 !     Flip to positive axis if necessary
 !
-!      PRINT*, "LOSSD1VEC = ", LOSSD1VEC
-!      PRINT*, "BETAVEC = ", BETAVEC
-!      PAUSE
       IF (BETA<ZERO) THEN
          ISNEGROOT = .TRUE.
          BETA = -BETA
@@ -459,9 +456,6 @@
 !
       CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
       NEGIDX = (BETAVEC>=ZERO).AND.(BETAVEC<=BETA).AND.(LOSSD1VEC+PEND1VEC<-EPS)
-!      PRINT*, "D1VEC = ", LOSSD1VEC+PEND1VEC
-!      PRINT*, "BETAVEC = ", BETAVEC
-!      PAUSE
       IF (ANY(NEGIDX)) THEN
          DOBISECTION = .TRUE.
          IDX = MAXLOC(BETAVEC,1,NEGIDX)
@@ -486,9 +480,6 @@
             END IF
          END DO
          CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
-!         PRINT*, "D1VEC = ", LOSSD1VEC+PEND1VEC
-!         PRINT*, "BETAVEC = ", BETAVEC
-!         PAUSE
          NEGIDX = LOSSD1VEC+PEND1VEC<-EPS
          IF (ANY(NEGIDX)) THEN
             DOBISECTION = .TRUE.
@@ -927,7 +918,6 @@
 !
       DO ITERATION = 1,MAXITERS
          DO J = 1,P
-            !PRINT*, "J = ", J
             OLDROOT = ESTIMATE(J)
             C = INNER - X(:,J)*OLDROOT
             IF (PENIDX(J)) THEN
@@ -935,8 +925,6 @@
             ELSE
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
             END IF
-            !PRINT*, "OLDROOT = ", OLDROOT
-            !PRINT*, "ESTIMATE(J) = ", ESTIMATE(J)
             ROOTDIFF = ESTIMATE(J)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
                INNER = INNER + ROOTDIFF*X(:,J)

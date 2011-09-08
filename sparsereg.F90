@@ -415,7 +415,7 @@
       LOGICAL :: DOBISECTION,ISNEGROOT
       LOGICAL, DIMENSION(BRACKETS) :: NEGIDX
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: BETA,DELTAX,ETA,LOSS,LOSSD1,LOSSD2,PEN,PEND1,RHO,XMIN
+      REAL(KIND=DBLE_PREC) :: BETA,DELTAX,ETA,LOSSD2,PEN,PEND1,RHO,XMIN
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
       REAL(KIND=DBLE_PREC), DIMENSION(3) :: XBRACKET,D1BRACKET
       REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: BETAVEC,LOSSVEC,LOSSD1VEC
@@ -433,7 +433,7 @@
       BETA = ZERO
       DO I=1,BRACKETS
          BETAVEC(I) = BETA
-         CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSS,LOSSD1VEC(I),LOSSD2)
+         CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSSVEC(I),LOSSD1VEC(I),LOSSD2)
          BETA = BETA - LOSSD1VEC(I)/LOSSD2
       END DO
       IF (ABS(RHO)<EPS) THEN
@@ -443,25 +443,19 @@
 !
 !     Flip to positive axis if necessary
 !
-      !PRINT*, "LOSSD1VEC = ", LOSSD1VEC
-      !PRINT*, "BETAVEC = ", BETAVEC
-      PAUSE
       IF (BETA<ZERO) THEN
          ISNEGROOT = .TRUE.
          BETA = -BETA
          BETAVEC = -BETAVEC
          LOSSD1VEC = -LOSSD1VEC
       ELSE
-         ISNEGROOT = .FALSE.         
+         ISNEGROOT = .FALSE.
       END IF
 !
 !     Search for negative derivative and use as bracket for bisection
 !
       CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
       NEGIDX = (BETAVEC>=ZERO).AND.(BETAVEC<=BETA).AND.(LOSSD1VEC+PEND1VEC<-EPS)
-      !PRINT*, "D1VEC = ", LOSSD1VEC+PEND1VEC
-      !PRINT*, "BETAVEC = ", BETAVEC
-      PAUSE
       IF (ANY(NEGIDX)) THEN
          DOBISECTION = .TRUE.
          IDX = MAXLOC(BETAVEC,1,NEGIDX)
@@ -486,9 +480,6 @@
             END IF
          END DO
          CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
-         !PRINT*, "D1VEC = ", LOSSD1VEC+PEND1VEC
-         !PRINT*, "BETAVEC = ", BETAVEC
-         PAUSE
          NEGIDX = LOSSD1VEC+PEND1VEC<-EPS
          IF (ANY(NEGIDX)) THEN
             DOBISECTION = .TRUE.
@@ -532,14 +523,17 @@
                EXIT
             END IF
          END DO
-      END IF
 !
-!     Correct root sign
+!     Compare the bracket root to zero
 !
-      IF (ISNEGROOT) THEN
-         XMIN = -XMIN
+         IF (LOSSVEC(1)+PENVEC(1)<LOSSVEC(2)+PENVEC(2)) THEN
+            XMIN = ZERO
+            RETURN
+         ELSEIF (ISNEGROOT) THEN
+            XMIN = -XMIN
+         END IF
       END IF
-      RETURN    
+      RETURN
       END FUNCTION GLM_THRESHOLDING
 !
       SUBROUTINE SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSS,D1,D2)
@@ -924,7 +918,6 @@
 !
       DO ITERATION = 1,MAXITERS
          DO J = 1,P
-            !PRINT*, "J = ", J
             OLDROOT = ESTIMATE(J)
             C = INNER - X(:,J)*OLDROOT
             IF (PENIDX(J)) THEN
@@ -932,8 +925,6 @@
             ELSE
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
             END IF
-            !PRINT*, "OLDROOT = ", OLDROOT
-            !PRINT*, "ESTIMATE(J) = ", ESTIMATE(J)
             ROOTDIFF = ESTIMATE(J)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
                INNER = INNER + ROOTDIFF*X(:,J)
