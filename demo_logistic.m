@@ -1,7 +1,7 @@
 %% simulate data (non-orthogonal design)
 
 clear;
-n = 1000;
+n = 200;
 p = 20;
 maxpreds = [];
 
@@ -11,8 +11,8 @@ X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize
 b = zeros(p+1,1);
 b(2:11) = 1;
 inner = X*b;   % linear parts
-p = exp(inner)./(1+exp(inner));
-y = binornd(1,p);
+prob = exp(inner)./(1+exp(inner));
+y = binornd(1,prob);
 wt = ones(n,1);
 
 %% test glm_maxlambda()
@@ -78,6 +78,10 @@ title([pentype ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
 penalty = {'enet' 'enet' 'power' 'power' 'log' 'log'...
     'mcp' 'scad'};
 eta = [1 1.5 0.5 1 0 1 1 3.7];
+model = 'logistic';
+wt = [];
+penidx = [];
+maxpreds = [];
 
 % penalty = {'enet' 'enet' 'power' 'power' 'log' ...
 %     'mcp' 'scad'};
@@ -88,7 +92,7 @@ for i=1:length(penalty)
 % profile on;
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},eta(i));
+    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},eta(i),model);
 timing = toc;
 display(timing);
 % profile viewer;
@@ -109,7 +113,7 @@ title([penalty{i} ':\eta=' num2str(eta(i)) ', ' num2str(timing) ' secs']);
 % set(get(AX(2),'Ylabel'),'String','number of parameters');
 % title([penalty ': \eta=' num2str(eta)]);
 end
-text(1.2*max(rho_path),0,['n=' num2str(n) ', p=' num2str(p) ', ' ...
+text(1.2*max(rho_path),0,['model=' model ' n=' num2str(n) ', p=' num2str(p) ', ' ...
     ' maxpreds=' num2str(maxpreds)],'FontSize',15,'HorizontalAlignment','left');
 
 % orient landscape
