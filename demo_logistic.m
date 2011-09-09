@@ -14,26 +14,54 @@ inner = X*b;   % linear parts
 p = exp(inner)./(1+exp(inner));
 y = binornd(1,p);
 wt = ones(n,1);
-penidx = [false; true(size(X,2)-1,1)];
 
-%% test
+%% test glm_maxlambda()
+
 c = [];
 pentype = 'enet';
-penparam = 1;
+penparam = 1.5;
 model = 'logistic';
 for j=1:size(X,2)
     maxlambda = glm_maxlambda(X(:,j),c,y,wt,pentype,penparam,model);
     display(maxlambda);
 end
 
+%% test glm_thresholding()
+
+C = zeros(size(X,1),1);
+pentype = 'enet';
+penparam = 1;
+model = 'logistic';
+lambda = .5;
+betahat = ...
+    glm_thresholding(X,C,y,wt,lambda,pentype,penparam,model);
+display(betahat');
+
+%% test glm_sparsereg()
+
+penidx = [];
+pentype = 'scad';
+penparam = 3;
+model = 'logistic';
+x0 = [];
+maxiter = [];
+lambda = 1;
+betahat = ...
+    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,pentype,penparam,model);
+display(betahat');
+
 %% individual tests
 
-penalty = 'mcp';
-penparam = 5;
+maxpreds = [];
+model = 'logistic';
+pentype = 'scad';
+penparam = 3.7;
+penidx = [];
+wt = [];
 % profile on;
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam);
+    glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model);
 timing = toc;
 % profile viewer;
 
@@ -43,10 +71,9 @@ plot(rho_path,beta_path);
 xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
-title([penalty ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
+title([pentype ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
 
-
-%% test lsq_sparsepath
+%% test glm_sparsepath
 
 penalty = {'enet' 'enet' 'power' 'power' 'log' 'log'...
     'mcp' 'scad'};

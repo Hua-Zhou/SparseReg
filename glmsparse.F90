@@ -2,7 +2,7 @@
 !
 		SUBROUTINE MEXFUNCTION(NLHS, PLHS, NRHS, PRHS)
 !
-!     This is the gateway subroutine for LSQSPARSE mex function
+!     This is the gateway subroutine for GLMSPARSE mex function
 !
 		USE SPARSEREG
 		IMPLICIT NONE
@@ -26,35 +26,35 @@
       REAL(KIND=DBLE_PREC) :: MAXITERSREAL,LAMBDA
       CHARACTER(LEN=10) :: MODEL,PENTYPE
       LOGICAL, ALLOCATABLE, DIMENSION(:) :: PENIDX
-      REAL(KIND=DBLE_PREC), ALLOCATABLE, DIMENSION(:) :: ESTIMATE,PENPARAM,SUM_X_SQUARES,WT,Y
+      REAL(KIND=DBLE_PREC), ALLOCATABLE, DIMENSION(:) :: ESTIMATE,PENPARAM,WT,Y
       REAL(KIND=DBLE_PREC), ALLOCATABLE, DIMENSION(:,:) :: X
 !
 !     CHECK FOR INPUT ARGUMENT TYPES
 !
       IF (NRHS.NE.10) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:nInput','Nine input requried.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:nInput','Ten input requried.')
       ELSEIF (NLHS.NE.1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:nOutput','One output requried.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:nOutput','One output requried.')
       ELSEIF (MXISNUMERIC(PRHS(1))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input1','Input 1 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input1','Input 1 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(2))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input2','Input 2 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input2','Input 2 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(3))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input3','Input 3 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input3','Input 3 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(4))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input4','Input 4 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input4','Input 4 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(5))/=1.OR.MXGETM(PRHS(5))*MXGETN(PRHS(5))>1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input5','Input 5 must be a scalar.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input5','Input 5 must be a scalar.')
       ELSEIF (MXISLOGICAL(PRHS(6))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input6','Input 6 must be a numerical array.')
-      ELSEIF (MXISNUMERIC(PRHS(7))/=1.OR.MXGETM(PRHS(8))*MXGETN(PRHS(8))>1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input7','Input 7 must be a scalar.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input6','Input 6 must be a numerical array.')
+      ELSEIF (MXISNUMERIC(PRHS(7))/=1.OR.MXGETM(PRHS(7))*MXGETN(PRHS(7))>1) THEN
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input7','Input 7 must be a scalar.')
       ELSEIF (MXISCHAR(PRHS(8))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input8','Input 8 must be a string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input8','Input 8 must be a string.')
       ELSEIF (MXISNUMERIC(PRHS(9))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input9','Input 9 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input9','Input 9 must be a numerical array.')
       ELSEIF (MXISCHAR(PRHS(10))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:Input10','Input 10 must be a string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:Input10','Input 10 must be a string.')
       END IF
 !
 !     PREPARE INPUTS FOR COMPUTATIONAL ROUTINE
@@ -77,21 +77,21 @@
       PENNAMELEN = MXGETM(PRHS(8))*MXGETN(PRHS(8))
       STATUS = MXGETSTRING(PRHS(8), PENTYPE, PENNAMELEN)
       IF (STATUS/=0) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:readError','Error reading string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:readError','Error reading string.')
       END IF
       PENPARAMS = MXGETM(PRHS(9))*MXGETN(PRHS(9))
       ALLOCATE(PENPARAM(PENPARAMS))
       CALL MXCOPYPTRTOREAL8(MXGETPR(PRHS(9)),PENPARAM,PENPARAMS)      
       MODELNAMELEN = MXGETM(PRHS(10))*MXGETN(PRHS(10))
-      STATUS = MXGETSTRING(PRHS(10), MODEL, MODELNAMELEN)
+      STATUS = MXGETSTRING(PRHS(10),MODEL,MODELNAMELEN)
       IF (STATUS/=0) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqsparse:readError','Error reading string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmsparse:readError','Error reading string.')
       END IF
 !
 !     CALL THE COMPUTATION ROUTINE
 !
       CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
-         PENIDX,MAXITERS,PENTYPE(1:PENNAMELEN),PENPARAM,MODEL)
+         PENIDX,MAXITERS,PENTYPE(1:PENNAMELEN),PENPARAM,MODEL(1:MODELNAMELEN))
 !
 !     COPY RESULT TO MATLAB ARRAYS
 !
@@ -104,7 +104,7 @@
       RETURN
 		END SUBROUTINE MEXFUNCTION
 
-      SUBROUTINE MXCOPYPTRTOLOGICAL( PTR, FORTRAN, N )
+      SUBROUTINE MXCOPYPTRTOLOGICAL(PTR, FORTRAN, N )
       IMPLICIT NONE
       MWSIZE, INTENT(IN) :: N
       MWPOINTER, INTENT(IN) :: PTR
@@ -114,4 +114,3 @@
       FORTRAN = (LOGICALDATA /= 0)
       RETURN
       END SUBROUTINE
-      

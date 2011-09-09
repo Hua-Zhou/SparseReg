@@ -1,7 +1,7 @@
 function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam)
-% LSQ_SPARSEREG Solution path for sparse least squares regression
-%   argmin .5*sum(wt.*(y-X*beta).^2)+rho*sum(penfun(beta(penidx)))
+    glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model)
+% GLM_SPARSEREG Solution path for sparse GLM regression
+%   argmin loss(beta) + rho*sum(penfun(beta(penidx)))
 %
 % INPUT:
 %   X - n-by-p design matrix
@@ -66,31 +66,23 @@ if (strcmp(pentype,'ENET'))
     elseif (penparam<1 || penparam>2)
         error('index parameter for ENET penalty should be in [1,2]');
     end
-    isconvex = true;
 elseif (strcmp(pentype,'LOG'))
     if (isempty(penparam))
         penparam = 1;
     elseif (penparam<0)
         error('index parameter for LOG penalty should be nonnegative');
     end
-    isconvex = false;
 elseif (strcmp(pentype,'MCP'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0)
         error('index parameter for MCP penalty should be positive');
     end
-    isconvex = false;
 elseif (strcmp(pentype,'POWER'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0 || penparam>2)
         error('index parameter for POWER penalty should be in (0,2]');
-    end
-    if (penparam<=1)
-        isconvex = false;
-    else
-        isconvex = true;
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
@@ -98,39 +90,28 @@ elseif (strcmp(pentype,'SCAD'))
     elseif (penparam<=2)
         error('index parameter for SCAD penalty should be larger than 2');
     end
-    isconvex = false;
 else
     error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
+model = upper(model);
+if (strcmp(model,'LOGISTIC'))
+    if (any(y<0) || any(y>1))
+       error('responses outside [0,1]'); 
+    end
+else
+    error('model not recogonized. LOGISTIC|POISSON accepted');
+end
+
 % precompute and allocate storage for path
 tiny = 1e-4;
-b = - X'*(wt.*y);
-sum_x_squares = wt'*(X.*X);
-islargep = maxpreds<p || p>=1000;
+islargep = p>=1000;
 if (islargep)
-    A = sparse(p,p);    % compute A on-the-fly
     beta_path = sparse(p,1);
 else
-    A = X'*bsxfun(@times,X,wt);    % p-by-p
     beta_path = zeros(p,1);
 end
 rho_path = 0;
-
-% find MLE of unpenalized coefficients
-setKeep = ~penidx;      % set of unpenalized coefficients
-setPenZ = penidx;       % set of penalized coefficients that are zero
-setPenNZ = false(p,1);  % set of penalized coefficients that are non-zero
-coeff = zeros(p,1);     % subgradient coefficients
-if (nnz(setKeep)>min(n,p))
-    error('number of unpenalized coefficients exceeds rank of X');
-end
-if (islargep)
-    A(:,setKeep) = X'*bsxfun(@times,X(:,setKeep),wt);
-    A(setKeep,:) = A(:,setKeep)';
-    setAcomputed = setKeep;
-end
-beta_path(setKeep,1) = - A(setKeep,setKeep)\b(setKeep);
 
 % set up ODE solver and unconstrained optimizer
 maxiters = 2*min([n,p]);    % max iterations for path algorithm
@@ -140,29 +121,39 @@ odeopt = odeset('Events',@events, 'Refine',refine);
 fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
 tfinal = 0;
 
+% find MLE of unpenalized coefficients
+setKeep = ~penidx;      % set of unpenalized coefficients
+setPenZ = penidx;       % set of penalized coefficients that are zero
+setPenNZ = false(p,1);  % set of penalized coefficients that are non-zero
+coeff = zeros(p,1);     % subgradient coefficients
+if (nnz(setKeep)>min(n,p))
+    error('number of unpenalized coefficients exceeds rank of X');
+end
+if (any(setKeep))
+    x0 = fminunc(@glmfun,zeros(nnz(setKeep),1),fminopt, ...
+        X(:,setKeep),y,wt,model);
+    beta_path(setKeep,1) = x0;
+else
+    beta_path(:,1) = 0;
+end
+
 % determine the maximum rho to start
-d1f = A(:,setKeep)*beta_path(setKeep,1)+b;
-[d1fnext,inext] = max(abs(d1f));
-rho = lsq_maxlambda(sum_x_squares(inext),d1fnext,pentype,penparam);
+[~,d1f] = glmfun(beta_path(:,1),X,y,wt,model);
+[~,inext] = max(abs(d1f));
+rho = glm_maxlambda(X(:,inext),X*beta_path(:,1),y,wt,pentype,penparam,model);
 rho_path(1) = rho;
 
 % determine active set and refine solution
 rho = max(rho-tiny,0);
 % update activeSet
-x0 = lsq_sparsereg(X,y,wt,rho,beta_path(:,1),sum_x_squares,...
-    penidx,maxrounds,pentype,penparam);
+x0 = glm_sparsereg(X,y,wt,rho,beta_path(:,1),penidx,maxrounds,...
+    pentype,penparam,model);
 setPenZ = abs(x0)<1e-8;
 setPenNZ = ~setPenZ;
 setPenZ(setKeep) = false;
 setPenNZ(setKeep) = false;
 setActive = setKeep|setPenNZ;
 coeff(setPenNZ) = sign(x0(setPenNZ));
-if (islargep)
-    setAnew = find(setActive&(~setAcomputed));
-    A(:,setAnew) = X'*bsxfun(@times,X(:,setAnew),wt);
-    A(setAnew,:) = A(:,setAnew)';
-    setAcomputed = setActive|setAcomputed;
-end
 % improve parameter estimates
 [x0, fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
 rho_path = [rho_path rho];
@@ -185,20 +176,15 @@ for k=2:maxiters
     rho = max(rho_path(end)-tiny,0);
     x0 = beta_path(:,end);
     x0(setPenZ) = coeff(setPenZ);
-    x0 = lsq_sparsereg(X,y,wt,rho,full(x0),sum_x_squares,...
-        penidx,maxrounds,pentype,penparam);
+    x0 = glm_sparsereg(X,y,wt,rho,x0,penidx,maxrounds,...
+        pentype,penparam,model);
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
     setPenZ(setKeep) = false;
     setPenNZ(setKeep) = false;
     setActive = setKeep|setPenNZ;
     coeff(setPenNZ) = sign(x0(setPenNZ));
-    if (islargep)
-        setAnew = find(setActive&(~setAcomputed));
-        A(:,setAnew) = X'*bsxfun(@times,X(:,setAnew),wt);  %#ok<SPRIX>
-        A(setAnew,:) = A(:,setAnew)'; %#ok<SPRIX>
-        setAcomputed = setActive|setAcomputed;
-    end
+
     % improve parameter estimates
     [x0,fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
     rho_path = [rho_path rho];
@@ -222,9 +208,8 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
         value(setPenNZ) = x(penidx(setActive));
         % try coordinate descent direction for zero coeffs
         if (any(setPenZ))
-            d2PenZ = sum_x_squares(setPenZ);
-            d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
-            xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
+            xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
+                X(:,setActive)*x,y,wt,t,pentype,penparam,model);
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;
         end
@@ -239,34 +224,68 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
         if (any(setPenNZ))
             dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
         end
-        M = A(setActive,setActive);
+        [~,~,M] = glmfun(x,X(:,setActive),y,wt,model);
         diagidx = find(penidx(setActive));
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
         dx = - M\dx;
         if (any(isinf(dx)))
-            dx(isinf(dx)) = 1e9*sign(dx(isinf(dx)));
+            dx(isinf(dx)) = 1e8*sign(dx(isinf(dx)));
         end
     end%ODEFUN
 
     function [f, d1f, d2f] = objfun(x, t)
-        [pen,d1pen,d2pen] = ...
-            penalty_function(x(penidx(setActive)),t,pentype,penparam);
-        f = 0.5*x'*A(setActive,setActive)*x + b(setActive)'*x ...
-            + sum(pen);
-        if (nargout>1)
-            d1f = A(setActive,setActive)*x + b(setActive);
+        if (nargout<=1)
+            [pen] = ...
+                penalty_function(x(penidx(setActive)),t,pentype,penparam);
+            [loss] = glmfun(x,X(:,setActive),y,wt,model);
+            f = loss + sum(pen);
+        elseif (nargout==2)
+            [pen,d1pen] = ...
+                penalty_function(x(penidx(setActive)),t,pentype,penparam);
+            [loss,lossd1] = glmfun(x,X(:,setActive),y,wt,model);
+            f = loss + sum(pen);
+            d1f = lossd1;
             if (any(setPenNZ))
                 d1f(penidx(setActive)) = d1f(penidx(setActive)) + ...
                     coeff(setPenNZ).*d1pen;
             end
-        end
-        if (nargout>2)
-            d2f = A(setActive,setActive);
+        elseif (nargout==3)
+            [pen,d1pen,d2pen] = ...
+                penalty_function(x(penidx(setActive)),t,pentype,penparam);
+            [loss,lossd1,lossd2] = glmfun(x,X(:,setActive),y,wt,model);
+            f = loss + sum(pen);
+            d1f = lossd1;
+            if (any(setPenNZ))
+                d1f(penidx(setActive)) = d1f(penidx(setActive)) + ...
+                    coeff(setPenNZ).*d1pen;
+            end
+            d2f = lossd2;
             diagidx = find(penidx(setActive));
             diagidx = (diagidx-1)*length(x) + diagidx;
             d2f(diagidx) = d2f(diagidx) + d2pen;
         end
     end%objfun
+
+    function [loss,lossd1,lossd2] = glmfun(beta,X,y,wt,model)
+        inner = X*beta;
+        switch upper(model)
+            case 'LOGISTIC'
+                loss = - sum(wt.*(y.*inner-log(1+exp(inner))));
+        end
+        if (nargout>1)
+           switch upper(model)
+               case 'LOGISTIC'
+                   prob = exp(inner)./(1+exp(inner));
+                   lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
+           end
+        end
+        if (nargout>2)
+            switch upper(model)
+                case 'LOGISTIC'
+                    lossd2 = X' * bsxfun(@times, wt.*prob.*(1-prob), X);
+            end
+        end
+    end
 
 end

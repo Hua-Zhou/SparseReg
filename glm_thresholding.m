@@ -1,55 +1,50 @@
-function [maxlambda] = glm_maxlambda(x,c,y,wt,pentype,penparam,model)
-%GLM_MAXLAMBDA Find the max lambda such that
-%       argmin loss(beta*x+c) + pen(abs(beta),lambda)
-%   is nonzero
+function [xmin] = glm_thresholding(X,C,y,wt,lambda,pentype,penparam,model)
+% GLM_THRESHOLDING Performs univariate GLM thresholding
+%   argmin loss(x) + pen(abs(x),lambda)
 %
 % INPUT
-%   x: n-by-1 predictor vector
-%   c: n-by-1 constant vector
-%   y: n-by-1 response vector
-%   pentype - 'enet'|'log'|'mcp'|'power'|'scad'
+%   X - n-by-p predictor vectors
+%   C - n-by-1 constant vector
+%   y - n-by-1 response vector
+%   wt - n-by-1 weight vector
+%   lambda - penalty constant (>=0)
+%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
 %   penargs - index parameter for penalty function penname; allowed range
 %       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
 %       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
-%   model - GLM model "logistic"|"poisson"
+%   model - GLM model specifier
 %
 % OUTPUT
-%   maxlambda: max lambda such that argmin loss(x)+pen(abs(x),lambda)
-%       becomes nonzero
+%   xmin(j) - argmin loss(X(:,j),y,wt) + pen(abs(x),lambda)
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 % RELEASE DATE: ??/??/????
 
 % check proper input arguments
-if (size(x,1)>1 && size(x,2)>1)
-    error('x must be a vector');
-else
-    n = length(x);
+n = size(X,1);
+if (numel(C)~=n)
+    error('X and C have incompatible sizes');
+elseif (size(C,1)==1)
+    C = C';
 end
 
-if (size(c,1)>1 && size(c,2)>1)
-    error('c must be a vector');
-elseif (isempty(c))
-    c = zeros(n,1);
-elseif (length(c)~=n)
-    error('size of c is incompatible with x');
+if (length(y)~=n)
+    error('y has incompatible size');
+elseif (size(y,1)==1)
+    y = y';
 end
 
-if (size(y,1)>1 && size(y,2)>1)
-    error('y must be a vector');
-elseif (length(y)~=n)
-    error('size of y is incompatible with x');
-end
-
-if (size(wt,1)>1 && size(wt,2)>1)
-    error('wt must be a vector');
-elseif (isempty(wt))
+if (isempty(wt))
     wt = ones(n,1);
 elseif (length(wt)~=n)
-    error('size of wt is incompatible with x');
+    error('wt has incompatible size');
 elseif (any(wt<=0))
-    error('weights wt should be positive');
+    erro('wt should be positive');
+end
+
+if (lambda<0)
+    error('penalty constant lambda should be nonnegative');
 end
 
 pentype = upper(pentype);
@@ -97,6 +92,6 @@ else
 end
 
 % call the mex function
-maxlambda = glmmaxlambda(x,c,y,wt,pentype,penparam,model);
+xmin = glmthresholding(X,C,y,wt,lambda,penparam,pentype,model);
 
 end

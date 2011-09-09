@@ -1,7 +1,7 @@
 function [betahat] = ...
-    lsq_sparsereg(X,y,wt,lambda,x0,sum_x_squares,penidx,maxiter,pentype,penparam)
-%LSQ_SPARSEREG Sparse least squares regression at a fixed penalty value
-%   Compute argmin 0.5*sum(wt*(y-X*beta).^2) + penalty(beta(penidx),lambda)
+    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,pentype,penparam,model)
+% GLM_SPARSEREG Sparse GLM regression at a fixed penalty value
+%   Compute argmin loss(beta) + penalty(beta(penidx),lambda)
 %    
 % INPUT
 %   X - n-by-p design matrix
@@ -9,13 +9,13 @@ function [betahat] = ...
 %   wt - n-by-1 weights; set to ones if empty
 %   lambda - penalty constant (>=0)
 %   x0 - p-by-1 initial estimate; set to zeros if empty
-%   sum_x_squares - sum(wt*X.^2,1); automatically computed if empty
-%   penidx - logical vector indicating penalized coefficients; set to trues
-%       if empty
+%   penidx - p-by-1 logical vector indicating penalized coefficients; 
+%       set to trues if empty
 %   maxiter - maxmum number of iterations; set to 1000 if empty
 %   pentype - ENET|LOG|MCP|POWER|SCAD
 %   penparam - index parameter for penalty; if empty, set to default values:
 %       ENET, 1, LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%   model - GLM model specifiler: logistic|poisson
 %
 % OUTPUT
 %   betahat - regression coefficient estimate
@@ -33,9 +33,6 @@ elseif (numel(x0)~=p)
     error('x0 has incompatible size');
 elseif (size(x0,1)==1)
     x0 = x0';
-end
-if (issparse(x0))
-    x0 = full(x0);
 end
 
 if (numel(y)~=n)
@@ -56,14 +53,6 @@ end
 
 if (lambda<0)
     error('penalty constant lambda should be nonnegative');
-end
-
-if (isempty(sum_x_squares))
-    sum_x_squares = sum(bsxfun(@times, wt, X.*X),1)';
-elseif (numel(sum_x_squares)~=p)
-    error('sum_x_squares has incompatible size');
-elseif (size(x0,1)==1)
-    sum_x_squares = sum_x_squares';
 end
 
 if (isempty(penidx))
@@ -115,8 +104,17 @@ else
     error('penalty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
+model = upper(model);
+if (strcmp(model,'LOGISTIC'))
+    if (any(y<0) || any(y>1))
+       error('responses outside [0,1]'); 
+    end
+else
+    error('model not recogonized. LOGISTIC|POISSON accepted');
+end
+
 % call the mex function
 betahat = ...
-    lsqsparse(x0,X,y,wt,lambda,sum_x_squares,penidx,maxiter,pentype,penparam);
+    glmsparse(x0,X,y,wt,lambda,penidx,maxiter,pentype,penparam,model);
 
 end

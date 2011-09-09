@@ -2,7 +2,7 @@
 !
 		SUBROUTINE MEXFUNCTION(NLHS, PLHS, NRHS, PRHS)
 !
-!     This is the gateway subroutine for LSQSPARSE mex function
+!     This is the gateway subroutine for GLMMAXLAMBDA mex function
 !
 		USE SPARSEREG
 		IMPLICIT NONE
@@ -24,29 +24,29 @@
       INTEGER :: MAXITERS,STATUS
       MWSIZE :: I,MODELNAMELEN,N,PENNAMELEN,PENPARAMS
       CHARACTER(LEN=10) :: MODEL,PENTYPE
-      REAL(KIND=DBLE_PREC) :: MAXLAMBDA
+      REAL(KIND=DBLE_PREC), DIMENSION(1) :: MAXLAMBDA
       REAL(KIND=DBLE_PREC), ALLOCATABLE, DIMENSION(:) :: C,PENPARAM,WT,X,Y
 !
 !     CHECK FOR INPUT/OUTPUT ARGUMENT TYPES
 !
       IF (NRHS.NE.7) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:nInput','Seven input requried.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:nInput','Seven input requried.')
       ELSEIF (NLHS>1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:nOutput','At most one output requried.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:nOutput','At most one output requried.')
       ELSEIF (MXISNUMERIC(PRHS(1))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input1','Input 1 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input1','Input 1 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(2))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input2','Input 2 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input2','Input 2 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(3))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input3','Input 3 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input3','Input 3 must be a numerical array.')
       ELSEIF (MXISNUMERIC(PRHS(4))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input4','Input 4 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input4','Input 4 must be a numerical array.')
       ELSEIF (MXISCHAR(PRHS(5))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input5','Input 5 must be a string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input5','Input 5 must be a string.')
       ELSEIF (MXISNUMERIC(PRHS(6))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input6','Input 6 must be a numerical array.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input6','Input 6 must be a numerical array.')
       ELSEIF (MXISCHAR(PRHS(7))/=1) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:Input7','Input 7 must be a string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:Input7','Input 7 must be a string.')
       END IF
 !
 !     PREPARE INPUTS FOR COMPUTATIONAL ROUTINE
@@ -60,7 +60,7 @@
       PENNAMELEN = MXGETM(PRHS(5))*MXGETN(PRHS(5))
       STATUS = MXGETSTRING(PRHS(5), PENTYPE, PENNAMELEN)
       IF (STATUS/=0) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:readError','Error reading string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:readError','Error reading string.')
       END IF
       PENPARAMS = MXGETM(PRHS(6))*MXGETN(PRHS(6))
       ALLOCATE(PENPARAM(PENPARAMS))
@@ -68,12 +68,12 @@
       MODELNAMELEN = MXGETM(PRHS(7))*MXGETN(PRHS(7))
       STATUS = MXGETSTRING(PRHS(7), MODEL, MODELNAMELEN)
       IF (STATUS/=0) THEN
-         CALL MEXERRMSGIDANDTXT('MATLAB:lsqmaxlambda:readError','Error reading string.')
+         CALL MEXERRMSGIDANDTXT('MATLAB:glmmaxlambda:readError','Error reading string.')
       END IF
 !
 !     CALL THE COMPUTATION ROUTINE AND COPY RESULT TO MATLAB ARRAYS
 !
-      MAXLAMBDA = GLM_MAXRHO(X,C,Y,WT,PENTYPE,PENPARAM,MODEL)
+      MAXLAMBDA(1) = GLM_MAXRHO(X,C,Y,WT,PENTYPE,PENPARAM,MODEL)
       PLHS(1) = MXCREATEDOUBLEMATRIX(1,1,0)
       CALL MXCOPYREAL8TOPTR(MAXLAMBDA,MXGETPR(PLHS(1)),1)
 !
