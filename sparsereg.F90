@@ -541,6 +541,7 @@
 !     This subroutine computes the loss, derivative, and second derivative
 !     of a GLM model with linear part: X*BETA+C
 !
+      IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL
       INTEGER :: I,N
       REAL(KIND=DBLE_PREC) :: BETA,LOSS
@@ -613,6 +614,7 @@
 !     PENTYPE are "ENET","LOG","MCP","POWER","SCAD". PENPARAM contains the
 !     optional parameter for the penalty function.
 !
+      IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
       REAL(KIND=DBLE_PREC) :: A,B,ETA,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
@@ -737,6 +739,107 @@
          RETURN
       END SELECT
       END FUNCTION MAX_RHO
+!
+      FUNCTION GLM_MAXRHO(X,C,Y,WT,PENTYPE,PENPARAM,MODEL) RESULT(MAXRHO)
+!
+!     This subroutine finds the maximum penalty constant rho such that
+!     argmin loss(x)+penalty(x,rho) is nonzero. Current options for
+!     PENTYPE are "ENET","LOG","MCP","POWER","SCAD". PENPARAM contains the
+!     optional parameter for the penalty function.
+!
+      IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
+      INTEGER, PARAMETER :: GRIDPTS=50
+      INTEGER :: I
+      LOGICAL :: ISINFRHO,ISNEGROOT
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8,MULTIPLIER=TWO
+      REAL(KIND=DBLE_PREC) :: DELTABETA,ETA,L,LOSS,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: C,PENPARAM,WT,X,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(GRIDPTS) :: BETAGRID,LOSSGRID,PENGRID
+!
+!     Figure out whether max rho is infinity
+!
+      ETA = PENPARAM(1)
+      SELECT CASE(PENTYPE)
+      CASE("ENET")
+         IF (ABS(ETA-TWO)<EPS) THEN
+            ISINFRHO = .TRUE.
+         ELSE
+            ISINFRHO = .FALSE.
+         END IF
+      CASE("LOG")
+         ISINFRHO = .FALSE.
+      CASE("MCP")
+         ISINFRHO = .FALSE.
+      CASE("POWER")
+         IF (ETA>ONE) THEN
+            ISINFRHO = .TRUE.
+         ELSE
+            ISINFRHO = .FALSE.
+         END IF
+      CASE("SCAD")
+         ISINFRHO = .FALSE.
+      END SELECT
+!
+!     Compute unpenalized root
+!
+      L = ZERO
+      ROOTL = GLM_THRESHOLDING(X,C,Y,WT,L,ETA,PENTYPE,MODEL)
+      IF (ROOTL<ZERO) THEN
+         ISNEGROOT = .TRUE.
+      END IF
+!
+!     If max rho is infinity, output rho such that estimate<.1*unbiased estimate
+!
+      IF (ISINFRHO) THEN
+         R = ONE
+         DO 
+            ROOTR = GLM_THRESHOLDING(X,C,Y,WT,R,ETA,PENTYPE,MODEL)
+            IF (ABS(ROOTR)<=ABS(ROOTL)/TEN) THEN
+               EXIT
+            END IF
+            R = R*MULTIPLIER
+         END DO
+         MAXRHO = R
+         RETURN
+      END IF
+!
+!     Crude search for right bracket
+!
+      DELTABETA = ROOTL/(GRIDPTS-1)
+      DO I=1,GRIDPTS
+         BETAGRID(I) = DELTABETA*(I-1)
+         CALL SIMPLE_GLM_LOSS(BETAGRID(I),X,C,Y,WT,MODEL,LOSSGRID(I))
+      END DO
+      R = ONE
+      DO
+         CALL PENALTY_FUN(BETAGRID,R,ETA,PENTYPE,PENGRID)
+         IF (ALL(LOSSGRID+PENGRID>=LOSSGRID(1)+PENGRID(1)-EPS)) THEN
+            EXIT
+         ELSE
+            R = R*MULTIPLIER
+         END IF
+      END DO
+      ROOTR = ZERO
+!
+!     Bisection to locate the max rho
+!
+      DO
+         M = HALF*(L+R)
+         ROOTM = GLM_THRESHOLDING(X,C,Y,WT,M,ETA,PENTYPE,MODEL)
+         IF (ABS(ROOTM)>EPS) THEN
+            L = M
+            ROOTL = ROOTM
+         ELSE
+            R = M
+            ROOTR = ROOTM
+         END IF
+         IF (ABS(L-R)<EPS) THEN
+            MAXRHO = HALF*(L+R)
+            EXIT
+         END IF
+      END DO
+      END FUNCTION GLM_MAXRHO
 !
       SUBROUTINE PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
          SUM_X_SQUARES,PENIDX,MAXITERS,PENTYPE,PENPARAM)
@@ -958,3 +1061,5 @@
       END SUBROUTINE PENALIZED_GLM_REGRESSION
 !
       END MODULE SPARSEREG
+
+      

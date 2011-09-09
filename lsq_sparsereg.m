@@ -47,6 +47,8 @@ elseif (numel(wt)~=n)
     error('wt has incompatible size');
 elseif (size(wt,1)==1)
     wt = wt';
+elseif (any(wt<=0))
+    error('weights wt should be positive');    
 end
 
 if (lambda<0)
