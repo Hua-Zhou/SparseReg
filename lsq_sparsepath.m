@@ -130,7 +130,11 @@ if (islargep)
     A(setKeep,:) = A(:,setKeep)';
     setAcomputed = setKeep;
 end
-beta_path(setKeep,1) = - A(setKeep,setKeep)\b(setKeep);
+if (any(setKeep))
+    beta_path(setKeep,1) = - A(setKeep,setKeep)\b(setKeep);
+else
+    beta_path(:,1) = 0;
+end
 
 % set up ODE solver and unconstrained optimizer
 maxiters = 2*min([n,p]);    % max iterations for path algorithm

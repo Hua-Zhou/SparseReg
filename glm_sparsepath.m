@@ -42,7 +42,7 @@ elseif (numel(wt)~=n)
 elseif (size(wt,1)==1)
     wt = wt';
 elseif (any(wt<=0))
-    error('weights wt should be positive');    
+    error('wt should be positive');    
 end
 
 if (isempty(penidx))
@@ -66,23 +66,31 @@ if (strcmp(pentype,'ENET'))
     elseif (penparam<1 || penparam>2)
         error('index parameter for ENET penalty should be in [1,2]');
     end
+    isconvex = true;
 elseif (strcmp(pentype,'LOG'))
     if (isempty(penparam))
         penparam = 1;
     elseif (penparam<0)
         error('index parameter for LOG penalty should be nonnegative');
     end
+    isconvex = false;
 elseif (strcmp(pentype,'MCP'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0)
         error('index parameter for MCP penalty should be positive');
     end
+    isconvex = false;
 elseif (strcmp(pentype,'POWER'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0 || penparam>2)
         error('index parameter for POWER penalty should be in (0,2]');
+    end
+    if (penparam<1) 
+        isconvex  = true;
+    else
+        isconvex = false;
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
@@ -90,6 +98,7 @@ elseif (strcmp(pentype,'SCAD'))
     elseif (penparam<=2)
         error('index parameter for SCAD penalty should be larger than 2');
     end
+    isconvex = false;
 else
     error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
@@ -140,7 +149,8 @@ end
 % determine the maximum rho to start
 [~,d1f] = glmfun(beta_path(:,1),X,y,wt,model);
 [~,inext] = max(abs(d1f));
-rho = glm_maxlambda(X(:,inext),X*beta_path(:,1),y,wt,pentype,penparam,model);
+rho = glm_maxlambda(X(:,inext),X(:,setKeep)*beta_path(setKeep,1), ...
+    y,wt,pentype,penparam,model);
 rho_path(1) = rho;
 
 % determine active set and refine solution
@@ -201,13 +211,17 @@ for k=2:maxiters
         break;
     end
 end
-fval_kinks = fval_kinks + norm(wt.*y)^2;
 
     function [value,isterminal,direction] = events(t,x)
         value = ones(p,1);
         value(setPenNZ) = x(penidx(setActive));
         % try coordinate descent direction for zero coeffs
-        if (any(setPenZ))
+        if (isconvex)
+            [~,lossD1PenZ] = ...
+                glmfun(x,X(setPenZ,setActive),y(setPenZ),wt(setPenZ),model);
+            [~,penD1PenZ] = ...
+                penalty_function(x(penidx(setActive)),t,pentype,penparam);
+        elseif (any(setPenZ))
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
                 X(:,setActive)*x,y,wt,t,pentype,penparam,model);
             coeff(setPenZ) = xPenZ_trial;

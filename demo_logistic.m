@@ -39,9 +39,9 @@ display(betahat');
 
 %% test glm_sparsereg()
 
-penidx = [];
-pentype = 'scad';
-penparam = 3;
+penidx = [false; true(size(X,2)-1,1)];
+pentype = 'log';
+penparam = 1;
 model = 'logistic';
 x0 = [];
 maxiter = [];
@@ -54,16 +54,16 @@ display(betahat');
 
 maxpreds = [];
 model = 'logistic';
-pentype = 'scad';
-penparam = 3.7;
-penidx = [];
+pentype = 'power';
+penparam = 0.5;
+penidx = [false; true(size(X,2)-1,1)];
 wt = [];
-% profile on;
+profile on;
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
     glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model);
 timing = toc;
-% profile viewer;
+profile viewer;
 
 figure;
 set(gca,'FontSize',15);
@@ -113,7 +113,7 @@ title([penalty{i} ':\eta=' num2str(eta(i)) ', ' num2str(timing) ' secs']);
 % set(get(AX(2),'Ylabel'),'String','number of parameters');
 % title([penalty ': \eta=' num2str(eta)]);
 end
-text(1.2*max(rho_path),0,['model=' model ' n=' num2str(n) ', p=' num2str(p) ', ' ...
+text(1.2*max(rho_path),0,[model ', n=' num2str(n) ', p=' num2str(p) ', ' ...
     ' maxpreds=' num2str(maxpreds)],'FontSize',15,'HorizontalAlignment','left');
 
 % orient landscape
