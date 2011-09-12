@@ -1,6 +1,6 @@
 function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
     glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model)
-% GLM_SPARSEREG Solution path for sparse GLM regression
+% GLM_SPARSEPATH Solution path for sparse GLM regression
 %   argmin loss(beta) + rho*sum(penfun(beta(penidx)))
 %
 % INPUT:
@@ -87,10 +87,10 @@ elseif (strcmp(pentype,'POWER'))
     elseif (penparam<=0 || penparam>2)
         error('index parameter for POWER penalty should be in (0,2]');
     end
-    if (penparam<1) 
-        isconvex  = true;
+    if (penparam<1)
+        isconvex  = false;
     else
-        isconvex = false;
+        isconvex = true;
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
@@ -185,7 +185,9 @@ for k=2:maxiters
     % update activeSet
     rho = max(rho_path(end)-tiny,0);
     x0 = beta_path(:,end);
-    x0(setPenZ) = coeff(setPenZ);
+    if (~isconvex)
+        x0(setPenZ) = coeff(setPenZ);
+    end
     x0 = glm_sparsereg(X,y,wt,rho,x0,penidx,maxrounds,...
         pentype,penparam,model);
     setPenZ = abs(x0)<1e-8;
@@ -217,10 +219,13 @@ end
         value(setPenNZ) = x(penidx(setActive));
         % try coordinate descent direction for zero coeffs
         if (isconvex)
-            [~,lossD1PenZ] = ...
-                glmfun(x,X(setPenZ,setActive),y(setPenZ),wt(setPenZ),model);
+            inner = X(:,setActive)*x;
+            prob = exp(inner)./(1+exp(inner));
+            lossD1PenZ = sum(bsxfun(@times,X(:,setPenZ),wt.*(y-prob)),1);
             [~,penD1PenZ] = ...
-                penalty_function(x(penidx(setActive)),t,pentype,penparam);
+                penalty_function(0,t,pentype,penparam);
+            coeff(setPenZ) = 0;
+            value(setPenZ) = abs(lossD1PenZ/penD1PenZ)<1;
         elseif (any(setPenZ))
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
                 X(:,setActive)*x,y,wt,t,pentype,penparam,model);

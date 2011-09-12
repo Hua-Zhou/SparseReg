@@ -54,8 +54,8 @@ display(betahat');
 
 maxpreds = [];
 model = 'logistic';
-pentype = 'power';
-penparam = 0.5;
+pentype = 'scad';
+penparam = 3.7;
 penidx = [false; true(size(X,2)-1,1)];
 wt = [];
 profile on;
