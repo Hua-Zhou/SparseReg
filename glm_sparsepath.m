@@ -142,12 +142,14 @@ if (any(setKeep))
     x0 = fminunc(@glmfun,zeros(nnz(setKeep),1),fminopt, ...
         X(:,setKeep),y,wt,model);
     beta_path(setKeep,1) = x0;
+    inner = X(:,setKeep)*x0;
 else
     beta_path(:,1) = 0;
+    inner = zeros(n,1);
 end
 
 % determine the maximum rho to start
-[~,d1f] = glmfun(beta_path(:,1),X,y,wt,model);
+[~,d1f] = glmfun(inner,X,y,wt,model);
 [~,inext] = max(abs(d1f));
 rho = glm_maxlambda(X(:,inext),X(:,setKeep)*beta_path(setKeep,1), ...
     y,wt,pentype,penparam,model);
@@ -209,7 +211,7 @@ for k=2:maxiters
     if (tstart<=0 || nnz(setActive)>maxpreds)
         break;
     end
-    if ( n<p && nnz(setActive)>=maxpreds)
+    if (n<p && nnz(setActive)>=maxpreds)
         break;
     end
 end
@@ -217,18 +219,17 @@ end
     function [value,isterminal,direction] = events(t,x)
         value = ones(p,1);
         value(setPenNZ) = x(penidx(setActive));
-        % try coordinate descent direction for zero coeffs
+        inner = X(:,setActive)*x;
         if (isconvex)
-            inner = X(:,setActive)*x;
-            prob = exp(inner)./(1+exp(inner));
-            lossD1PenZ = sum(bsxfun(@times,X(:,setPenZ),wt.*(y-prob)),1);
+            [~,lossD1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
             [~,penD1PenZ] = ...
                 penalty_function(0,t,pentype,penparam);
             coeff(setPenZ) = 0;
-            value(setPenZ) = abs(lossD1PenZ/penD1PenZ)<1;
+            value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
         elseif (any(setPenZ))
+        % try coordinate descent direction for zero coeffs
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
-                X(:,setActive)*x,y,wt,t,pentype,penparam,model);
+                inner,y,wt,t,pentype,penparam,model);
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;
         end
@@ -237,13 +238,14 @@ end
     end%EVENTS
 
     function dx = odefun(t, x)
+        inner = X(:,setActive)*x;
         [~,~,d2pen,dpendrho] = ...
             penalty_function(x(penidx(setActive)),t,pentype,penparam);
         dx = zeros(length(x),1);
         if (any(setPenNZ))
             dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
         end
-        [~,~,M] = glmfun(x,X(:,setActive),y,wt,model);
+        [~,~,M] = glmfun(inner,X(:,setActive),y,wt,model);
         diagidx = find(penidx(setActive));
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
@@ -254,15 +256,16 @@ end
     end%ODEFUN
 
     function [f, d1f, d2f] = objfun(x, t)
+        inner = X(:,setActive)*x;
         if (nargout<=1)
             [pen] = ...
                 penalty_function(x(penidx(setActive)),t,pentype,penparam);
-            [loss] = glmfun(x,X(:,setActive),y,wt,model);
+            [loss] = glmfun(inner,X(:,setActive),y,wt,model);
             f = loss + sum(pen);
         elseif (nargout==2)
             [pen,d1pen] = ...
                 penalty_function(x(penidx(setActive)),t,pentype,penparam);
-            [loss,lossd1] = glmfun(x,X(:,setActive),y,wt,model);
+            [loss,lossd1] = glmfun(inner,X(:,setActive),y,wt,model);
             f = loss + sum(pen);
             d1f = lossd1;
             if (any(setPenNZ))
@@ -272,7 +275,7 @@ end
         elseif (nargout==3)
             [pen,d1pen,d2pen] = ...
                 penalty_function(x(penidx(setActive)),t,pentype,penparam);
-            [loss,lossd1,lossd2] = glmfun(x,X(:,setActive),y,wt,model);
+            [loss,lossd1,lossd2] = glmfun(inner,X(:,setActive),y,wt,model);
             f = loss + sum(pen);
             d1f = lossd1;
             if (any(setPenNZ))
@@ -286,23 +289,23 @@ end
         end
     end%objfun
 
-    function [loss,lossd1,lossd2] = glmfun(beta,X,y,wt,model)
-        inner = X*beta;
+    function [loss,lossd1,lossd2] = glmfun(inner,X,y,wt,model)
         switch upper(model)
             case 'LOGISTIC'
-                loss = - sum(wt.*(y.*inner-log(1+exp(inner))));
+                expinner = exp(inner);
+                loss = - sum(wt.*(y.*inner-log(1+expinner)));
         end
         if (nargout>1)
            switch upper(model)
                case 'LOGISTIC'
-                   prob = exp(inner)./(1+exp(inner));
+                   prob = expinner./(1+expinner);
                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
            end
         end
         if (nargout>2)
             switch upper(model)
                 case 'LOGISTIC'
-                    lossd2 = X' * bsxfun(@times, wt.*prob.*(1-prob), X);
+                    lossd2 = X'*bsxfun(@times, wt.*prob.*(1-prob), X);
             end
         end
     end

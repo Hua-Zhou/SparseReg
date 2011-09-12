@@ -406,20 +406,21 @@
       FUNCTION GLM_THRESHOLDING(X,C,Y,WT,RHO,ETA,PENTYPE,MODEL) RESULT(XMIN)
 !
 !     This subroutine performs univariate thresholding for GLM with linear
-!     part X*BETA+C: argmin loss(beta)+PEN(abs(x),rho,eta).
+!     part X*BETA+C: argmin loss(beta)+PEN(abs(beta),rho,eta).
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
-      INTEGER, PARAMETER :: BRACKETS=10
+      INTEGER, PARAMETER :: GRIDPTS=10,MAXITERS=50
       INTEGER :: I,IDX
-      LOGICAL :: DOBISECTION,ISNEGROOT
-      LOGICAL, DIMENSION(BRACKETS) :: NEGIDX
-      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: BETA,DELTAX,ETA,LOSSD2,PEN,PEND1,RHO,XMIN
+      LOGICAL :: DOBRENT,ISNEGROOT
+      LOGICAL, DIMENSION(GRIDPTS) :: NEGIDX
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: ETA,RHO
+      REAL(KIND=DBLE_PREC), PARAMETER :: CGOLD=0.3819660,TOL=3E-8,ZEPS=(1E-3)*EPSILON(TOL)
+      REAL(KIND=DBLE_PREC) :: A,B,D,E,ETEMP,FU,FV,FW,FX,P,Q,R,TOL1,TOL2,U,V,W,XMIN,XM
+      REAL(KIND=DBLE_PREC) :: BETA,DELTAX,LOSSD2
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(3) :: XBRACKET,D1BRACKET
-      REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: BETAVEC,LOSSVEC,LOSSD1VEC
-      REAL(KIND=DBLE_PREC), DIMENSION(BRACKETS) :: PENVEC,PEND1VEC
+      REAL(KIND=DBLE_PREC), DIMENSION(GRIDPTS) :: BETAVEC,LOSSVEC,LOSSD1VEC
+      REAL(KIND=DBLE_PREC), DIMENSION(GRIDPTS) :: PENVEC,PEND1VEC
 !
 !     Check tuning parameter
 !
@@ -428,15 +429,19 @@
          RETURN
       END IF
 !
-!     LOCATE THE UNPENALIZED ESTIMATE BY NEWTON-RALPHSON
+!     Locate the unpenalized estimate by Newton-Ralphson
 !
       BETA = ZERO
-      DO I=1,BRACKETS
+      DO I=1,GRIDPTS
          BETAVEC(I) = BETA
          CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSSVEC(I),LOSSD1VEC(I),LOSSD2)
-         BETA = BETA - LOSSD1VEC(I)/LOSSD2
+         IF (ABS(LOSSD1VEC(I))<TOL) THEN
+            EXIT
+         ELSE
+            BETA = BETA - LOSSD1VEC(I)/LOSSD2
+         END IF
       END DO
-      IF (ABS(RHO)<EPS) THEN
+      IF (RHO<TOL) THEN
          XMIN = BETA
          RETURN
       END IF
@@ -454,22 +459,22 @@
 !
 !     Search for negative derivative and use as bracket for bisection
 !
-      CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
-      NEGIDX = (BETAVEC>=ZERO).AND.(BETAVEC<=BETA).AND.(LOSSD1VEC+PEND1VEC<-EPS)
-      IF (ANY(NEGIDX)) THEN
-         DOBISECTION = .TRUE.
-         IDX = MAXLOC(BETAVEC,1,NEGIDX)
-         XBRACKET(1) = BETAVEC(IDX)
-         D1BRACKET(1) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
-         IDX = MIN(MINLOC(BETAVEC,1,(BETAVEC>=XBRACKET(1)).AND.(LOSSD1VEC+PEND1VEC>=-EPS)),BRACKETS)
-         XBRACKET(3) = BETAVEC(IDX)
-         D1BRACKET(3) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
+      CALL PENALTY_FUN(BETAVEC(1:I),RHO,ETA,PENTYPE,PENVEC(1:I),PEND1VEC(1:I))
+      NEGIDX(1:I) = (BETAVEC(1:I)>=ZERO).AND.(BETAVEC(1:I)<=BETA) &
+         .AND.(LOSSD1VEC(1:I)+PEND1VEC(1:I)<-TOL)
+      IF (ANY(NEGIDX(1:I))) THEN
+         DOBRENT = .TRUE.
+         IDX = MAXLOC(BETAVEC(1:I),1,NEGIDX(1:I))
+         A = BETAVEC(IDX)
+         IDX = MIN(MINLOC(BETAVEC(1:I),1,(BETAVEC(1:I)>=A) &
+            .AND.(LOSSD1VEC(1:I)+PEND1VEC(1:I)>=-TOL)),I)
+         B = BETAVEC(IDX)
       ELSE
 !
 !     Grid search for negative derivative
 !
-         DELTAX = BETA/(BRACKETS-1)
-         DO I=2,BRACKETS-1
+         DELTAX = BETA/(GRIDPTS-1)
+         DO I=2,GRIDPTS
             BETAVEC(I) = DELTAX*(I-1)
             IF (ISNEGROOT) THEN
                CALL SIMPLE_GLM_LOSS(BETAVEC(I),-X,C,Y,WT,MODEL,LOSSVEC(I), &
@@ -480,53 +485,103 @@
             END IF
          END DO
          CALL PENALTY_FUN(BETAVEC,RHO,ETA,PENTYPE,PENVEC,PEND1VEC)
-         NEGIDX = LOSSD1VEC+PEND1VEC<-EPS
+         NEGIDX = LOSSD1VEC+PEND1VEC<-TOL
          IF (ANY(NEGIDX)) THEN
-            DOBISECTION = .TRUE.
+            DOBRENT = .TRUE.
             IDX = MAXLOC(BETAVEC,1,NEGIDX)
-            XBRACKET(1) = BETAVEC(IDX)
-            D1BRACKET(1) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
-            IDX = MINLOC(BETAVEC,1,(BETAVEC>XBRACKET(1)).AND.(LOSSD1VEC+PEND1VEC>=ZERO))
-            XBRACKET(3) = BETAVEC(IDX)
-            D1BRACKET(3) = LOSSD1VEC(IDX) + PEND1VEC(IDX)
+            A = BETAVEC(IDX)
+            IDX = MINLOC(BETAVEC,1,(BETAVEC>A).AND.(LOSSD1VEC+PEND1VEC>=-TOL))
+            B = BETAVEC(IDX)
          ELSE
-            DOBISECTION = .FALSE.
+            DOBRENT = .FALSE.
             XMIN = ZERO
             RETURN
          END IF
       END IF
 !
-!     Bisection
+!     Use Brent method to locate the minimum within bracket
 !
-      IF (DOBISECTION) THEN
-         DO
-            XBRACKET(2) = HALF*(XBRACKET(1)+XBRACKET(3))
+      IF (DOBRENT) THEN
+         V = A+CGOLD*(B-A)
+         W = V
+         XMIN = V
+         E = ZERO
+         IF (ISNEGROOT) THEN
+            CALL SIMPLE_GLM_LOSS(XMIN,-X,C,Y,WT,MODEL,FX)
+         ELSE
+            CALL SIMPLE_GLM_LOSS(XMIN,X,C,Y,WT,MODEL,FX)
+         END IF
+         BETAVEC(2) = V
+         CALL PENALTY_FUN(BETAVEC(2:2),RHO,ETA,PENTYPE,PENVEC(2:2))
+         FX = FX + PENVEC(2)
+         FV = FX
+         FW = FX
+         DO I=1,MAXITERS
+            XM = HALF*(A+B)
+            TOL1 = TOL*ABS(XMIN)+ZEPS
+            TOL2 = TWO*TOL1
+            IF (ABS(XMIN-XM)<=(TOL2-HALF*(B-A))) THEN
+               EXIT
+            END IF
+            IF (ABS(E)>TOL1) THEN
+               R = (XMIN-W)*(FX-FV)
+               Q = (XMIN-V)*(FX-FW)
+               P = (XMIN-V)*Q - (XMIN-W)*R
+               Q = TWO*(Q-R)
+               IF (Q>ZERO) P=-P
+               Q = ABS(Q)
+               ETEMP = E
+               E = D
+               IF (ABS(P)>=ABS(HALF*Q*ETEMP).OR.P<=Q*(A-XMIN).OR.P>=Q*(B-XMIN)) THEN
+                  E = MERGE(A-XMIN,B-XMIN,XMIN>=XM)
+                  D = CGOLD*E
+               ELSE
+                  D = P/Q
+                  U = XMIN+D
+                  IF (U-A<TOL2.OR.B-U<TOL2) D=SIGN(TOL1,XM-XMIN)
+               END IF
+            ELSE
+               E = MERGE(A-XMIN,B-XMIN,XMIN>=XM)
+               D = CGOLD*E
+            END IF
+            U = MERGE(XMIN+D,XMIN+SIGN(TOL1,D),ABS(D)>=TOL1)
             IF (ISNEGROOT) THEN
-               CALL SIMPLE_GLM_LOSS(XBRACKET(2),-X,C,Y,WT,MODEL,LOSSVEC(2),LOSSD1VEC(2))
+               CALL SIMPLE_GLM_LOSS(U,-X,C,Y,WT,MODEL,FU)
             ELSE
-               CALL SIMPLE_GLM_LOSS(XBRACKET(2),X,C,Y,WT,MODEL,LOSSVEC(2),LOSSD1VEC(2))
+               CALL SIMPLE_GLM_LOSS(U,X,C,Y,WT,MODEL,FU)
             END IF
-            CALL PENALTY_FUN(XBRACKET(2:2),RHO,ETA,PENTYPE,PENVEC(2:2),PEND1VEC(2:2))
-            D1BRACKET(2) = LOSSD1VEC(2) + PEND1VEC(2)
-            IF (ABS(D1BRACKET(2))<=EPS) THEN
-               XMIN = XBRACKET(2)
-               EXIT
-            ELSEIF (D1BRACKET(2)<-EPS) THEN
-               XBRACKET(1) = XBRACKET(2)
-               D1BRACKET(1) = D1BRACKET(2)
+            BETAVEC(2) = U
+            CALL PENALTY_FUN(BETAVEC(2:2),RHO,ETA,PENTYPE,PENVEC(2:2))
+            FU = FU+PENVEC(2)
+            IF (FU<=FX) THEN
+               IF (U>=XMIN) THEN
+                  A = XMIN
+               ELSE
+                  B = XMIN
+               END IF
+               CALL SHFT(V,W,XMIN,U)
+               CALL SHFT(FV,FW,FX,FU)
             ELSE
-               XBRACKET(3) = XBRACKET(2)
-               D1BRACKET(3) = D1BRACKET(2)
-            END IF
-            IF (ABS(XBRACKET(3)-XBRACKET(1))<EPS) THEN
-               XMIN = HALF*(XBRACKET(1)+XBRACKET(3))
-               EXIT
+               IF (U<XMIN) THEN
+                  A = U
+               ELSE
+                  B = U
+               END IF
+               IF (FU<=FW.OR.W==XMIN) THEN
+                  V = W
+                  FV = FW
+                  W = U
+                  FW = FU
+               ELSE IF (FU<=FV.OR.V==XMIN.OR.V==W) THEN
+                  V = U
+                  FV = FU
+               END IF
             END IF
          END DO
 !
 !     Compare the bracket root to zero
 !
-         IF (LOSSVEC(1)+PENVEC(1)<LOSSVEC(2)+PENVEC(2)) THEN
+         IF (LOSSVEC(1)+PENVEC(1)<FX) THEN
             XMIN = ZERO
             RETURN
          ELSEIF (ISNEGROOT) THEN
@@ -534,6 +589,17 @@
          END IF
       END IF
       RETURN
+!
+      CONTAINS
+!
+      SUBROUTINE SHFT(A,B,C,D)
+      REAL(KIND=DBLE_PREC), INTENT(OUT) :: A
+      REAL(KIND=DBLE_PREC), INTENT(INOUT) :: B,C
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: D
+      A = B
+      B = C
+      C = D
+      END SUBROUTINE SHFT      
       END FUNCTION GLM_THRESHOLDING
 !
       SUBROUTINE SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSS,D1,D2)
@@ -548,7 +614,7 @@
       REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
       REAL(KIND=DBLE_PREC), PARAMETER :: BIG=FIVE*TEN
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: INNER,PROB
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: EXPINNER,INNER,PROB
 !
 !     Check argument
 !
@@ -566,9 +632,13 @@
          RETURN
       END IF      
 !
-!     Compute loss function
+!     Compute the linear parts and its exponential
 !
       INNER = BETA*X+C
+      EXPINNER = EXP(INNER)
+!
+!     Compute loss function
+!
       SELECT CASE(MODEL)
       CASE("LOGISTIC")
          WHERE (INNER>=BIG)
@@ -576,7 +646,7 @@
          ELSEWHERE (INNER<=-BIG)
             PROB = ZERO
          ELSEWHERE
-            PROB = LOG(ONE+EXP(INNER))
+            PROB = LOG(ONE+EXPINNER)
          END WHERE
          LOSS = - SUM(WT*(Y*INNER-PROB))
       END SELECT
@@ -591,7 +661,7 @@
             ELSEWHERE (INNER<=-BIG)
                PROB = ZERO
             ELSEWHERE
-               PROB = EXP(INNER)/(ONE+EXP(INNER))
+               PROB = EXPINNER/(ONE+EXPINNER)
             END WHERE
             D1 = - SUM(WT*(Y-PROB)*X)
          END SELECT
@@ -1061,3 +1131,4 @@
       END SUBROUTINE PENALIZED_GLM_REGRESSION
 !
       END MODULE SPARSEREG
+

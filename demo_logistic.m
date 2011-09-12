@@ -1,9 +1,8 @@
 %% simulate data (non-orthogonal design)
 
 clear;
-n = 200;
+n = 500;
 p = 20;
-maxpreds = [];
 
 X = randn(n,p);   % design matrix
 X = [ones(size(X,1),1) X];
@@ -52,10 +51,10 @@ display(betahat');
 
 %% individual tests
 
-maxpreds = [];
+maxpreds = 20;
 model = 'logistic';
-pentype = 'scad';
-penparam = 3.7;
+pentype = 'power';
+penparam = .5;
 penidx = [false; true(size(X,2)-1,1)];
 wt = [];
 profile on;
@@ -77,11 +76,11 @@ title([pentype ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
 
 penalty = {'enet' 'enet' 'power' 'power' 'log' 'log'...
     'mcp' 'scad'};
+penidx = [false; true(size(X,2)-1,1)];
 eta = [1 1.5 0.5 1 0 1 1 3.7];
 model = 'logistic';
 wt = [];
-penidx = [];
-maxpreds = [];
+maxpreds = 50;
 
 % penalty = {'enet' 'enet' 'power' 'power' 'log' ...
 %     'mcp' 'scad'};
