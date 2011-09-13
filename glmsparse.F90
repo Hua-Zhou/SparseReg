@@ -114,3 +114,4 @@
       FORTRAN = (LOGICALDATA /= 0)
       RETURN
       END SUBROUTINE
+

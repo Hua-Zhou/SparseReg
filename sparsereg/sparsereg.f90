@@ -502,7 +502,7 @@
 !     Use Brent method to locate the minimum within bracket
 !
       IF (DOBRENT) THEN
-         V = A+CGOLD*(B-A)
+         V = A+(ONE-CGOLD)*(B-A)
          W = V
          XMIN = V
          E = ZERO
@@ -649,6 +649,8 @@
             PROB = LOG(ONE+EXPINNER)
          END WHERE
          LOSS = - SUM(WT*(Y*INNER-PROB))
+      CASE("LOGLINEAR")
+         LOSS = - SUM(WT*(Y*INNER-EXPINNER))
       END SELECT
 !
 !     Compute first derivative
@@ -664,6 +666,8 @@
                PROB = EXPINNER/(ONE+EXPINNER)
             END WHERE
             D1 = - SUM(WT*(Y-PROB)*X)
+         CASE("LOGLINEAR")
+            D1 = - SUM(WT*(Y-EXPINNER)*X)
          END SELECT
       END IF
 !
@@ -673,6 +677,8 @@
          SELECT CASE(MODEL)
          CASE("LOGISTIC")
             D2 = SUM(WT*PROB*(ONE-PROB)*X*X)
+         CASE("LOGLINEAR")
+            D2 = SUM(WT*EXPINNER*X*X)
          END SELECT
       END IF
       END SUBROUTINE SIMPLE_GLM_LOSS

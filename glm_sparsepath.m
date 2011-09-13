@@ -108,8 +108,12 @@ if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
        error('responses outside [0,1]'); 
     end
+elseif (strcmp(model,'LOGLINEAR'))
+    if (any(y<0))
+       error('responses y must be nonnegative'); 
+    end    
 else
-    error('model not recogonized. LOGISTIC|POISSON accepted');
+    error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
 
 % precompute and allocate storage for path
@@ -294,18 +298,25 @@ end
             case 'LOGISTIC'
                 expinner = exp(inner);
                 loss = - sum(wt.*(y.*inner-log(1+expinner)));
+            case 'LOGLINEAR'
+                expinner = exp(inner);
+                loss = - sum(wt.*(y.*inner-expinner));
         end
         if (nargout>1)
            switch upper(model)
                case 'LOGISTIC'
                    prob = expinner./(1+expinner);
                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
+               case 'LOGLINEAR'
+                   lossd1 = - sum(bsxfun(@times, X, wt.*(y-expinner)),1)';
            end
         end
         if (nargout>2)
             switch upper(model)
                 case 'LOGISTIC'
                     lossd2 = X'*bsxfun(@times, wt.*prob.*(1-prob), X);
+                case 'LOGLINEAR'
+                    lossd2 = X'*bsxfun(@times, wt.*expinner, X);
             end
         end
     end

@@ -109,6 +109,10 @@ if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
        error('responses outside [0,1]'); 
     end
+elseif (strcmp(model,'LOGLINEAR'))
+    if (any(y<0))
+       error('responses y must be nonnegative'); 
+    end    
 else
     error('model not recogonized. LOGISTIC|POISSON accepted');
 end

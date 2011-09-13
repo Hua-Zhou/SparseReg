@@ -11,7 +11,7 @@ function [maxlambda] = glm_maxlambda(x,c,y,wt,pentype,penparam,model)
 %   penargs - index parameter for penalty function penname; allowed range
 %       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
 %       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
-%   model - GLM model "logistic"|"poisson"
+%   model - GLM model "logistic"|"loglinear"
 %
 % OUTPUT
 %   maxlambda: max lambda such that argmin loss(x)+pen(abs(x),lambda)
@@ -90,10 +90,14 @@ end
 model = upper(model);
 if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
-       error('responses outside [0,1]'); 
+       error('responses y outside [0,1]'); 
     end
+elseif (strcmp(model,'LOGLINEAR'))
+    if (any(y<0))
+       error('responses y must be nonnegative'); 
+    end    
 else
-    error('model not recogonized. LOGISTIC|POISSON accepted');
+    error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
 
 % call the mex function
