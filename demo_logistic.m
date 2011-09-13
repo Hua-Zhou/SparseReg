@@ -2,7 +2,8 @@
 
 clear;
 n = 500;
-p = 20;
+p = 100;
+maxpreds = 50;
 
 X = randn(n,p);   % design matrix
 X = [ones(size(X,1),1) X];
@@ -51,10 +52,9 @@ display(betahat');
 
 %% individual tests
 
-maxpreds = 20;
 model = 'logistic';
-pentype = 'power';
-penparam = .5;
+pentype = 'log';
+penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];
 wt = [];
 profile on;
@@ -80,7 +80,6 @@ penidx = [false; true(size(X,2)-1,1)];
 eta = [1 1.5 0.5 1 0 1 1 3.7];
 model = 'logistic';
 wt = [];
-maxpreds = 50;
 
 % penalty = {'enet' 'enet' 'power' 'power' 'log' ...
 %     'mcp' 'scad'};

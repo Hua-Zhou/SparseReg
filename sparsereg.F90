@@ -66,7 +66,7 @@
 !     Check nonnegativity of tuning parameter
 !
       IF (RHO<ZERO) THEN
-         PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
+         !PRINT*,"THE TUNING PARAMETER MUST BE NONNEGATIVE."
          RETURN
       END IF
 !
@@ -76,7 +76,7 @@
       SELECT CASE(PENTYPE)
       CASE("ENET")
          IF (ETA<ONE.OR.ETA>TWO) THEN
-            PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
+            !PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
             RETURN
          END IF
          PEN = RHO*(HALF*(ETA-ONE)*BETA*BETA+(TWO-ETA)*ABSBETA)
@@ -85,13 +85,13 @@
             ETA = SQRT(RHO)
             CONTLOG = .TRUE.
          ELSEIF (ETA<ZERO) THEN
-            PRINT*,"THE LOG PENALTY PARAMETER ETA SHOULD BE NONNEGATIVE."
+            !PRINT*,"THE LOG PENALTY PARAMETER ETA SHOULD BE NONNEGATIVE."
             RETURN
          END IF
          PEN = RHO*LOG(ETA+ABSBETA)      
       CASE("MCP")
          IF (ETA<=ZERO) THEN
-            PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
+            !PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
             RETURN
          END IF
          WHERE (ABSBETA<RHO*ETA)
@@ -101,13 +101,13 @@
          END WHERE
       CASE("POWER")
          IF (ETA<=ZERO.OR.ETA>TWO) THEN
-            PRINT*,"THE EXPONENT PARAMETER ETA SHOULD BE IN (0,2]."
+            !PRINT*,"THE EXPONENT PARAMETER ETA SHOULD BE IN (0,2]."
             RETURN
          END IF
          PEN = RHO*ABSBETA**ETA
       CASE("SCAD")
          IF (ETA<=TWO) THEN
-            PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
+            !PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
             RETURN
          END IF
          WHERE (ABSBETA<RHO)
@@ -230,14 +230,14 @@
 !     Check tuning parameter
 !
       IF (RHO<ZERO) THEN
-         PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
+         !PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
          RETURN
       END IF
 !
 !     Transform to format 0.5*a*(x-b)^2
 !
       IF (A<=ZERO) THEN
-         PRINT*, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
+         !PRINT*, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
          RETURN
       END IF
       B = -B/A
@@ -252,7 +252,7 @@
          SELECT CASE(PENTYPE)
          CASE("ENET")
             IF (ETA<ONE.OR.ETA>TWO) THEN
-               PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
+               !PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
                RETURN
             ELSEIF (ABS(ETA-TWO)<EPS) THEN
                XMIN = A*B/(A+RHO)
@@ -271,7 +271,7 @@
             XMIN = ZERO
          CASE("LOG")
             IF (ETA<ZERO) THEN
-               PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
+               !PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
                RETURN
             ELSEIF (ABS(ETA)<EPS) THEN
                ETA = SQRT(RHO)
@@ -295,7 +295,7 @@
             XMIN = SIGN(XMIN,B)
          CASE("MCP")
             IF (ETA<=ZERO) THEN
-               PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
+               !PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
                RETURN
             END IF
             IF (RHO<=A*ABSB) THEN
@@ -318,7 +318,7 @@
             XMIN = SIGN(XMIN,B)
          CASE("POWER")
             IF (ETA<=ZERO.OR.ETA>TWO) THEN
-               PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
+               !PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
                RETURN
             ELSEIF (ABS(ETA-TWO)<EPS) THEN
                XMIN = A*B/(A+TWO*RHO)
@@ -378,7 +378,7 @@
             XMIN = SIGN(XMIN,B)
          CASE("SCAD")
             IF (ETA<=TWO) THEN
-               PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
+               !PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
                RETURN
             END IF 
             IF (RHO<=A*ABSB) THEN
@@ -425,7 +425,7 @@
 !     Check tuning parameter
 !
       IF (RHO<ZERO) THEN
-         PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
+         !PRINT*, "PENALTY TUNING CONSTANT SHOULD BE NONNEGATIVE"
          RETURN
       END IF
 !
@@ -612,7 +612,7 @@
       INTEGER :: I,N
       REAL(KIND=DBLE_PREC) :: BETA,LOSS
       REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
-      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=FIVE*TEN
+      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: EXPINNER,INNER,PROB
 !
@@ -620,15 +620,15 @@
 !
       N = SIZE(X)      
       IF (SIZE(C)/=N) THEN
-         PRINT*, " SIZE OF C INCOMPATIBLE WITH X"
+         !PRINT*, " SIZE OF C INCOMPATIBLE WITH X"
          RETURN
       END IF
       IF (SIZE(Y)/=N) THEN
-         PRINT*, " SIZE OF Y INCOMPATIBLE WITH X"
+         !PRINT*, " SIZE OF Y INCOMPATIBLE WITH X"
          RETURN
       END IF
       IF (SIZE(WT)/=N) THEN
-         PRINT*, " SIZE OF WT INCOMPATIBLE WITH X"
+         !PRINT*, " SIZE OF WT INCOMPATIBLE WITH X"
          RETURN
       END IF      
 !
@@ -941,21 +941,21 @@
 !     Check that the number of cases is well defined.
 !
       IF (SIZE(Y)/=SIZE(X,1)) THEN
-         PRINT*," THE NUMBER OF CASES IS NOT WELL DEFINED."
+         !PRINT*," THE NUMBER OF CASES IS NOT WELL DEFINED."
          RETURN
       END IF
 !
 !     Check that the number of predictors is well defined.
 !
       IF (SIZE(ESTIMATE)/=SIZE(X,2)) THEN
-         PRINT*, " THE NUMBER OF PREDICTORS IS NOT WELL DEFINED."
+         !PRINT*, " THE NUMBER OF PREDICTORS IS NOT WELL DEFINED."
          RETURN
       END IF
 !
 !     Check the index for penalized predictors
 !
       IF (SIZE(PENIDX)/=SIZE(X,2)) THEN
-         PRINT*, " THE PENALTY INDEX ARRAY IS NOT WELL DEFINED"
+         !PRINT*, " THE PENALTY INDEX ARRAY IS NOT WELL DEFINED"
          RETURN
       END IF
 !
@@ -975,8 +975,8 @@
       END IF
       CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
       OBJECTIVE = HALF*SUM(WT*R*R)+SUM(PENALTY,PENIDX)
-      PRINT*, "OBJECTIVE = "
-      PRINT*, OBJECTIVE
+      !PRINT*, "OBJECTIVE = "
+      !PRINT*, OBJECTIVE
 !
 !     Initialize maximum number of iterations
 !
@@ -1007,14 +1007,14 @@
          CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
          NEW_OBJECTIVE = HALF*SUM(WT*R*R)+SUM(PENALTY,PENIDX)
          IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
-            PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
+            !PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
          END IF
 !
 !     Check for a descent failure or convergence.  If neither occurs,
 !     record the new value of the objective function.
 !
          IF (NEW_OBJECTIVE>OBJECTIVE+EPS) THEN
-            PRINT*," *** ERROR *** OBJECTIVE FUNCTION INCREASE AT ITERATION",ITERATION
+            !PRINT*," *** ERROR *** OBJECTIVE FUNCTION INCREASE AT ITERATION",ITERATION
             RETURN
          END IF
          IF ((OBJECTIVE-NEW_OBJECTIVE)<CRITERION*(ABS(OBJECTIVE)+ONE)) THEN
@@ -1048,21 +1048,21 @@
 !     Check that the number of cases is well defined.
 !
       IF (SIZE(Y)/=SIZE(X,1)) THEN
-         PRINT*," THE NUMBER OF CASES IS NOT WELL DEFINED."
+         !PRINT*," THE NUMBER OF CASES IS NOT WELL DEFINED."
          RETURN
       END IF
 !
 !     Check that the number of predictors is well defined.
 !
       IF (SIZE(ESTIMATE)/=SIZE(X,2)) THEN
-         PRINT*, " THE NUMBER OF PREDICTORS IS NOT WELL DEFINED."
+         !PRINT*, " THE NUMBER OF PREDICTORS IS NOT WELL DEFINED."
          RETURN
       END IF
 !
 !     Check the index for penalized predictors
 !
       IF (SIZE(PENIDX)/=SIZE(X,2)) THEN
-         PRINT*, " THE PENALTY INDEX ARRAY IS NOT WELL DEFINED"
+         !PRINT*, " THE PENALTY INDEX ARRAY IS NOT WELL DEFINED"
          RETURN
       END IF
 !
@@ -1084,8 +1084,8 @@
       CALL SIMPLE_GLM_LOSS(ONE,INNER,C,Y,WT,MODEL,LOSS)
       CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
       OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
-      PRINT*, "OBJECTIVE = "
-      PRINT*, OBJECTIVE
+      !PRINT*, "OBJECTIVE = "
+      !PRINT*, OBJECTIVE
 !
 !     Initialize maximum number of iterations
 !
@@ -1117,15 +1117,15 @@
          CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
          NEW_OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
          IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
-            PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
+            !PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
          END IF
-         PRINT*, "ESTIMATE = ", ESTIMATE         
+         !PRINT*, "ESTIMATE = ", ESTIMATE         
 !
 !     Check for a descent failure or convergence.  If neither occurs,
 !     record the new value of the objective function.
 !
          IF (NEW_OBJECTIVE>OBJECTIVE+EPS) THEN
-            PRINT*," *** ERROR *** OBJECTIVE FUNCTION INCREASE AT ITERATION",ITERATION
+            !PRINT*," *** ERROR *** OBJECTIVE FUNCTION INCREASE AT ITERATION",ITERATION
             RETURN
          END IF
          IF ((OBJECTIVE-NEW_OBJECTIVE)<CRITERION*(ABS(OBJECTIVE)+ONE)) THEN
@@ -1138,3 +1138,4 @@
 !
       END MODULE SPARSEREG
 
+      

@@ -15,6 +15,7 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %   penargs - index parameter for penalty function penname; allowed range
 %       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
 %       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
+%   model - GLM model specifiler: LOGISTIC|LOGLINEAR
 %
 % Output:
 %   rho_path - rhos along the path
@@ -54,7 +55,8 @@ elseif (size(penidx,1)==1)
 end
 
 if (isempty(maxpreds) || maxpreds>=min(n,p))
-    maxpreds = min(n,p);
+%     maxpreds = min(n,p);
+    maxpreds = rank(X);
 elseif (maxpreds<=0)
     error('maxpreds should be a positive integer');
 end
@@ -179,7 +181,7 @@ fval_kinks = fval;
 
 % main loop for path following
 for k=2:maxiters
-
+display(k);
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
     [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
@@ -194,8 +196,15 @@ for k=2:maxiters
     if (~isconvex)
         x0(setPenZ) = coeff(setPenZ);
     end
+    if (any(isnan(x0)))
+        error('NaN encountered from x0');
+    end
     x0 = glm_sparsereg(X,y,wt,rho,x0,penidx,maxrounds,...
         pentype,penparam,model);
+    if (any(isnan(x0)))
+        display(x0);
+        error('NaN encountered from glm_sparsereg');
+    end
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
     setPenZ(setKeep) = false;
@@ -226,16 +235,25 @@ end
         inner = X(:,setActive)*x;
         if (isconvex)
             [~,lossD1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
-            [~,penD1PenZ] = ...
-                penalty_function(0,t,pentype,penparam);
+            [~,penD1PenZ] = penalty_function(0,t,pentype,penparam);
             coeff(setPenZ) = 0;
             value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
         elseif (any(setPenZ))
         % try coordinate descent direction for zero coeffs
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
                 inner,y,wt,t,pentype,penparam,model);
+            if (any(isnan(xPenZ_trial)))
+                error('NaN encountered from glm_thresholding');
+            end
             coeff(setPenZ) = xPenZ_trial;
-            value(setPenZ) = abs(xPenZ_trial)==0;
+            value(setPenZ) = abs(xPenZ_trial)==0;        
+%             [~,lossD1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
+%             [~,inext] = max(abs(lossD1PenZ));
+%             inextidx = find(setPenZ,inext);
+%             xPenZ_trial = glm_thresholding(X(:,inextidx(end)), ...
+%                 inner,y,wt,t,pentype,penparam,model);
+%             coeff(inextidx(end)) = xPenZ_trial;
+%             value(inextidx(end)) = abs(xPenZ_trial)<1e-8;
         end
         isterminal = true(p,1);
         direction = zeros(p,1);
@@ -253,6 +271,11 @@ end
         diagidx = find(penidx(setActive));
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
+    if (any(isnan(M(:))))
+        display(d2pen);
+        display(M);
+        error('NaN encountered in M');
+    end            
         dx = - M\dx;
         if (any(isinf(dx)))
             dx(isinf(dx)) = 1e8*sign(dx(isinf(dx)));
@@ -294,10 +317,14 @@ end
     end%objfun
 
     function [loss,lossd1,lossd2] = glmfun(inner,X,y,wt,model)
+        big = 20;
         switch upper(model)
             case 'LOGISTIC'
                 expinner = exp(inner);
-                loss = - sum(wt.*(y.*inner-log(1+expinner)));
+                logterm = log(1+expinner);
+                logterm(inner>big) = inner(inner>big);
+                logterm(inner<-big) = 0;
+                loss = - sum(wt.*(y.*inner-logterm));
             case 'LOGLINEAR'
                 expinner = exp(inner);
                 loss = - sum(wt.*(y.*inner-expinner));
@@ -306,6 +333,8 @@ end
            switch upper(model)
                case 'LOGISTIC'
                    prob = expinner./(1+expinner);
+                   prob(inner>big) = 1;
+                   prob(inner<-big) = 0;
                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
                case 'LOGLINEAR'
                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-expinner)),1)';

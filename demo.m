@@ -2,7 +2,7 @@
 
 clear;
 n = 1000;
-p = 100;
+p = 50;
 maxpreds = [];
 
 X = randn(n,p);   % design matrix
@@ -12,12 +12,12 @@ b = zeros(p+1,1);
 b(2:11) = 1;
 y = normrnd(X*b,1,n,1);   % response vector
 wt = ones(n,1);
-penidx = [false; false; true(size(X,2)-2,1)];
+penidx = [false; true(size(X,2)-1,1)];
 
 %% individual tests
 
-penalty = 'mcp';
-penparam = 5;
+penalty = 'log';
+penparam = 1;
 % profile on;
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
@@ -32,7 +32,6 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
-
 
 %% test lsq_sparsepath
 

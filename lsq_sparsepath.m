@@ -18,7 +18,7 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %
 % Output:
 %   rho_path - rhos along the path
-%   x_path - solution vectors at each rho
+%   beta_path - solution vectors at each rho
 %   rho_kinks - kinks of the solution paths
 %   fval_kinks - objective values at kinks
 %
@@ -54,7 +54,8 @@ elseif (size(penidx,1)==1)
 end
 
 if (isempty(maxpreds) || maxpreds>=min(n,p))
-    maxpreds = min(n,p);
+    maxpreds = rank(X);
+%     maxpreds = min(n,p);
 elseif (maxpreds<=0)
     error('maxpreds should be a positive integer');
 end
@@ -140,12 +141,15 @@ end
 maxiters = 2*min([n,p]);    % max iterations for path algorithm
 maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
-odeopt = odeset('Events',@events, 'Refine',refine);
+odeopt = odeset('Events',@events,'Refine',refine);
 fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
 tfinal = 0;
 
 % determine the maximum rho to start
 d1f = A(:,setKeep)*beta_path(setKeep,1)+b;
+% rho_candidata = lsq_maxlambda(sum_x_squares',d1f,pentype,penparam);
+% rho = max(rho_candidata);
+% rho_path(1) = rho;
 [d1fnext,inext] = max(abs(d1f));
 rho = lsq_maxlambda(sum_x_squares(inext),d1fnext,pentype,penparam);
 rho_path(1) = rho;
@@ -189,7 +193,7 @@ for k=2:maxiters
     rho = max(rho_path(end)-tiny,0);
     x0 = beta_path(:,end);
     x0(setPenZ) = coeff(setPenZ);
-    x0 = lsq_sparsereg(X,y,wt,rho,full(x0),sum_x_squares,...
+    x0 = lsq_sparsereg(X,y,wt,rho,x0,sum_x_squares,...
         penidx,maxrounds,pentype,penparam);
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
@@ -231,6 +235,15 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
             xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;
+%             d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
+%             [~,inext] = max(abs(d1PenZ));
+%             idxnext = find(setPenZ,inext);
+%             idxnext = idxnext(end);
+%             xPenZ_trial = lsq_thresholding(sum_x_squares(idxnext), ...
+%                 d1PenZ(inext),t,pentype,penparam);
+%             coeff(setPenZ) = 0;
+%             coeff(idxnext) = xPenZ_trial;
+%             value(idxnext) = abs(xPenZ_trial)==0;
         end
         isterminal = true(p,1);
         direction = zeros(p,1);
@@ -249,7 +262,7 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
         M(diagidx) = M(diagidx) + d2pen;
         dx = - M\dx;
         if (any(isinf(dx)))
-            dx(isinf(dx)) = 1e9*sign(dx(isinf(dx)));
+            dx(isinf(dx)) = 1e8*sign(dx(isinf(dx)));
         end
     end%ODEFUN
 

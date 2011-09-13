@@ -1,8 +1,8 @@
 %% simulate data (non-orthogonal design)
 
 clear;
-n = 500;
-p = 20;
+n = 100;
+p = 500;
 
 X = randn(n,p);   % design matrix
 X = [ones(size(X,1),1) X];
@@ -51,10 +51,10 @@ display(betahat');
 
 %% individual tests
 
-maxpreds = [];
+maxpreds = 10;
 model = 'loglinear';
-pentype = 'scad';
-penparam = 3;
+pentype = 'power';
+penparam = .5;
 penidx = [false; true(size(X,2)-1,1)];
 wt = [];
 profile on;

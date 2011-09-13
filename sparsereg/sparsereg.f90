@@ -502,7 +502,7 @@
 !     Use Brent method to locate the minimum within bracket
 !
       IF (DOBRENT) THEN
-         V = A+(ONE-CGOLD)*(B-A)
+         V = A+CGOLD*(B-A)
          W = V
          XMIN = V
          E = ZERO
@@ -612,7 +612,7 @@
       INTEGER :: I,N
       REAL(KIND=DBLE_PREC) :: BETA,LOSS
       REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
-      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=FIVE*TEN
+      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: EXPINNER,INNER,PROB
 !

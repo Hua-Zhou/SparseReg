@@ -15,7 +15,7 @@ function [betahat] = ...
 %   pentype - ENET|LOG|MCP|POWER|SCAD
 %   penparam - index parameter for penalty; if empty, set to default values:
 %       ENET, 1, LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
-%   model - GLM model specifiler: logistic|poisson
+%   model - GLM model specifiler: LOGISTIC|LOGLINEAR
 %
 % OUTPUT
 %   betahat - regression coefficient estimate
@@ -33,6 +33,9 @@ elseif (numel(x0)~=p)
     error('x0 has incompatible size');
 elseif (size(x0,1)==1)
     x0 = x0';
+end
+if (issparse(x0))
+    x0 = full(x0);
 end
 
 if (numel(y)~=n)
