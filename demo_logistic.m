@@ -3,7 +3,7 @@
 clear;
 n = 500;
 p = 100;
-maxpreds = 50;
+maxpreds = [];
 
 X = randn(n,p);   % design matrix
 X = [ones(size(X,1),1) X];

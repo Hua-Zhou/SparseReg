@@ -33,7 +33,7 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 if (numel(y)~=n)
     error('y has incompatible size');
 elseif (size(y,1)==1)
-    y = y';    
+    y = y';
 end
 
 if (isempty(wt))
@@ -129,6 +129,7 @@ end
 rho_path = 0;
 
 % set up ODE solver and unconstrained optimizer
+eventprop = 1;              % proportion of times for thresholding trials
 maxiters = 2*min([n,p]);    % max iterations for path algorithm
 maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
@@ -238,7 +239,7 @@ end
             [~,penD1PenZ] = penalty_function(0,t,pentype,penparam);
             coeff(setPenZ) = 0;
             value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
-        elseif (any(setPenZ))
+        elseif (any(setPenZ) && rand<=eventprop)
         % try coordinate descent direction for zero coeffs
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
                 inner,y,wt,t,pentype,penparam,model);
@@ -247,13 +248,6 @@ end
             end
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;        
-%             [~,lossD1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
-%             [~,inext] = max(abs(lossD1PenZ));
-%             inextidx = find(setPenZ,inext);
-%             xPenZ_trial = glm_thresholding(X(:,inextidx(end)), ...
-%                 inner,y,wt,t,pentype,penparam,model);
-%             coeff(inextidx(end)) = xPenZ_trial;
-%             value(inextidx(end)) = abs(xPenZ_trial)<1e-8;
         end
         isterminal = true(p,1);
         direction = zeros(p,1);
