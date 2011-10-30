@@ -25,7 +25,6 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check arguments
 [n,p] = size(X);
@@ -129,9 +128,8 @@ end
 rho_path = 0;
 
 % set up ODE solver and unconstrained optimizer
-eventprop = 1;              % proportion of times for thresholding trials
 maxiters = 2*min([n,p]);    % max iterations for path algorithm
-maxrounds = 3;              % max iterations for lsq_sparsereg
+maxrounds = 3;              % max iterations for glm_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events, 'Refine',refine);
 fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
@@ -239,7 +237,7 @@ end
             [~,penD1PenZ] = penalty_function(0,t,pentype,penparam);
             coeff(setPenZ) = 0;
             value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
-        elseif (any(setPenZ) && rand<=eventprop)
+        elseif (any(setPenZ))
         % try coordinate descent direction for zero coeffs
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
                 inner,y,wt,t,pentype,penparam,model);
