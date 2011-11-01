@@ -19,7 +19,6 @@ function [pen,d1pen,d2pen,dpendlambda] = ...
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check arguments
 if (lambda<0)
@@ -61,7 +60,6 @@ else
 end
 
 % call the mex function
-[pen,d1pen,d2pen,dpendlambda] = ...
-    penalty(beta,lambda,pentype,penparam);
+[pen,d1pen,d2pen,dpendlambda] = penalty(beta,lambda,pentype,penparam);
 
 end

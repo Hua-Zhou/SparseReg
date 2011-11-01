@@ -1,6 +1,6 @@
 function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
     lsq_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam)
-% LSQ_SPARSEREG Solution path for sparse least squares regression
+% LSQ_SPARSEREG Solution path for sparse linear regression
 %   argmin .5*sum(wt.*(y-X*beta).^2)+rho*sum(penfun(beta(penidx)))
 %
 % INPUT:
@@ -24,7 +24,6 @@ function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check arguments
 [n,p] = size(X);
@@ -235,15 +234,6 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
             xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;
-%             d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
-%             [~,inext] = max(abs(d1PenZ));
-%             idxnext = find(setPenZ,inext);
-%             idxnext = idxnext(end);
-%             xPenZ_trial = lsq_thresholding(sum_x_squares(idxnext), ...
-%                 d1PenZ(inext),t,pentype,penparam);
-%             coeff(setPenZ) = 0;
-%             coeff(idxnext) = xPenZ_trial;
-%             value(idxnext) = abs(xPenZ_trial)==0;
         end
         isterminal = true(p,1);
         direction = zeros(p,1);

@@ -1,29 +1,30 @@
-%% simulate data (non-orthogonal design)
+%% SparseReg Toolbox User's Guide
+% Demo for using the functions in the toolbox
 
+%% Sparse linear regression
+% simulate data (n=1000, p=100)
 clear;
-n = 1000;
-p = 50;
-maxpreds = [];
-
+n = 500;
+p = 100;
 X = randn(n,p);   % design matrix
-X = [ones(size(X,1),1) X];
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize
-b = zeros(p+1,1);
+X = [ones(size(X,1),1) X];  % add intercept
+b = zeros(p+1,1);   % true signal: first ten predictors are 1
 b(2:11) = 1;
 y = normrnd(X*b,1,n,1);   % response vector
-wt = ones(n,1);
+
+%% 
+% solution path for lasso
+
+maxpreds = [];  % try to obtain the whole solution path
+penalty = 'power';
+penparam = .5;
 penidx = [false; true(size(X,2)-1,1)];
-
-%% individual tests
-
-penalty = 'log';
-penparam = 1;
-% profile on;
+wt = ones(n,1);
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
     lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam);
 timing = toc;
-% profile viewer;
 
 figure;
 set(gca,'FontSize',15);
@@ -31,46 +32,26 @@ plot(rho_path,beta_path);
 xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
-title([penalty ':\eta=' num2str(penparam) ', ' num2str(timing) ' secs']);
+title([penalty ':\eta=' num2str(penparam) ', ' num2str(timing,2) ' secs']);
 
-%% test lsq_sparsepath
+%% 
+% compare solution paths from different penalteis
 
-penalty = {'enet' 'enet' 'power' 'power' 'log' 'log'...
+penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log'...
     'mcp' 'scad'};
-eta = [1 1.5 0.5 1 0 1 1 3.7];
+eta = [1 1.5 2 0.5 1 0 1 1 3.7];
 
-% penalty = {'enet' 'enet' 'power' 'power' 'log' ...
-%     'mcp' 'scad'};
-% eta = [1 1.5 0.5 1 0 1 3.7];
-
-figure;
+figure
 for i=1:length(penalty)
-% profile on;
 tic;
 [rho_path,beta_path,rho_kinks,fval_kinks] = ...
     lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},eta(i));
 timing = toc;
-display(timing);
-% profile viewer;
-
 subplot(4,3,i);
 set(gca,'FontSize',15);
 plot(rho_path,beta_path);
 xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
-title([penalty{i} ':\eta=' num2str(eta(i)) ', ' num2str(timing) ' secs']);
-
-% figure;
-% [AX,H1,H2] = plotyy(rho_path(rho_kinks),fval_kinks,...
-%     rho_path(rho_kinks),sum(beta_path(:,rho_kinks)~=0,1));
-% xlabel('\rho');
-% set(get(AX(1),'Ylabel'),'String','negative log-likelihood'); 
-% set(get(AX(2),'Ylabel'),'String','number of parameters');
-% title([penalty ': \eta=' num2str(eta)]);
+title([penalty{i} ':\eta=' num2str(eta(i)) ', ' num2str(timing,2) ' secs']);
 end
-text(1.2*max(rho_path),0,['n=' num2str(n) ', p=' num2str(p) ', ' ...
-    ' maxpreds=' num2str(maxpreds)],'FontSize',15,'HorizontalAlignment','left');
-
-% orient landscape
-% print -depsc2 ../../manuscripts/notes/testing03.eps;
