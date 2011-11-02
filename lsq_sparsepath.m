@@ -146,9 +146,6 @@ tfinal = 0;
 
 % determine the maximum rho to start
 d1f = A(:,setKeep)*beta_path(setKeep,1)+b;
-% rho_candidata = lsq_maxlambda(sum_x_squares',d1f,pentype,penparam);
-% rho = max(rho_candidata);
-% rho_path(1) = rho;
 [d1fnext,inext] = max(abs(d1f));
 rho = lsq_maxlambda(sum_x_squares(inext),d1fnext,pentype,penparam);
 rho_path(1) = rho;

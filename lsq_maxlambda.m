@@ -17,7 +17,6 @@ function [maxlambda] = lsq_maxlambda(a,b,pentype,penparam)
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check proper input arguments
 [n,m] = size(a);

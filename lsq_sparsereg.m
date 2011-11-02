@@ -21,8 +21,7 @@ function [betahat] = ...
 %   betahat - regression coefficient estimate
 %
 % COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
-% RELEASE DATE: ??/??/????
+% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 
 % check proper input arguments
 [n,p] = size(X);
