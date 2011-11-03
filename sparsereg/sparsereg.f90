@@ -224,8 +224,9 @@
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE      
       LOGICAL :: DOBISECTION
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: A,ABSB,B,DL,DM,DR,ETA,F1,F2,FXMIN,FXMIN2
-      REAL(KIND=DBLE_PREC) :: RHO,XL,XM,XMIN,XMIN2,XR
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: A,B,ETA,RHO
+      REAL(KIND=DBLE_PREC) :: ABSB,BC,DL,DM,DR,ETAC,F1,F2,FXMIN,FXMIN2
+      REAL(KIND=DBLE_PREC) :: XL,XM,XMIN,XMIN2,XR
 !
 !     Check tuning parameter
 !
@@ -240,13 +241,13 @@
          PRINT*, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
          RETURN
       END IF
-      B = -B/A
-      ABSB = ABS(B)
+      BC = -B/A
+      ABSB = ABS(BC)
 !
 !     Thresholding
 !
       IF (RHO<EPS) THEN
-         XMIN = B
+         XMIN = BC
          RETURN
       ELSE
          SELECT CASE(PENTYPE)
@@ -255,15 +256,15 @@
                PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
                RETURN
             ELSEIF (ABS(ETA-TWO)<EPS) THEN
-               XMIN = A*B/(A+RHO)
+               XMIN = A*BC/(A+RHO)
                RETURN
             END IF
-            XMIN = A*B-RHO*(TWO-ETA)
+            XMIN = A*BC-RHO*(TWO-ETA)
             IF (XMIN>ZERO) THEN
                XMIN = XMIN/(A+RHO*(ETA-1))
                RETURN
             END IF
-            XMIN = A*B+RHO*(TWO-ETA)
+            XMIN = A*BC+RHO*(TWO-ETA)
             IF (XMIN<ZERO) THEN
                XMIN = XMIN/(A+RHO*(ETA-1))
                RETURN
@@ -274,25 +275,27 @@
                PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
                RETURN
             ELSEIF (ABS(ETA)<EPS) THEN
-               ETA = SQRT(RHO)
+               ETAC = SQRT(RHO)
+            ELSE
+               ETAC = ETA
             END IF
-            IF (RHO<=A*ABSB*ETA) THEN
-               XMIN = HALF*(ABSB-ETA+ &
-                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A))
-            ELSEIF (RHO<=A*ETA*ETA) THEN
+            IF (RHO<=A*ABSB*ETAC) THEN
+               XMIN = HALF*(ABSB-ETAC+ &
+                  SQRT((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A))
+            ELSEIF (RHO<=A*ETAC*ETAC) THEN
                XMIN = ZERO
-            ELSEIF (RHO>=A*(ETA+ABSB)*(ETA+ABSB)/FOUR) THEN
+            ELSEIF (RHO>=A*(ETAC+ABSB)*(ETAC+ABSB)/FOUR) THEN
                XMIN = ZERO
             ELSE
-               XMIN = HALF*(ABSB-ETA+ &
-                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A))
-               F1 = HALF*A*B*B+RHO*LOG(ETA)
-               F2 = HALF*A*(XMIN-ABSB)**2+RHO*LOG(ETA+ABS(XMIN))
+               XMIN = HALF*(ABSB-ETAC+ &
+                  SQRT((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A))
+               F1 = HALF*A*BC*BC+RHO*LOG(ETAC)
+               F2 = HALF*A*(XMIN-ABSB)**2+RHO*LOG(ETAC+ABS(XMIN))
                IF (F1<F2) THEN
                   XMIN = ZERO
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          CASE("MCP")
             IF (ETA<=ZERO) THEN
                PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
@@ -309,25 +312,25 @@
             ELSEIF (RHO*ETA>=ABSB) THEN
                XMIN = ZERO
             ELSE
-               IF (A*B*B<RHO*RHO*ETA) THEN
+               IF (A*BC*BC<RHO*RHO*ETA) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = ABSB
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          CASE("POWER")
             IF (ETA<=ZERO.OR.ETA>TWO) THEN
                PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
                RETURN
             ELSEIF (ABS(ETA-TWO)<EPS) THEN
-               XMIN = A*B/(A+TWO*RHO)
+               XMIN = A*BC/(A+TWO*RHO)
                RETURN
             ELSEIF (ABS(ETA-ONE)<EPS) THEN
-               IF (B-RHO/A>ZERO) THEN
-                  XMIN = B-RHO/A
-               ELSEIF (B+RHO/A<ZERO) THEN
-                  XMIN = B+RHO/A
+               IF (BC-RHO/A>ZERO) THEN
+                  XMIN = BC-RHO/A
+               ELSEIF (BC+RHO/A<ZERO) THEN
+                  XMIN = BC+RHO/A
                ELSE
                   XMIN = ZERO
                END IF
@@ -375,7 +378,7 @@
                   XMIN = ZERO
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          CASE("SCAD")
             IF (ETA<=TWO) THEN
                PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
@@ -392,13 +395,13 @@
             ELSEIF (ABSB<=RHO*ETA.OR.A*(ETA-ONE)>=ONE) THEN
                XMIN = ZERO
             ELSE
-               IF (A*B*B<RHO*RHO*(ETA+ONE)) THEN
+               IF (A*BC*BC<RHO*RHO*(ETA+ONE)) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = ABSB
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          END SELECT
       END IF
       END FUNCTION LSQ_THRESHOLDING
@@ -1138,64 +1141,65 @@
 !
       END MODULE SPARSEREG
 
-!      PROGRAM TEST
-!      USE SPARSEREG
-!      IMPLICIT NONE
-!      INTEGER, PARAMETER :: N=100, P=5
-!      INTEGER :: MAXITERS
-!      LOGICAL, DIMENSION(P) :: PENIDX
-!      REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,RHO=ONE,ETA=ZERO,XMIN
-!      REAL(KIND=DBLE_PREC), DIMENSION(P) :: BETA=(/ONE,TWO,THREE,FOUR,FIVE/)
-!      REAL(KIND=DBLE_PREC), DIMENSION(P) :: PEN,D1PEN,D2PEN,DPENDRHO,ESTIMATE,SUM_X_SQUARES
-!      REAL(KIND=DBLE_PREC), DIMENSION(N) :: NOISE,WT,Y
-!      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
-!!!
-!!!     Test penalty function
-!!!
-!!      RHO = TWO
-!!      ETA = ONE
-!!      CALL PENALTY_FUN(BETA,RHO,ETA,"ENET",PEN,D1PEN,D2PEN,DPENDRHO)
-!!      PRINT*, "BETA="
-!!      PRINT*, BETA
-!!      PRINT*, "RHO="
-!!      PRINT*, RHO
-!!      PRINT*, "ETA="
-!!      PRINT*, ETA
-!!      PRINT*, "PEN="
-!!      PRINT*, PEN
-!!      PRINT*, "D1PEN="
-!!      PRINT*, D1PEN
-!!      PRINT*, "D2PEN="
-!!      PRINT*, D2PEN
-!!      PRINT*, "DPENDRHO="
-!!      PRINT*, DPENDRHO
-!!!
-!!!     Test thresholding function
-!!!
-!!      A = ONE
-!!      B = -ONE
-!!      RHO = ONE
-!!      ETA = THREE
-!!      PRINT*, "A = "
-!!      PRINT*, A
-!!      PRINT*, "B = "
-!!      PRINT*, B
-!!      PRINT*, "RHO="
-!!      PRINT*, RHO
-!!      PRINT*, "ETA="
-!!      PRINT*, ETA
-!!      PRINT*, "XMIN = "
-!!      PRINT*, LSQ_THRESHOLDING(A,B,RHO,ETA,"SCAD")       
-!!!
-!!!     Test find max rho function
-!!!
-!!      A = ONE
-!!      B = -ONE
-!!      PRINT*, "A = "
-!!      PRINT*, A
-!!      PRINT*, "B = "
-!!      PRINT*, B
-!!      PRINT*, "MAXRHO = ", MAX_RHO(A,B,"MCP",(/FOUR/))
+      PROGRAM TEST
+      USE SPARSEREG
+      IMPLICIT NONE
+      INTEGER, PARAMETER :: N=100, P=5
+      INTEGER :: MAXITERS
+      LOGICAL, DIMENSION(P) :: PENIDX
+      REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,RHO=ONE,ETA=ZERO,XMIN
+      REAL(KIND=DBLE_PREC), DIMENSION(P) :: BETA=(/ONE,TWO,THREE,FOUR,FIVE/)
+      REAL(KIND=DBLE_PREC), DIMENSION(P) :: PEN,D1PEN,D2PEN,DPENDRHO,ESTIMATE,SUM_X_SQUARES
+      REAL(KIND=DBLE_PREC), DIMENSION(N) :: NOISE,WT,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
+!!
+!!     Test penalty function
+!!
+!      RHO = TWO
+!      ETA = ONE
+!      CALL PENALTY_FUN(BETA,RHO,ETA,"ENET",PEN,D1PEN,D2PEN,DPENDRHO)
+!      PRINT*, "BETA="
+!      PRINT*, BETA
+!      PRINT*, "RHO="
+!      PRINT*, RHO
+!      PRINT*, "ETA="
+!      PRINT*, ETA
+!      PRINT*, "PEN="
+!      PRINT*, PEN
+!      PRINT*, "D1PEN="
+!      PRINT*, D1PEN
+!      PRINT*, "D2PEN="
+!      PRINT*, D2PEN
+!      PRINT*, "DPENDRHO="
+!      PRINT*, DPENDRHO
+!!
+!!     Test thresholding function
+!!
+!      A = TWO
+!      B = ONE+HALF
+!      RHO = HALF
+!      ETA = HALF
+!      PRINT*, "A = "
+!      PRINT*, A
+!      PRINT*, "B = "
+!      PRINT*, B
+!      PRINT*, "RHO="
+!      PRINT*, RHO
+!      PRINT*, "ETA="
+!      PRINT*, ETA
+!      PRINT*, "XMIN = "
+!      PRINT*, LSQ_THRESHOLDING(A,B,RHO,ETA,"POWER")
+!
+!     Test find max rho function
+!
+      A = TWO
+      B = ONE+HALF
+      PRINT*, "A = "
+      PRINT*, A
+      PRINT*, "B = "
+      PRINT*, B
+      B = MAX_RHO(A,B,"POWER",(/HALF/))
+      PRINT*, "MAXRHO = ", B      
 !!
 !!     Test coordinate descent algorithm
 !!
@@ -1212,69 +1216,69 @@
 !         SUM_X_SQUARES,PENIDX,MAXITERS,"LOG",(/ONE/))
 !      PRINT*, "ESTIMATE = "
 !      PRINT*, ESTIMATE
-!      PAUSE
-!      END PROGRAM TEST
-      
-      PROGRAM TEST
-      USE SPARSEREG
-      IMPLICIT NONE
-      CHARACTER(LEN=100) :: INPUT_FILE = "adm.csv"
-      INTEGER, PARAMETER :: N=400,P=4
-      INTEGER :: J,MAXITERS
-      LOGICAL, DIMENSION(P) :: PENIDX
-      REAL(KIND=DBLE_PREC) :: BETA,ETA,LAMBDA,LOSS,LOSSD1,LOSSD2,MAXRHO,MEAN,RHO,STDEV,XMIN
-      REAL(KIND=DBLE_PREC), DIMENSION(N) :: C
-      REAL(KIND=DBLE_PREC), DIMENSION(N) :: WT,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(P) :: ESTIMATE
-      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
-!
-!     Read in data
-!
-      CALL READ_DATA(INPUT_FILE,X,Y,N,P)
-!
-!     Standardize predictors
-!
-      DO J=2,P
-         MEAN = SUM(X(:,J))/N
-         STDEV = (SUM(X(:,J)**2)-N*MEAN**2)/(N-1)
-         X(:,J) = (X(:,J)-MEAN)/STDEV
-      END DO
-!!
-!!     Test SIMPLE_GLM_LOSS
-!!
-!      BETA = ZERO
-!      CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,"LOGISTIC",LOSS,LOSSD1,LOSSD2)
-!      PRINT*, "BETA = ", BETA
-!      PRINT*, "LOSS = ", LOSS
-!      PRINT*, "LOSSD1 = ", LOSSD1
-!      PRINT*, "LOSSD2 = ", LOSSD2
-!!
-!!     Test GLM_THRESHOLDING
-!!
-!      RHO = 0.6
-!      ETA = 3
-!      PRINT*, "RHO = ", RHO
-!      PRINT*, "XMIN = ", GLM_THRESHOLDING(X,C,Y,WT,RHO,ETA,"SCAD","LOGISTIC")
-!!
-!!     Test find max rho
-!!
-!      C = ZERO
-!      WT = ONE
-!      DO J=1,P
-!         PRINT*, "J = ", J
-!         MAXRHO = GLM_MAXRHO(X(:,J),C,Y,WT,"ENET",(/TWO/),"LOGISTIC")
-!         PRINT*, "MAXRHO = ", MAXRHO
-!      END DO
-!
-!     Test PENALIZED_GLM_REGRESSION
-!
-      ESTIMATE = ZERO
-      MAXITERS = 0
-      LAMBDA = TEN
-      PENIDX = .TRUE.
-      WT = ONE
-      CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
-         PENIDX,MAXITERS,"SCAD",(/THREE/),"LOGISTIC")
       PAUSE
       END PROGRAM TEST
       
+!      PROGRAM TEST
+!      USE SPARSEREG
+!      IMPLICIT NONE
+!      CHARACTER(LEN=100) :: INPUT_FILE = "adm.csv"
+!      INTEGER, PARAMETER :: N=400,P=4
+!      INTEGER :: J,MAXITERS
+!      LOGICAL, DIMENSION(P) :: PENIDX
+!      REAL(KIND=DBLE_PREC) :: BETA,ETA,LAMBDA,LOSS,LOSSD1,LOSSD2,MAXRHO,MEAN,RHO,STDEV,XMIN
+!      REAL(KIND=DBLE_PREC), DIMENSION(N) :: C
+!      REAL(KIND=DBLE_PREC), DIMENSION(N) :: WT,Y
+!      REAL(KIND=DBLE_PREC), DIMENSION(P) :: ESTIMATE
+!      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
+!!
+!!     Read in data
+!!
+!      CALL READ_DATA(INPUT_FILE,X,Y,N,P)
+!!
+!!     Standardize predictors
+!!
+!      DO J=2,P
+!         MEAN = SUM(X(:,J))/N
+!         STDEV = (SUM(X(:,J)**2)-N*MEAN**2)/(N-1)
+!         X(:,J) = (X(:,J)-MEAN)/STDEV
+!      END DO
+!!!
+!!!     Test SIMPLE_GLM_LOSS
+!!!
+!!      BETA = ZERO
+!!      CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,"LOGISTIC",LOSS,LOSSD1,LOSSD2)
+!!      PRINT*, "BETA = ", BETA
+!!      PRINT*, "LOSS = ", LOSS
+!!      PRINT*, "LOSSD1 = ", LOSSD1
+!!      PRINT*, "LOSSD2 = ", LOSSD2
+!!!
+!!!     Test GLM_THRESHOLDING
+!!!
+!!      RHO = 0.6
+!!      ETA = 3
+!!      PRINT*, "RHO = ", RHO
+!!      PRINT*, "XMIN = ", GLM_THRESHOLDING(X,C,Y,WT,RHO,ETA,"SCAD","LOGISTIC")
+!!!
+!!!     Test find max rho
+!!!
+!!      C = ZERO
+!!      WT = ONE
+!!      DO J=1,P
+!!         PRINT*, "J = ", J
+!!         MAXRHO = GLM_MAXRHO(X(:,J),C,Y,WT,"ENET",(/TWO/),"LOGISTIC")
+!!         PRINT*, "MAXRHO = ", MAXRHO
+!!      END DO
+!!
+!!     Test PENALIZED_GLM_REGRESSION
+!!
+!      ESTIMATE = ZERO
+!      MAXITERS = 0
+!      LAMBDA = TEN
+!      PENIDX = .TRUE.
+!      WT = ONE
+!      CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
+!         PENIDX,MAXITERS,"SCAD",(/THREE/),"LOGISTIC")
+!      PAUSE
+!      END PROGRAM TEST
+!      

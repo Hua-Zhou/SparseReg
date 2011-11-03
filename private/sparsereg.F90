@@ -224,8 +224,9 @@
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE      
       LOGICAL :: DOBISECTION
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: A,ABSB,B,DL,DM,DR,ETA,F1,F2,FXMIN,FXMIN2
-      REAL(KIND=DBLE_PREC) :: RHO,XL,XM,XMIN,XMIN2,XR
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: A,B,ETA,RHO
+      REAL(KIND=DBLE_PREC) :: ABSB,BC,DL,DM,DR,ETAC,F1,F2,FXMIN,FXMIN2
+      REAL(KIND=DBLE_PREC) :: XL,XM,XMIN,XMIN2,XR
 !
 !     Check tuning parameter
 !
@@ -240,13 +241,13 @@
          !PRINT*, "QUADRATIC COEFFICIENT A MUST BE POSITIVE"
          RETURN
       END IF
-      B = -B/A
-      ABSB = ABS(B)
+      BC = -B/A
+      ABSB = ABS(BC)
 !
 !     Thresholding
 !
       IF (RHO<EPS) THEN
-         XMIN = B
+         XMIN = BC
          RETURN
       ELSE
          SELECT CASE(PENTYPE)
@@ -255,15 +256,15 @@
                !PRINT*,"THE ENET PARAMETER ETA SHOULD BE IN [1,2]."
                RETURN
             ELSEIF (ABS(ETA-TWO)<EPS) THEN
-               XMIN = A*B/(A+RHO)
+               XMIN = A*BC/(A+RHO)
                RETURN
             END IF
-            XMIN = A*B-RHO*(TWO-ETA)
+            XMIN = A*BC-RHO*(TWO-ETA)
             IF (XMIN>ZERO) THEN
                XMIN = XMIN/(A+RHO*(ETA-1))
                RETURN
             END IF
-            XMIN = A*B+RHO*(TWO-ETA)
+            XMIN = A*BC+RHO*(TWO-ETA)
             IF (XMIN<ZERO) THEN
                XMIN = XMIN/(A+RHO*(ETA-1))
                RETURN
@@ -274,25 +275,27 @@
                !PRINT *, "PARAMETER ETA FOR LOG PENALTY SHOULD BE POSITIVE"
                RETURN
             ELSEIF (ABS(ETA)<EPS) THEN
-               ETA = SQRT(RHO)
+               ETAC = SQRT(RHO)
+            ELSE
+               ETAC = ETA
             END IF
-            IF (RHO<=A*ABSB*ETA) THEN
-               XMIN = HALF*(ABSB-ETA+ &
-                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A))
-            ELSEIF (RHO<=A*ETA*ETA) THEN
+            IF (RHO<=A*ABSB*ETAC) THEN
+               XMIN = HALF*(ABSB-ETAC+ &
+                  SQRT((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A))
+            ELSEIF (RHO<=A*ETAC*ETAC) THEN
                XMIN = ZERO
-            ELSEIF (RHO>=A*(ETA+ABSB)*(ETA+ABSB)/FOUR) THEN
+            ELSEIF (RHO>=A*(ETAC+ABSB)*(ETAC+ABSB)/FOUR) THEN
                XMIN = ZERO
             ELSE
-               XMIN = HALF*(ABSB-ETA+ &
-                  SQRT((ABSB+ETA)*(ABSB+ETA)-FOUR*RHO/A))
-               F1 = HALF*A*B*B+RHO*LOG(ETA)
-               F2 = HALF*A*(XMIN-ABSB)**2+RHO*LOG(ETA+ABS(XMIN))
+               XMIN = HALF*(ABSB-ETAC+ &
+                  SQRT((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A))
+               F1 = HALF*A*BC*BC+RHO*LOG(ETAC)
+               F2 = HALF*A*(XMIN-ABSB)**2+RHO*LOG(ETAC+ABS(XMIN))
                IF (F1<F2) THEN
                   XMIN = ZERO
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          CASE("MCP")
             IF (ETA<=ZERO) THEN
                !PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
@@ -309,25 +312,25 @@
             ELSEIF (RHO*ETA>=ABSB) THEN
                XMIN = ZERO
             ELSE
-               IF (A*B*B<RHO*RHO*ETA) THEN
+               IF (A*BC*BC<RHO*RHO*ETA) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = ABSB
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          CASE("POWER")
             IF (ETA<=ZERO.OR.ETA>TWO) THEN
                !PRINT*,"THE EXPONENT ETA SHOULD BE IN (0,2]."
                RETURN
             ELSEIF (ABS(ETA-TWO)<EPS) THEN
-               XMIN = A*B/(A+TWO*RHO)
+               XMIN = A*BC/(A+TWO*RHO)
                RETURN
             ELSEIF (ABS(ETA-ONE)<EPS) THEN
-               IF (B-RHO/A>ZERO) THEN
-                  XMIN = B-RHO/A
-               ELSEIF (B+RHO/A<ZERO) THEN
-                  XMIN = B+RHO/A
+               IF (BC-RHO/A>ZERO) THEN
+                  XMIN = BC-RHO/A
+               ELSEIF (BC+RHO/A<ZERO) THEN
+                  XMIN = BC+RHO/A
                ELSE
                   XMIN = ZERO
                END IF
@@ -375,7 +378,7 @@
                   XMIN = ZERO
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          CASE("SCAD")
             IF (ETA<=TWO) THEN
                !PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
@@ -392,13 +395,13 @@
             ELSEIF (ABSB<=RHO*ETA.OR.A*(ETA-ONE)>=ONE) THEN
                XMIN = ZERO
             ELSE
-               IF (A*B*B<RHO*RHO*(ETA+ONE)) THEN
+               IF (A*BC*BC<RHO*RHO*(ETA+ONE)) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = ABSB
                END IF
             END IF
-            XMIN = SIGN(XMIN,B)
+            XMIN = SIGN(XMIN,BC)
          END SELECT
       END IF
       END FUNCTION LSQ_THRESHOLDING
@@ -502,7 +505,7 @@
 !     Use Brent method to locate the minimum within bracket
 !
       IF (DOBRENT) THEN
-         V = A+(ONE-CGOLD)*(B-A)
+         V = A+CGOLD*(B-A)
          W = V
          XMIN = V
          E = ZERO
@@ -1137,5 +1140,4 @@
       END SUBROUTINE PENALIZED_GLM_REGRESSION
 !
       END MODULE SPARSEREG
-
-      
+!      
