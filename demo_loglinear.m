@@ -12,7 +12,7 @@ b(2:11) = 1;
 inner = X*b;   % linear parts
 poissmean = exp(inner);
 y = poissrnd(poissmean);
-wt = ones(n,1);
+
 
 %% test glm_maxlambda()
 

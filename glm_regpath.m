@@ -1,41 +1,22 @@
-function [betahat] = ...
-    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,pentype,penparam,model)
-% GLM_SPARSEREG Sparse GLM regression at a fixed penalty value
-%   Compute argmin loss(beta) + penalty(beta(penidx),lambda)
-%    
-% INPUT
+function [rho_path, beta_path] = glm_regpath(X,y,wt,D,pentype,penparam,model)
+% LSQ_REGPATH Calculate the solution path of  
+%   argmin loss(beta)+sum(penfun(D*beta))
+%
+% INPUT:
 %   X - n-by-p design matrix
-%   y - n-by-1 response vector
-%   wt - n-by-1 weights; set to ones if empty
-%   lambda - penalty constant (>=0)
-%   x0 - p-by-1 initial estimate; set to zeros if empty
-%   penidx - p-by-1 logical vector indicating penalized coefficients; 
-%       set to trues if empty
-%   maxiter - maxmum number of iterations; set to 1000 if empty
-%   pentype - ENET|LOG|MCP|POWER|SCAD
-%   penparam - index parameter for penalty; if empty, set to default values:
-%       ENET, 1, LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
-%   model - GLM model specifiler: LOGISTIC|LOGLINEAR
+%   y - n-by-1 responses
+%   wt - n-by-1 weights; wt = ones(p,1) if not supplied
+%   D - m-by-p regularization matrix
 %
-% OUTPUT
-%   betahat - regression coefficient estimate
-%
+% OUTPUT:
+%   rho_path - rhos along the path
+%   beta_path - solution vectors at each rho
+
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
 
-% check proper input arguments
+% check dimensions of inputs
 [n,p] = size(X);
-
-if (isempty(x0))
-    x0 = zeros(p,1);
-elseif (numel(x0)~=p)
-    error('x0 has incompatible size');
-elseif (size(x0,1)==1)
-    x0 = x0';
-end
-if (issparse(x0))
-    x0 = full(x0);
-end
 
 if (numel(y)~=n)
     error('y has incompatible size');
@@ -53,22 +34,16 @@ elseif (any(wt<=0))
     error('weights wt should be positive');    
 end
 
-if (lambda<0)
-    error('penalty constant lambda should be nonnegative');
+m = size(D,1);
+if (size(D,2)~=p)
+    error('regularization matrix D must be a m-by-p');
 end
-
-if (isempty(penidx))
-    penidx = true(p,1);
-elseif (numel(penidx)~=p)
-    error('penidx has incompatible size');
-elseif (size(penidx,1)==1)
-    penidx = penidx';
-end
-
-if (isempty(maxiter))
-    maxiter = 1000;
-elseif (maxiter<=0)
-    error('maxiter should be a positive integer');
+% Check rank of D
+D = sparse(D);
+[~,R,perm] = qr(D,0);
+rankD = sum(abs(diag(R)) > abs(R(1))*max(m,p)*eps(class(R)));
+if (m>p || rankD<m)
+    error('regularization matrix D must have full row rank');
 end
 
 pentype = upper(pentype);
@@ -103,7 +78,7 @@ elseif (strcmp(pentype,'SCAD'))
         error('index parameter for SCAD penalty should be larger than 2');
     end
 else
-    error('penalty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
+    error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
 model = upper(model);
@@ -116,11 +91,27 @@ elseif (strcmp(model,'LOGLINEAR'))
        error('responses y must be nonnegative'); 
     end    
 else
-    error('model not recogonized. LOGISTIC|POISSON accepted');
+    error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
 
-% call the mex function
-betahat = ...
-    glmsparse(x0,X,y,wt,lambda,penidx,maxiter,pentype,penparam,model);
+% V is the transformation matrix from beta to new variables
+if rankD < p    % D is column rank deficient
+    V = sparse(p,p);
+    V(1:m,:) = D;
+    V(m+1:end,perm(m+1:end)) = eye(p-rankD);
+else
+    V = D;
+end
+% T is the transformation matrix from new variables back to beta
+T = (V'*V)\V';
+
+% performa path following in new variables
+maxpreds = [];
+penidx = [true(m,1); false(p-rankD,1)];
+[rho_path,beta_path] = ...
+    glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model);
+
+% transform from new variables back to beta
+beta_path = T*beta_path;
 
 end

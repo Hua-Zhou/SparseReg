@@ -1,5 +1,5 @@
 %% Sparse Linear Regression
-% A demonstration of aspects of sparse linear regression using SparseReg 
+% A demonstration of sparse linear regression using SparseReg 
 % toolbox. Sparsity is in the general sense: variable selection, 
 % fused sparse regression (total variation regularization), polynomial trend 
 % filtering, and others. Various penalties are implemented:
@@ -24,7 +24,7 @@ penalty = 'enet';           % set penalty function to lasso
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 lambdastart = ...           % find the maximum tuning parameter to start
-    max(lsq_maxlambda(sum(X(:,penidx).^2,1),y'*X(:,penidx),penalty,penparam));
+    max(lsq_maxlambda(sum(X(:,penidx).^2),-y'*X(:,penidx),penalty,penparam));
 display(lambdastart);
 
 lambda = 0.9*lambdastart;   % tuning parameter value
@@ -59,7 +59,7 @@ penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 wt = ones(n,1);             % equal weights for all data points
 tic;
-[rho_path,beta_path] = ...
+[rho_path,beta_path] = ...  % compute solution path
     lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam);
 timing = toc;
 
@@ -112,7 +112,41 @@ for i=1:length(penalty)
     title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
 end
 
-%% Sparse linear regression (n<p)
+%% Fused linear regression
+% Fused lasso (fusing the first 10 predictors)
+D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
+D(10:10:90) = 1;            
+D(19:10:99) = -1;
+display(D(1:9,1:11));
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+wt = [];                    % equal weights for all observations
+tic;
+[rho_path, beta_path] = lsq_regpath(X,y,wt,D,penalty,penparam);
+timing = toc;
+
+figure;
+plot(rho_path,beta_path(2:11,:));
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+
+%%
+% Same fusion problem, but with power, log, MCP, and SCAD penalty
+penalty = {'power' 'log' 'mcp' 'scad'};
+penparam = [0.5 1 1 3.7];
+for i=1:length(penalty)
+    tic;
+    [rho_path, beta_path] = lsq_regpath(X,y,wt,D,penalty{i},penparam(i));
+    timing = toc;
+    subplot(2,2,i);
+    plot(rho_path,beta_path(2:11,:));
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
+end
+
+%% Sparse logistic regression (n<p)
 % Simulate another sample data set (n=100, p=500)
 clear;
 n = 100;
@@ -159,48 +193,3 @@ ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
-%% Fused linear regression
-% Simulate a sample data set (n=500, p=100)
-clear;
-n = 500;
-p = 100;
-X = randn(n,p);             % generate a random design matrix
-X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
-X = [ones(size(X,1),1) X];  % add intercept
-b = zeros(p+1,1);           % true signal: first ten predictors are 3
-b(2:11) = 3;
-y = X*b+randn(n,1);         % response vector
-
-%%
-% Fused lasso (fusing the first 10 predictors)
-D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
-D(10:10:90) = 1;            
-D(19:10:99) = -1;
-display(D(1:9,1:11));
-penalty = 'enet';           % set penalty function to lasso
-penparam = 1;
-wt = [];                    % equal weights for all observations
-tic;
-[rho_path, beta_path] = lsq_regpath(X,y,wt,D,penalty,penparam);
-timing = toc;
-
-figure;
-plot(rho_path,beta_path(2:11,:));
-xlabel('\rho');
-ylabel('\beta(\rho)');
-xlim([min(rho_path),max(rho_path)]);
-title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
-
-%%
-% Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
-for i=1:length(penalty)
-    tic;
-    [rho_path, beta_path] = lsq_regpath(X,y,wt,D,penalty{i},penparam(i));
-    timing = toc;
-    subplot(2,2,i);
-    plot(rho_path,beta_path(2:11,:));
-    xlim([min(rho_path),max(rho_path)]);
-    title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
-end

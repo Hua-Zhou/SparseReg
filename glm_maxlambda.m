@@ -5,7 +5,7 @@ function [maxlambda] = glm_maxlambda(x,c,y,wt,pentype,penparam,model)
 %
 % INPUT
 %   x: n-by-1 predictor vector
-%   c: n-by-1 constant vector
+%   c: n-by-1 constant vector (0 vector by default)
 %   y: n-by-1 response vector
 %   pentype - 'enet'|'log'|'mcp'|'power'|'scad'
 %   penargs - index parameter for penalty function penname; allowed range
@@ -19,7 +19,6 @@ function [maxlambda] = glm_maxlambda(x,c,y,wt,pentype,penparam,model)
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check proper input arguments
 if (size(x,1)>1 && size(x,2)>1)

@@ -54,7 +54,6 @@ elseif (size(penidx,1)==1)
 end
 
 if (isempty(maxpreds) || maxpreds>=min(n,p))
-%     maxpreds = min(n,p);
     maxpreds = rank(X);
 elseif (maxpreds<=0)
     error('maxpreds should be a positive integer');
@@ -136,16 +135,18 @@ fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
 tfinal = 0;
 
 % find MLE of unpenalized coefficients
-setKeep = ~penidx;      % set of unpenalized coefficients
-setPenZ = penidx;       % set of penalized coefficients that are zero
-setPenNZ = false(p,1);  % set of penalized coefficients that are non-zero
-coeff = zeros(p,1);     % subgradient coefficients
+setKeep = ~penidx;          % set of unpenalized coefficients
+setPenZ = penidx;           % set of penalized coefficients that are zero
+setPenNZ = false(p,1);      % set of penalized coefficients that are non-zero
+setActive = setKeep;
+coeff = zeros(p,1);         % subgradient coefficients
 if (nnz(setKeep)>min(n,p))
     error('number of unpenalized coefficients exceeds rank of X');
 end
 if (any(setKeep))
-    x0 = fminunc(@glmfun,zeros(nnz(setKeep),1),fminopt, ...
-        X(:,setKeep),y,wt,model);
+%     x0 = fminunc(@glmfun,zeros(nnz(setKeep),1),fminopt, ...
+%         X(:,setKeep),y,wt,model);
+    x0 = fminunc(@objfun,zeros(nnz(setKeep),1),fminopt,0);
     beta_path(setKeep,1) = x0;
     inner = X(:,setKeep)*x0;
 else
@@ -180,7 +181,7 @@ fval_kinks = fval;
 
 % main loop for path following
 for k=2:maxiters
-display(k);
+
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
     [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
@@ -238,7 +239,7 @@ end
             coeff(setPenZ) = 0;
             value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
         elseif (any(setPenZ))
-        % try coordinate descent direction for zero coeffs
+            % try coordinate descent direction for zero coeffs
             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
                 inner,y,wt,t,pentype,penparam,model);
             if (any(isnan(xPenZ_trial)))
@@ -263,11 +264,11 @@ end
         diagidx = find(penidx(setActive));
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
-    if (any(isnan(M(:))))
-        display(d2pen);
-        display(M);
-        error('NaN encountered in M');
-    end            
+        if (any(isnan(M(:))))
+            display(d2pen);
+            display(M);
+            error('NaN encountered in M');
+        end
         dx = - M\dx;
         if (any(isinf(dx)))
             dx(isinf(dx)) = 1e8*sign(dx(isinf(dx)));
@@ -306,7 +307,7 @@ end
             diagidx = (diagidx-1)*length(x) + diagidx;
             d2f(diagidx) = d2f(diagidx) + d2pen;
         end
-    end%objfun
+    end%OBJFUN
 
     function [loss,lossd1,lossd2] = glmfun(inner,X,y,wt,model)
         big = 20;
@@ -340,6 +341,6 @@ end
                     lossd2 = X'*bsxfun(@times, wt.*expinner, X);
             end
         end
-    end
+    end%GLMFUN
 
 end
