@@ -183,7 +183,7 @@ for k=2:maxiters
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
     [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
-
+    
     % accumulate solution path
     rho_path = [rho_path tseg']; %#ok<*AGROW>
     beta_path(setActive,(end+1):(end+size(xseg,1))) = xseg';

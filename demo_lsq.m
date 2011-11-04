@@ -36,20 +36,20 @@ x0 = [];                    % use default start value (0)
 betahat = ...               % sparse regression
     lsq_sparsereg(X,y,wt,lambda,x0,sum_x_squares,penidx,maxiter,penalty,penparam);
 figure;                     % plot penalized estimate
-bar(1:length(betahat),betahat);
+bar(0:length(betahat)-1,betahat);
 xlabel('j');
 ylabel('\beta_j');
-xlim([0,length(betahat)+1]);
+xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 lambda = 0.5*lambdastart;   % try a smaller tuning parameter value
 betahat = ...               % sparse regression
     lsq_sparsereg(X,y,wt,lambda,x0,sum_x_squares,penidx,maxiter,penalty,penparam);
 figure;                     % plot penalized estimate
-bar(1:length(betahat),betahat);
+bar(0:length(betahat)-1,betahat);
 xlabel('j');
 ylabel('\beta_j');
-xlim([0,length(betahat)+1]);
+xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 %% 

@@ -47,10 +47,10 @@ betahat = ...               % sparse regression
     glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,penalty,penparam,model);
 
 figure;                     % plot penalized estimate
-bar(1:length(betahat),betahat);
+bar(0:length(betahat)-1,betahat);
 xlabel('j');
 ylabel('\beta_j');
-xlim([0,length(betahat)+1]);
+xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 lambda = 0.5*lambdastart;   % tuning parameter value
@@ -58,10 +58,10 @@ betahat = ...               % sparse regression
     glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,penalty,penparam,model);
 
 figure;                     % plot penalized estimate
-bar(1:length(betahat),betahat);
+bar(0:length(betahat)-1,betahat);
 xlabel('j');
 ylabel('\beta_j');
-xlim([0,length(betahat)+1]);
+xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 %% 
@@ -87,7 +87,7 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 %% 
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
-penparam = .5;
+penparam = 0.5;
 tic;
 [rho_path,beta_path] = ...  % compute solution path
     glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
@@ -114,7 +114,7 @@ for i=1:length(penalty)
     [rho_path,beta_path] = ...
         glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
     timing = toc;
-    subplot(4,3,i);
+    subplot(3,3,i);
     plot(rho_path,beta_path);
     if (i==8)
         xlabel('\rho');
@@ -165,20 +165,20 @@ end
 % Simulate another sample data set (n=100, p=200)
 clear;
 n = 100;
-p = 200;
+p = 500;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
-X = [ones(size(X,1),1) X];
+X = [ones(size(X,1),1),X];  % add intercept
 b = zeros(p+1,1);           % true signal
 b(2:6) = 5;                 % first 5 predictors are 5
 b(7:11) = -5;               % next 5 predictors are -5
 inner = X*b;                % linear parts
 prob = 1./(1+exp(-inner));
-y = double(rand(n,1)<prob);
+y = binornd(1,prob);        % generate binary response
 
 %% 
 % Solution path for lasso
-maxpreds = 10;              % request path to the first 30 predictors
+maxpreds = 11;              % request path to the first 11 predictors
 model = 'logistic';         % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
@@ -190,7 +190,6 @@ tic;
 timing = toc;
 
 figure;
-set(gca,'FontSize',15);
 plot(rho_path,beta_path);
 xlabel('\rho');
 ylabel('\beta(\rho)');
@@ -319,7 +318,7 @@ for i=1:length(penalty)
     [rho_path,beta_path] = ...
         glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
     timing = toc;
-    subplot(4,3,i);
+    subplot(3,3,i);
     plot(rho_path,beta_path);
     if (i==8)
         xlabel('\rho');
@@ -338,8 +337,8 @@ D(10:10:90) = 1;
 D(19:10:99) = -1;
 display(D(1:9,1:11));
 model = 'loglinear';
-penalty = 'enet';           % set penalty function to lasso
-penparam = 1;
+penalty = 'scad';           % set penalty function to lasso
+penparam = 3.7;
 wt = [];                    % equal weights for all observations
 tic;
 [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
