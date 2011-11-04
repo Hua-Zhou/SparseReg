@@ -14,8 +14,9 @@ p = 100;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
-b = zeros(p+1,1);           % true signal: first ten predictors are 3
-b(2:11) = 3;
+b = zeros(p+1,1);           % true signal: 
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
 y = X*b+randn(n,1);         % response vector
 
 %%
@@ -105,7 +106,7 @@ for i=1:length(penalty)
     if (i==8)
         xlabel('\rho');
     end
-    if (i==4)
+    if (i==4) 
         ylabel('\beta(\rho)');
     end
     xlim([min(rho_path),max(rho_path)]);
@@ -146,7 +147,7 @@ for i=1:length(penalty)
     title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
 end
 
-%% Sparse logistic regression (n<p)
+%% Sparse linear regression (n<p)
 % Simulate another sample data set (n=100, p=500)
 clear;
 n = 100;
@@ -154,8 +155,9 @@ p = 500;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
-b = zeros(p+1,1);           % true signal: first ten predictors are 3
-b(2:11) = 3;
+b = zeros(p+1,1);           % true signal
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
 y = X*b+randn(n,1);         % response vector
 
 %% 
@@ -192,4 +194,3 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
-

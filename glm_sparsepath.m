@@ -144,8 +144,6 @@ if (nnz(setKeep)>min(n,p))
     error('number of unpenalized coefficients exceeds rank of X');
 end
 if (any(setKeep))
-%     x0 = fminunc(@glmfun,zeros(nnz(setKeep),1),fminopt, ...
-%         X(:,setKeep),y,wt,model);
     x0 = fminunc(@objfun,zeros(nnz(setKeep),1),fminopt,0);
     beta_path(setKeep,1) = x0;
     inner = X(:,setKeep)*x0;
@@ -192,6 +190,9 @@ for k=2:maxiters
 
     % update activeSet
     rho = max(rho_path(end)-tiny,0);
+    if (rho==0); 
+        break; 
+    end;
     x0 = beta_path(:,end);
     if (~isconvex)
         x0(setPenZ) = coeff(setPenZ);
@@ -246,7 +247,7 @@ end
                 error('NaN encountered from glm_thresholding');
             end
             coeff(setPenZ) = xPenZ_trial;
-            value(setPenZ) = abs(xPenZ_trial)==0;        
+            value(setPenZ) = abs(xPenZ_trial)<1e-8;
         end
         isterminal = true(p,1);
         direction = zeros(p,1);

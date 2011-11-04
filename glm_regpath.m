@@ -109,7 +109,7 @@ T = (V'*V)\V';
 maxpreds = [];
 penidx = [true(m,1); false(p-rankD,1)];
 [rho_path,beta_path] = ...
-    glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model);
+    glm_sparsepath(X*T,y,wt,penidx,maxpreds,pentype,penparam,model);
 
 % transform from new variables back to beta
 beta_path = T*beta_path;

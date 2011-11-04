@@ -2,7 +2,7 @@ function [betahat] = ...
     glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,pentype,penparam,model)
 % GLM_SPARSEREG Sparse GLM regression at a fixed penalty value
 %   Compute argmin loss(beta) + penalty(beta(penidx),lambda)
-%    
+%
 % INPUT
 %   X - n-by-p design matrix
 %   y - n-by-1 response vector

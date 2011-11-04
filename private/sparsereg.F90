@@ -58,8 +58,10 @@
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
       LOGICAL :: CONTLOG
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: ETA,RHO
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: BETA,PEN
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: ETA,RHO
+      REAL(KIND=DBLE_PREC) :: ETAC
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: BETA
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: PEN
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(BETA)) :: ABSBETA
       REAL(KIND=DBLE_PREC), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
 !
@@ -81,14 +83,15 @@
          END IF
          PEN = RHO*(HALF*(ETA-ONE)*BETA*BETA+(TWO-ETA)*ABSBETA)
       CASE("LOG")
+         ETAC = ETA
          IF (ETA==ZERO) THEN
-            ETA = SQRT(RHO)
+            ETAC = SQRT(RHO)
             CONTLOG = .TRUE.
          ELSEIF (ETA<ZERO) THEN
             !PRINT*,"THE LOG PENALTY PARAMETER ETA SHOULD BE NONNEGATIVE."
             RETURN
          END IF
-         PEN = RHO*LOG(ETA+ABSBETA)      
+         PEN = RHO*LOG(ETAC+ABSBETA)      
       CASE("MCP")
          IF (ETA<=ZERO) THEN
             !PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
@@ -127,7 +130,7 @@
          CASE("ENET")
             D1PEN = RHO*((ETA-ONE)*ABSBETA+TWO-ETA)
          CASE("LOG")
-            D1PEN = RHO/(ETA+ABSBETA)
+            D1PEN = RHO/(ETAC+ABSBETA)
          CASE("MCP")
             WHERE (ABSBETA<RHO*ETA)
                D1PEN = RHO - ABSBETA/ETA
@@ -158,7 +161,7 @@
          CASE("ENET")
             D2PEN = RHO*(ETA-ONE)
          CASE("LOG")
-            D2PEN = -D1PEN/(ETA+ABSBETA)
+            D2PEN = -D1PEN/(ETAC+ABSBETA)
          CASE("MCP")
             WHERE (ABSBETA<RHO*ETA)
                D2PEN = -ONE/ETA
@@ -187,9 +190,9 @@
          CASE("ENET")
             DPENDRHO = (ETA-ONE)*ABSBETA+TWO-ETA
          CASE("LOG")
-            DPENDRHO = ONE/(ETA+ABSBETA)
+            DPENDRHO = ONE/(ETAC+ABSBETA)
             IF (CONTLOG) THEN
-               DPENDRHO = DPENDRHO*(ONE-HALF*ETA*DPENDRHO)
+               DPENDRHO = DPENDRHO*(ONE-HALF*ETAC*DPENDRHO)
             END IF         
          CASE("MCP")
             WHERE (ABSBETA<RHO*ETA)
@@ -226,7 +229,7 @@
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC), INTENT(IN) :: A,B,ETA,RHO
       REAL(KIND=DBLE_PREC) :: ABSB,BC,DL,DM,DR,ETAC,F1,F2,FXMIN,FXMIN2
-      REAL(KIND=DBLE_PREC) :: XL,XM,XMIN,XMIN2,XR
+      REAL(KIND=DBLE_PREC) :: ROOT,UB,XL,XM,XMIN,XMIN2,XR
 !
 !     Check tuning parameter
 !
@@ -281,14 +284,14 @@
             END IF
             IF (RHO<=A*ABSB*ETAC) THEN
                XMIN = HALF*(ABSB-ETAC+ &
-                  SQRT((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A))
+                  SQRT(MAX((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A,ZERO)))
             ELSEIF (RHO<=A*ETAC*ETAC) THEN
                XMIN = ZERO
             ELSEIF (RHO>=A*(ETAC+ABSB)*(ETAC+ABSB)/FOUR) THEN
                XMIN = ZERO
             ELSE
                XMIN = HALF*(ABSB-ETAC+ &
-                  SQRT((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A))
+                  SQRT(MAX((ABSB+ETAC)*(ABSB+ETAC)-FOUR*RHO/A,ZERO)))
                F1 = HALF*A*BC*BC+RHO*LOG(ETAC)
                F2 = HALF*A*(XMIN-ABSB)**2+RHO*LOG(ETAC+ABS(XMIN))
                IF (F1<F2) THEN
@@ -301,20 +304,33 @@
                !PRINT*,"THE MCP PARAMETER ETA SHOULD BE POSITIVE."
                RETURN
             END IF
-            IF (RHO<=A*ABSB) THEN
-               IF (ABSB<=RHO*ETA) THEN
-                  XMIN = ETA*(A*ABSB-RHO)/(A*ETA-ONE)
-               ELSE
-                  XMIN = ABSB
-               END IF
-            ELSEIF (A*ETA>=ONE) THEN
-               XMIN = ZERO
-            ELSEIF (RHO*ETA>=ABSB) THEN
-               XMIN = ZERO
-            ELSE
-               IF (A*BC*BC<RHO*RHO*ETA) THEN
+            UB = MIN(RHO*ETA,ABSB)
+            IF (A*ETA==ONE) THEN
+               IF ((RHO-A*ABSB)>=ZERO) THEN
                   XMIN = ZERO
                ELSE
+                  XMIN = UB
+               END IF
+            ELSEIF (A*ETA>ONE) THEN
+               ROOT = -(RHO-A*ABSB)/(A-ONE/ETA)
+               IF (ROOT<=ZERO) THEN
+                  XMIN = ZERO
+               ELSEIF (ROOT>=UB) THEN
+                  XMIN = UB
+               ELSE
+                  XMIN = ROOT
+               END IF
+            ELSE
+               ROOT = -(RHO-A*ABSB)/(A-ONE/ETA)
+               IF (ROOT>=UB/TWO) THEN
+                  XMIN = ZERO
+               ELSE
+                  XMIN = UB
+               END IF
+            END IF
+            IF (RHO*ETA<ABSB) THEN
+               IF ((A*(XMIN-ABSB)**2+RHO*XMIN-XMIN*XMIN*ETA)&
+                  >(RHO*RHO*ETA)) THEN
                   XMIN = ABSB
                END IF
             END IF
@@ -695,9 +711,10 @@
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
-      REAL(KIND=DBLE_PREC) :: A,B,ETA,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: A,B
+      REAL(KIND=DBLE_PREC) :: BC,ETA,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: PENPARAM
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: PENPARAM
 !
 !     Locate the max rho
 !
@@ -795,9 +812,9 @@
             RETURN
          END IF
       CASE("SCAD")
-         B = -B/A
-         L = A/(A+ONE)*ABS(B)
-         R = A*ABS(B)
+         BC = -B/A
+         L = A/(A+ONE)*ABS(BC)
+         R = A*ABS(BC)
          ROOTL = LSQ_THRESHOLDING(A,B,L,PENPARAM(1),"SCAD")
          ROOTR = LSQ_THRESHOLDING(A,B,R,PENPARAM(1),"SCAD")
          DO
@@ -833,7 +850,7 @@
       LOGICAL :: ISINFRHO,ISNEGROOT
       REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8,MULTIPLIER=TWO
       REAL(KIND=DBLE_PREC) :: DELTABETA,ETA,L,LOSS,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: C,PENPARAM,WT,X,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,PENPARAM,WT,X,Y
       REAL(KIND=DBLE_PREC), DIMENSION(GRIDPTS) :: BETAGRID,LOSSGRID,PENGRID
 !
 !     Figure out whether max rho is infinity
@@ -1039,12 +1056,14 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE,MODEL
       INTEGER :: ITERATION,J,MAXITERS,N,P
-      REAL(KIND=DBLE_PREC) :: CRITERION=1E-4,EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: LAMBDA,LOSS,NEW_OBJECTIVE,OLDROOT
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: LAMBDA
+      REAL(KIND=DBLE_PREC), PARAMETER :: CRITERION=1E-4,EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: LOSS,NEW_OBJECTIVE,OLDROOT
       REAL(KIND=DBLE_PREC) :: OBJECTIVE,ROOTDIFF
       LOGICAL, DIMENSION(:) :: PENIDX
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: ESTIMATE,PENPARAM,WT,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(:,:) :: X
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: PENPARAM,WT,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: ESTIMATE
+      REAL(KIND=DBLE_PREC), DIMENSION(:,:), INTENT(IN) :: X
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(Y)) :: C,INNER
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(ESTIMATE)) :: PENALTY
 !
@@ -1140,4 +1159,4 @@
       END SUBROUTINE PENALIZED_GLM_REGRESSION
 !
       END MODULE SPARSEREG
-!      
+!

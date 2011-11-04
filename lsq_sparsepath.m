@@ -229,6 +229,10 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
             d2PenZ = sum_x_squares(setPenZ);
             d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
             xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
+            if (any(isnan(xPenZ_trial)))
+                pause
+                error('NAN encountered from lsq_thresholding()');
+            end
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;
         end

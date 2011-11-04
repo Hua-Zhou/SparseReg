@@ -15,8 +15,9 @@ p = 50;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];
-b = zeros(p+1,1);           % true signal: first ten predictors are 5
-b(2:11) = 5;
+b = zeros(p+1,1);           % true signalfirst ten predictors are 5
+b(2:6) = 5;                 % first 5 predictors are 5
+b(7:11) = -5;               % next 5 predictors are -5
 inner = X*b;                % linear parts
 prob = 1./(1+exp(-inner));
 y = double(rand(n,1)<prob);
@@ -86,7 +87,7 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 %% 
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
-penparam = 0.5;
+penparam = .5;
 tic;
 [rho_path,beta_path] = ...  % compute solution path
     glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
@@ -168,15 +169,16 @@ p = 200;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];
-b = zeros(p+1,1);           % true signal: first ten predictors are 3
-b(2:11) = 5;
+b = zeros(p+1,1);           % true signal
+b(2:6) = 5;                 % first 5 predictors are 5
+b(7:11) = -5;               % next 5 predictors are -5
 inner = X*b;                % linear parts
 prob = 1./(1+exp(-inner));
 y = double(rand(n,1)<prob);
 
 %% 
 % Solution path for lasso
-maxpreds = 20;              % request path to the first 30 predictors
+maxpreds = 10;              % request path to the first 30 predictors
 model = 'logistic';         % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
@@ -198,7 +200,7 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 %% 
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
-penparam = .5;
+penparam = 0.5;
 tic;
 [rho_path,beta_path] = ...  % compute solution path
     glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
@@ -220,9 +222,10 @@ X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
 b = zeros(p+1,1);           % true signal: first ten predictors are 3
-b(2:11) = 3;
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
 inner = X*b;                % linear parts
-y = poissrnd(exp(inner));      % generate response from Poisson
+y = poissrnd(exp(inner));   % generate response from Poisson
 
 %%
 % Sparse loglinear regression at a fixed tuning parameter value
