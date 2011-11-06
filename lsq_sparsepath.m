@@ -137,7 +137,7 @@ else
 end
 
 % set up ODE solver and unconstrained optimizer
-maxiters = 2*min([n,p]);    % max iterations for path algorithm
+maxiters = 5*min([n,p]);    % max iterations for path algorithm
 maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events,'Refine',refine);

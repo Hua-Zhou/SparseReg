@@ -164,6 +164,10 @@ rho = max(rho-tiny,0);
 % update activeSet
 x0 = glm_sparsereg(X,y,wt,rho,beta_path(:,1),penidx,maxrounds,...
     pentype,penparam,model);
+if (any(isnan(x0)))
+    display(x0);
+    error('NaN encountered from glm_sparsereg');
+end
 setPenZ = abs(x0)<1e-8;
 setPenNZ = ~setPenZ;
 setPenZ(setKeep) = false;

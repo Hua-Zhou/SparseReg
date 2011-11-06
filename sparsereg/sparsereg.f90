@@ -306,7 +306,7 @@
             END IF
             UB = MIN(RHO*ETA,ABSB)
             IF (A*ETA==ONE) THEN
-               IF ((RHO-A*ABSB)>=ZERO) THEN
+               IF (RHO>=A*ABSB) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = UB
@@ -322,15 +322,15 @@
                END IF
             ELSE
                ROOT = -(RHO-A*ABSB)/(A-ONE/ETA)
-               IF (ROOT>=UB/TWO) THEN
+               IF (TWO*ROOT>=UB) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = UB
                END IF
             END IF
             IF (RHO*ETA<ABSB) THEN
-               IF ((A*(XMIN-ABSB)**2+RHO*XMIN-XMIN*XMIN*ETA)&
-                  >(RHO*RHO*ETA)) THEN
+               IF (HALF*(A*(XMIN-ABSB)**2+RHO*XMIN-HALF*XMIN*XMIN/ETA)&
+                  >(HALF*RHO*RHO*ETA)) THEN
                   XMIN = ABSB
                END IF
             END IF
