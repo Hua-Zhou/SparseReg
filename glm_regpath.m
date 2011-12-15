@@ -1,4 +1,5 @@
-function [rho_path, beta_path] = glm_regpath(X,y,wt,D,pentype,penparam,model)
+function [rho_path, beta_path, eb_path] = ...
+    glm_regpath(X,y,wt,D,pentype,penparam,model)
 % LSQ_REGPATH Calculate the solution path of  
 %   argmin loss(beta)+sum(penfun(D*beta))
 %
@@ -108,7 +109,7 @@ T = (V'*V)\V';
 % performa path following in new variables
 maxpreds = [];
 penidx = [true(m,1); false(p-rankD,1)];
-[rho_path,beta_path] = ...
+[rho_path,beta_path,eb_path] = ...
     glm_sparsepath(X*T,y,wt,penidx,maxpreds,pentype,penparam,model);
 
 % transform from new variables back to beta

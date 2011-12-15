@@ -20,14 +20,14 @@
 !
       CONTAINS
 !
-      SUBROUTINE READ_DATA(INPUT_FILE,X,Y,N,P)
+      SUBROUTINE READ_DATA(INPUT_FILE,X,Y,ESTIMATE,N,P)
 !
 !     THIS SUBROUTINE READS IN THE DATA AND INITIALIZES CONSTANTS AND ARRAYS.
 !
       IMPLICIT NONE
       CHARACTER(LEN=100) :: INPUT_FILE
       INTEGER :: I,INPUT_UNIT=1,N,P
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: ESTIMATE,Y
       REAL(KIND=DBLE_PREC), DIMENSION(:,:) :: X
 !
 !     Open the input file.
@@ -36,9 +36,9 @@
 !
 !     Read the exponents
 !
+      READ(INPUT_UNIT,*) ESTIMATE(1:P)
       DO I = 1,N
-	      READ(INPUT_UNIT,*) Y(I),X(I,2:P)
-	      X(I,1) = ONE
+	      READ(INPUT_UNIT,*) Y(I),X(I,1:P)
       END DO
       CLOSE(INPUT_UNIT)
       END SUBROUTINE READ_DATA      
@@ -430,7 +430,7 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
       INTEGER, PARAMETER :: GRIDPTS=10,MAXITERS=50
-      INTEGER :: I,IDX
+      INTEGER :: I,IDX,J
       LOGICAL :: DOBRENT,ISNEGROOT
       LOGICAL, DIMENSION(GRIDPTS) :: NEGIDX
       REAL(KIND=DBLE_PREC), INTENT(IN) :: ETA,RHO
@@ -452,8 +452,21 @@
 !
       BETA = ZERO
       DO I=1,GRIDPTS
-         BETAVEC(I) = BETA
          CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSSVEC(I),LOSSD1VEC(I),LOSSD2)
+         IF (I>1) THEN
+!
+!     Line search
+!         
+            DO J=1,5
+               IF (LOSSVEC(I)>LOSSVEC(I-1)+TOL) THEN
+                  BETA = HALF*(BETA+BETAVEC(I-1))
+                  CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSSVEC(I),LOSSD1VEC(I),LOSSD2)
+               ELSE
+                  EXIT
+               END IF
+            END DO
+         END IF
+         BETAVEC(I) = BETA
          IF (ABS(LOSSD1VEC(I))<TOL) THEN
             EXIT
          ELSE
@@ -1126,6 +1139,7 @@
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,LAMBDA,PENPARAM(1),PENTYPE,MODEL)
             ELSE
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
+               PRINT*, "J=", J
             END IF
             ROOTDIFF = ESTIMATE(J)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
@@ -1161,100 +1175,100 @@
 !
       END MODULE SPARSEREG
 
-      PROGRAM TEST
-      USE SPARSEREG
-      IMPLICIT NONE
-      INTEGER, PARAMETER :: N=100, P=5
-      INTEGER :: MAXITERS
-      LOGICAL, DIMENSION(P) :: PENIDX
-      REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,RHO=ONE,ETA=ZERO,XMIN
-      REAL(KIND=DBLE_PREC), DIMENSION(P) :: BETA=(/ONE,TWO,THREE,FOUR,FIVE/)
-      REAL(KIND=DBLE_PREC), DIMENSION(P) :: PEN,D1PEN,D2PEN,DPENDRHO,ESTIMATE,SUM_X_SQUARES
-      REAL(KIND=DBLE_PREC), DIMENSION(N) :: NOISE,WT,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
+!      PROGRAM TEST
+!      USE SPARSEREG
+!      IMPLICIT NONE
+!      INTEGER, PARAMETER :: N=100, P=5
+!      INTEGER :: MAXITERS
+!      LOGICAL, DIMENSION(P) :: PENIDX
+!      REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,RHO=ONE,ETA=ZERO,XMIN
+!      REAL(KIND=DBLE_PREC), DIMENSION(P) :: BETA=(/ONE,TWO,THREE,FOUR,FIVE/)
+!      REAL(KIND=DBLE_PREC), DIMENSION(P) :: PEN,D1PEN,D2PEN,DPENDRHO,ESTIMATE,SUM_X_SQUARES
+!      REAL(KIND=DBLE_PREC), DIMENSION(N) :: NOISE,WT,Y
+!      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
+!!!
+!!!     Test penalty function
+!!!
+!!      RHO = TWO
+!!      ETA = ONE
+!!      CALL PENALTY_FUN(BETA,RHO,ETA,"ENET",PEN,D1PEN,D2PEN,DPENDRHO)
+!!      PRINT*, "BETA="
+!!      PRINT*, BETA
+!!      PRINT*, "RHO="
+!!      PRINT*, RHO
+!!      PRINT*, "ETA="
+!!      PRINT*, ETA
+!!      PRINT*, "PEN="
+!!      PRINT*, PEN
+!!      PRINT*, "D1PEN="
+!!      PRINT*, D1PEN
+!!      PRINT*, "D2PEN="
+!!      PRINT*, D2PEN
+!!      PRINT*, "DPENDRHO="
+!!      PRINT*, DPENDRHO
 !!
-!!     Test penalty function
+!!     Test thresholding function
 !!
-!      RHO = TWO
-!      ETA = ONE
-!      CALL PENALTY_FUN(BETA,RHO,ETA,"ENET",PEN,D1PEN,D2PEN,DPENDRHO)
-!      PRINT*, "BETA="
-!      PRINT*, BETA
-!      PRINT*, "RHO="
-!      PRINT*, RHO
-!      PRINT*, "ETA="
-!      PRINT*, ETA
-!      PRINT*, "PEN="
-!      PRINT*, PEN
-!      PRINT*, "D1PEN="
-!      PRINT*, D1PEN
-!      PRINT*, "D2PEN="
-!      PRINT*, D2PEN
-!      PRINT*, "DPENDRHO="
-!      PRINT*, DPENDRHO
-!
-!     Test thresholding function
-!
-      A = ONE
-      B = ONE+FIVE/TEN+ONE/TEN**2
-      RHO = TWO+TWO/TEN+EIGHT/TEN**2+NINE/TEN**3
-      ETA = ZERO
-      PRINT*, "A = "
-      PRINT*, A
-      PRINT*, "B = "
-      PRINT*, B
-      PRINT*, "RHO="
-      PRINT*, RHO
-      PRINT*, "ETA="
-      PRINT*, ETA
-      PRINT*, "XMIN = "
-      PRINT*, LSQ_THRESHOLDING(A,B,RHO,ETA,"LOG")
-!!
-!!     Test find max rho function
-!!
-!      A = TWO
-!      B = ONE+HALF
+!      A = ONE
+!      B = ONE+FIVE/TEN+ONE/TEN**2
+!      RHO = TWO+TWO/TEN+EIGHT/TEN**2+NINE/TEN**3
+!      ETA = ZERO
 !      PRINT*, "A = "
 !      PRINT*, A
 !      PRINT*, "B = "
 !      PRINT*, B
-!      B = MAX_RHO(A,B,"POWER",(/HALF/))
-!      PRINT*, "MAXRHO = ", B      
-!!
-!!     Test coordinate descent algorithm
-!!
-!      CALL RANDOM_NUMBER(X)
-!      CALL RANDOM_NUMBER(NOISE)
-!      Y = MATMUL(X,BETA)+NOISE
-!      WT = ONE
-!      PENIDX = .TRUE.
-!      SUM_X_SQUARES = MATMUL(WT,X**2)
-!      ESTIMATE = ZERO
-!      MAXITERS = 0
-!      LAMBDA = ONE
-!      CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
-!         SUM_X_SQUARES,PENIDX,MAXITERS,"LOG",(/ONE/))
-!      PRINT*, "ESTIMATE = "
-!      PRINT*, ESTIMATE
-      PAUSE
-      END PROGRAM TEST
+!      PRINT*, "RHO="
+!      PRINT*, RHO
+!      PRINT*, "ETA="
+!      PRINT*, ETA
+!      PRINT*, "XMIN = "
+!      PRINT*, LSQ_THRESHOLDING(A,B,RHO,ETA,"LOG")
+!!!
+!!!     Test find max rho function
+!!!
+!!      A = TWO
+!!      B = ONE+HALF
+!!      PRINT*, "A = "
+!!      PRINT*, A
+!!      PRINT*, "B = "
+!!      PRINT*, B
+!!      B = MAX_RHO(A,B,"POWER",(/HALF/))
+!!      PRINT*, "MAXRHO = ", B      
+!!!
+!!!     Test coordinate descent algorithm
+!!!
+!!      CALL RANDOM_NUMBER(X)
+!!      CALL RANDOM_NUMBER(NOISE)
+!!      Y = MATMUL(X,BETA)+NOISE
+!!      WT = ONE
+!!      PENIDX = .TRUE.
+!!      SUM_X_SQUARES = MATMUL(WT,X**2)
+!!      ESTIMATE = ZERO
+!!      MAXITERS = 0
+!!      LAMBDA = ONE
+!!      CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA,&
+!!         SUM_X_SQUARES,PENIDX,MAXITERS,"LOG",(/ONE/))
+!!      PRINT*, "ESTIMATE = "
+!!      PRINT*, ESTIMATE
+!      PAUSE
+!      END PROGRAM TEST
       
-!      PROGRAM TEST
-!      USE SPARSEREG
-!      IMPLICIT NONE
-!      CHARACTER(LEN=100) :: INPUT_FILE = "adm.csv"
-!      INTEGER, PARAMETER :: N=400,P=4
-!      INTEGER :: J,MAXITERS
-!      LOGICAL, DIMENSION(P) :: PENIDX
-!      REAL(KIND=DBLE_PREC) :: BETA,ETA,LAMBDA,LOSS,LOSSD1,LOSSD2,MAXRHO,MEAN,RHO,STDEV,XMIN
-!      REAL(KIND=DBLE_PREC), DIMENSION(N) :: C
-!      REAL(KIND=DBLE_PREC), DIMENSION(N) :: WT,Y
-!      REAL(KIND=DBLE_PREC), DIMENSION(P) :: ESTIMATE
-!      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
-!!
-!!     Read in data
-!!
-!      CALL READ_DATA(INPUT_FILE,X,Y,N,P)
+      PROGRAM TEST
+      USE SPARSEREG
+      IMPLICIT NONE
+      CHARACTER(LEN=100) :: INPUT_FILE = "test.txt"
+      INTEGER, PARAMETER :: N=1371,P=64
+      INTEGER :: J,MAXITERS
+      LOGICAL, DIMENSION(P) :: PENIDX
+      REAL(KIND=DBLE_PREC) :: BETA,ETA,LAMBDA,LOSS,LOSSD1,LOSSD2,MAXRHO,MEAN,RHO,STDEV,XMIN
+      REAL(KIND=DBLE_PREC), DIMENSION(N) :: C
+      REAL(KIND=DBLE_PREC), DIMENSION(N) :: WT,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(P) :: ESTIMATE
+      REAL(KIND=DBLE_PREC), DIMENSION(N,P) :: X
+!
+!     Read in data
+!
+      CALL READ_DATA(INPUT_FILE,X,Y,ESTIMATE,N,P)
 !!
 !!     Standardize predictors
 !!
@@ -1263,42 +1277,44 @@
 !         STDEV = (SUM(X(:,J)**2)-N*MEAN**2)/(N-1)
 !         X(:,J) = (X(:,J)-MEAN)/STDEV
 !      END DO
-!!!
-!!!     Test SIMPLE_GLM_LOSS
-!!!
-!!      BETA = ZERO
-!!      CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,"LOGISTIC",LOSS,LOSSD1,LOSSD2)
-!!      PRINT*, "BETA = ", BETA
-!!      PRINT*, "LOSS = ", LOSS
-!!      PRINT*, "LOSSD1 = ", LOSSD1
-!!      PRINT*, "LOSSD2 = ", LOSSD2
-!!!
-!!!     Test GLM_THRESHOLDING
-!!!
-!!      RHO = 0.6
-!!      ETA = 3
-!!      PRINT*, "RHO = ", RHO
-!!      PRINT*, "XMIN = ", GLM_THRESHOLDING(X,C,Y,WT,RHO,ETA,"SCAD","LOGISTIC")
-!!!
-!!!     Test find max rho
-!!!
-!!      C = ZERO
-!!      WT = ONE
-!!      DO J=1,P
-!!         PRINT*, "J = ", J
-!!         MAXRHO = GLM_MAXRHO(X(:,J),C,Y,WT,"ENET",(/TWO/),"LOGISTIC")
-!!         PRINT*, "MAXRHO = ", MAXRHO
-!!      END DO
 !!
-!!     Test PENALIZED_GLM_REGRESSION
+!!     Test SIMPLE_GLM_LOSS
 !!
-!      ESTIMATE = ZERO
-!      MAXITERS = 0
-!      LAMBDA = TEN
-!      PENIDX = .TRUE.
+!      BETA = ZERO
+!      CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,"LOGISTIC",LOSS,LOSSD1,LOSSD2)
+!      PRINT*, "BETA = ", BETA
+!      PRINT*, "LOSS = ", LOSS
+!      PRINT*, "LOSSD1 = ", LOSSD1
+!      PRINT*, "LOSSD2 = ", LOSSD2
+!!
+!!     Test GLM_THRESHOLDING
+!!
+!      RHO = 0.6
+!      ETA = 3
+!      PRINT*, "RHO = ", RHO
+!      PRINT*, "XMIN = ", GLM_THRESHOLDING(X,C,Y,WT,RHO,ETA,"SCAD","LOGISTIC")
+!!
+!!     Test find max rho
+!!
+!      C = ZERO
 !      WT = ONE
-!      CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
-!         PENIDX,MAXITERS,"SCAD",(/THREE/),"LOGISTIC")
-!      PAUSE
-!      END PROGRAM TEST
-!      
+!      DO J=1,P
+!         PRINT*, "J = ", J
+!         MAXRHO = GLM_MAXRHO(X(:,J),C,Y,WT,"ENET",(/TWO/),"LOGISTIC")
+!         PRINT*, "MAXRHO = ", MAXRHO
+!      END DO
+!
+!     Test PENALIZED_GLM_REGRESSION
+!
+      MAXITERS = 3
+      LAMBDA = 8.1013
+      PENIDX(1:42) = .TRUE.
+      PENIDX(43:64) = .FALSE.
+      WT = ONE
+      CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
+         PENIDX,MAXITERS,"ENET",(/ONE/),"LOGISTIC")
+      PRINT*, "ESTIMATE="
+      PRINT*, ESTIMATE
+      PAUSE
+      END PROGRAM TEST
+!

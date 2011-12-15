@@ -20,14 +20,14 @@
 !
       CONTAINS
 !
-      SUBROUTINE READ_DATA(INPUT_FILE,X,Y,N,P)
+      SUBROUTINE READ_DATA(INPUT_FILE,X,Y,ESTIMATE,N,P)
 !
 !     THIS SUBROUTINE READS IN THE DATA AND INITIALIZES CONSTANTS AND ARRAYS.
 !
       IMPLICIT NONE
       CHARACTER(LEN=100) :: INPUT_FILE
       INTEGER :: I,INPUT_UNIT=1,N,P
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:) :: ESTIMATE,Y
       REAL(KIND=DBLE_PREC), DIMENSION(:,:) :: X
 !
 !     Open the input file.
@@ -36,9 +36,9 @@
 !
 !     Read the exponents
 !
+      READ(INPUT_UNIT,*) ESTIMATE(1:P)
       DO I = 1,N
-	      READ(INPUT_UNIT,*) Y(I),X(I,2:P)
-	      X(I,1) = ONE
+	      READ(INPUT_UNIT,*) Y(I),X(I,1:P)
       END DO
       CLOSE(INPUT_UNIT)
       END SUBROUTINE READ_DATA      
@@ -306,7 +306,7 @@
             END IF
             UB = MIN(RHO*ETA,ABSB)
             IF (A*ETA==ONE) THEN
-               IF ((RHO-A*ABSB)>=ZERO) THEN
+               IF (RHO>=A*ABSB) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = UB
@@ -322,15 +322,15 @@
                END IF
             ELSE
                ROOT = -(RHO-A*ABSB)/(A-ONE/ETA)
-               IF (ROOT>=UB/TWO) THEN
+               IF (TWO*ROOT>=UB) THEN
                   XMIN = ZERO
                ELSE
                   XMIN = UB
                END IF
             END IF
             IF (RHO*ETA<ABSB) THEN
-               IF ((A*(XMIN-ABSB)**2+RHO*XMIN-XMIN*XMIN*ETA)&
-                  >(RHO*RHO*ETA)) THEN
+               IF (HALF*(A*(XMIN-ABSB)**2+RHO*XMIN-HALF*XMIN*XMIN/ETA)&
+                  >(HALF*RHO*RHO*ETA)) THEN
                   XMIN = ABSB
                END IF
             END IF
@@ -430,7 +430,7 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
       INTEGER, PARAMETER :: GRIDPTS=10,MAXITERS=50
-      INTEGER :: I,IDX
+      INTEGER :: I,IDX,J
       LOGICAL :: DOBRENT,ISNEGROOT
       LOGICAL, DIMENSION(GRIDPTS) :: NEGIDX
       REAL(KIND=DBLE_PREC), INTENT(IN) :: ETA,RHO
@@ -452,8 +452,21 @@
 !
       BETA = ZERO
       DO I=1,GRIDPTS
-         BETAVEC(I) = BETA
          CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSSVEC(I),LOSSD1VEC(I),LOSSD2)
+         IF (I>1) THEN
+!
+!     Line search
+!         
+            DO J=1,5
+               IF (LOSSVEC(I)>LOSSVEC(I-1)+TOL) THEN
+                  BETA = HALF*(BETA+BETAVEC(I-1))
+                  CALL SIMPLE_GLM_LOSS(BETA,X,C,Y,WT,MODEL,LOSSVEC(I),LOSSD1VEC(I),LOSSD2)
+               ELSE
+                  EXIT
+               END IF
+            END DO
+         END IF
+         BETAVEC(I) = BETA
          IF (ABS(LOSSD1VEC(I))<TOL) THEN
             EXIT
          ELSE
@@ -629,7 +642,8 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL
       INTEGER :: I,N
-      REAL(KIND=DBLE_PREC) :: BETA,LOSS
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: BETA
+      REAL(KIND=DBLE_PREC) :: LOSS
       REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
       REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
@@ -1125,6 +1139,7 @@
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,LAMBDA,PENPARAM(1),PENTYPE,MODEL)
             ELSE
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
+               !PRINT*, "J=", J
             END IF
             ROOTDIFF = ESTIMATE(J)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN

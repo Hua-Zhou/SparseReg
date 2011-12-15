@@ -66,31 +66,23 @@ if (strcmp(pentype,'ENET'))
     elseif (penparam<1 || penparam>2)
         error('index parameter for ENET penalty should be in [1,2]');
     end
-    isconvex = true;
 elseif (strcmp(pentype,'LOG'))
     if (isempty(penparam))
         penparam = 1;
     elseif (penparam<0)
         error('index parameter for LOG penalty should be nonnegative');
     end
-    isconvex = false;
 elseif (strcmp(pentype,'MCP'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0)
         error('index parameter for MCP penalty should be positive');
     end
-    isconvex = false;
 elseif (strcmp(pentype,'POWER'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
     elseif (penparam<=0 || penparam>2)
         error('index parameter for POWER penalty should be in (0,2]');
-    end
-    if (penparam<=1)
-        isconvex = false;
-    else
-        isconvex = true;
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
@@ -98,7 +90,6 @@ elseif (strcmp(pentype,'SCAD'))
     elseif (penparam<=2)
         error('index parameter for SCAD penalty should be larger than 2');
     end
-    isconvex = false;
 else
     error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
@@ -230,7 +221,6 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
             d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
             xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
             if (any(isnan(xPenZ_trial)))
-                pause
                 error('NAN encountered from lsq_thresholding()');
             end
             coeff(setPenZ) = xPenZ_trial;

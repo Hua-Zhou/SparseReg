@@ -1,4 +1,4 @@
-function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
+function [rho_path,beta_path,eb_path,rho_kinks,fval_kinks] = ...
     glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model)
 % GLM_SPARSEPATH Solution path for sparse GLM regression
 %   argmin loss(beta) + rho*sum(penfun(beta(penidx)))
@@ -115,6 +115,9 @@ elseif (strcmp(model,'LOGLINEAR'))
 else
     error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
+
+% precompute the elementwise square of design matrix
+X2 = X.^2;
 
 % precompute and allocate storage for path
 tiny = 1e-4;
@@ -234,6 +237,41 @@ for k=2:maxiters
     end
 end
 
+% compute the emprical Bayes criterion along the path
+compute_eb_path = (strcmpi(pentype,'power') || strcmpi(pentype,'log')) ...
+    && nargin>=3;
+if (compute_eb_path)
+    eb_path = zeros(1,length(rho_path));
+    for t=1:length(eb_path)
+        setPenZ = abs(beta_path(:,t))<1e-8;
+        setPenNZ = ~setPenZ;
+        setPenZ(setKeep) = false;
+        setPenNZ(setKeep) = false;
+        setActive = setKeep|setPenNZ;
+        [objf,~,objd2f] = objfun(beta_path(setActive,t), rho_path(t));
+        if (strcmpi(pentype,'power'))
+            if (rho_path(t)>0)
+                eb_path(t) = - nnz(setActive)*(.5*log(pi/2) + log(penparam) ...
+                    + log(rho_path(t))/penparam - gammaln(1/penparam)) ...
+                    + objf + 0.5*real(log(det(objd2f)));
+            else
+                eb_path(t) = nan;
+            end
+        elseif (strcmpi(pentype,'log'))
+            if (rho_path(t)<=1)
+                eb_path(t) = nan;
+            else
+                eb_path(t) = -nnz(setActive)*(0.5*log(pi/2) ...
+                    + log(rho_path(t)-1) ...
+                    + (rho_path(t)-1)*log(penparam)) ...
+                    + objf + 0.5*real(log(det(objd2f)));
+            end
+        end
+    end
+else
+    eb_path = nan;
+end
+
     function [value,isterminal,direction] = events(t,x)
         value = ones(p,1);
         value(setPenNZ) = x(penidx(setActive));
@@ -244,9 +282,15 @@ end
             coeff(setPenZ) = 0;
             value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
         elseif (any(setPenZ))
-            % try coordinate descent direction for zero coeffs
-            xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
-                inner,y,wt,t,pentype,penparam,model);
+%             % try coordinate descent direction for zero coeffs
+%             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
+%                 inner,y,wt,t,pentype,penparam,model);
+            % try coordinate descent direction for zero coeffs using
+            % weighted least squares approximation
+            [~,d1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
+            glmwts = glmweights(inner,wt,model);
+            d2PenZ = glmwts'*X2(:,setPenZ);
+            xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
             if (any(isnan(xPenZ_trial)))
                 error('NaN encountered from glm_thresholding');
             end
@@ -347,5 +391,20 @@ end
             end
         end
     end%GLMFUN
+
+    function [glmwts] = glmweights(inner,wt,model)
+        big = 20;
+        switch upper(model)
+            case 'LOGISTIC'
+                expinner = exp(inner);
+                prob = expinner./(1+expinner);
+                prob(inner>big) = 1;
+                prob(inner<-big) = 0;
+                glmwts = wt.*prob.*(1-prob);
+            case 'LOGLINEAR'
+                expinner = exp(inner);
+                glmwts = wt.*expinner;
+        end
+    end%GLMWEIGHTS
 
 end

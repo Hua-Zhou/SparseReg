@@ -19,7 +19,6 @@ function [xmin] = glm_thresholding(X,C,y,wt,lambda,pentype,penparam,model)
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check proper input arguments
 n = size(X,1);

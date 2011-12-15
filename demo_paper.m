@@ -371,7 +371,7 @@ if (printfig)
     print('-depsc2', ['../../manuscripts/notes/saheart_solpath', '.eps']);
 end
 
-%% South Africa heart data set - power/enet penalty
+%% South Africa heart disease data set - power/enet penalty
 % compute solution paths from power and enet penalties
 maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'power' 'power' 'power' 'power' 'enet' 'enet' 'enet' 'enet' 'enet'};
@@ -437,7 +437,7 @@ legend(penparam_str, 'location', 'northeast');
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/saheart_mse_power', '.eps']);
 end
-%% South Africa heart data set - log penalty
+%% South Africa heart disease data set - log penalty
 % compute solution paths from power and enet penalties
 maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'log' 'log' 'log' 'log' 'log'};
@@ -503,7 +503,7 @@ legend(penparam_str, 'location', 'northeast');
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/saheart_mse_log', '.eps']);
 end
-%% South Africa heart data set - MC+ penalty
+%% South Africa heart disease data set - MC+ penalty
 % compute solution paths from power and enet penalties
 maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'mcp' 'mcp' 'mcp' 'mcp'};
@@ -569,7 +569,7 @@ legend(penparam_str, 'location', 'northeast');
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/saheart_mse_mcp', '.eps']);
 end
-%% South Africa heart data set - SCAD penalty
+%% South Africa heart disease data set - SCAD penalty
 % compute solution paths from power and enet penalties
 maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'scad' 'scad' 'scad' 'scad' 'scad'};
@@ -638,9 +638,11 @@ end
 %% M&A data
 % load data
 clear;
+printfig = true;
 load '../../datasets/MandAcleanData.mat';
 X = x; clear x;
 display(names);
+[~,dev_orig] = glmfit(X,y,'binomial');
 % discretize the covariates into nbins bins; the first bin is used as the
 % reference level; effect coding is used for all category variables
 XDiscretized = cell(1,7);
@@ -675,25 +677,75 @@ for j=1:7
     fusemat([end-3 end-2 end-1 end],:) = [];
     fusemat(end,:) = 0;
     fusemat(end,[end-2 end-1 end]) = [-1 2 -1];
-    fusemat(end+1,:) = [3 0 ones(1,size(fusemat,2)-2)];
-    display(fusemat);
+    fusemat(end+1,:) = [3 0 ones(1,size(fusemat,2)-2)]; %#ok<*SAGROW>
     fusemat = [zeros(size(fusemat,1),sum(nj(1:(j-1)))+1) fusemat ...
-        zeros(size(fusemat,1),sum(nj(j+1:end)))];
+        zeros(size(fusemat,1),sum(nj(j+1:end)))]; %#ok<*AGROW>
     D = [D; fusemat];
 end
-%% fit cubic trend filtering
+%% fit cubic trend filtering using power penalty
 % path algorithm
 model = 'logistic';
-penalty = 'enet';           % set penalty function to lasso
-penparam = 1;
+penalty = 'log';          % set penalty function to log
+penparam = 0.5;
 wt = [];                    % equal weights for all observations
 tic;
-[rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
+[rho_path,beta_path,eb_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
 timing = toc;
-
+%%
+% plot solution path
 figure;
-plot(rho_path,beta_path(2:11,:));
+plot(rho_path,beta_path);
 xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+if (printfig)
+    print('-depsc2', ['../../manuscripts/notes/manda_solpath_power', '.eps']);
+end
+%%
+% plot empirical Bayes criterion along path
+figure;
+plot(rho_path(~isnan(eb_path)),eb_path(~isnan(eb_path)));
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+if (printfig)
+    print('-depsc2', ['../../manuscripts/notes/manda_ebcpath_power', '.eps']);
+end
+%%
+% test the original model vs the fully regularized model
+inner = X*beta_path(:,end);
+prob = exp(inner)./(1+exp(inner));
+dev_reg = -2*sum(log(y.*prob+(1-y).*(1-prob)));
+pvalue = 1 - chi2cdf(dev_orig-dev_reg,22);
+display(pvalue);
+%% 
+% plot unconstrained/constrained estimates
+rhokink = 1;            % fully regularized estimate
+rhokink2 = bestebcidx;  % estiamte located by EBC
+load '../../datasets/MandAcleanData.mat' x;
+figure;
+set(gca,'FontSize', 15);
+for j=1:7
+    subplot(3,3,j); hold on;
+    xqt = [quantile(x(:,j),nbins-1) max(x(:,j))]';
+    xidx = (2+sum(nj(1:j-1))):(1+sum(nj(1:j)));
+    plot(xqt,[-sum(beta_path(xidx,end)) beta_path(xidx,end)'],'o');
+    plot(xqt,[-sum(beta_path(xidx,rhokink2)) beta_path(xidx,rhokink2)'],':');
+    plot(xqt,[-sum(beta_path(xidx,rhokink)) beta_path(xidx,rhokink)'],'-+');
+    xlabel(names{j});
+    xlim([min(x(:,j)) max(x(:,j))+abs(xqt(1))]);
+end
+legend('unconstrained estimate', ['\rho=' num2str(rho_path(rhokink2))], ...
+    'constrained estimate', 'Location', 'SouthEastOutside');
+if (printfig)
+    print('-depsc2', ['../../manuscripts/notes/manda_estimates', '.eps']);
+end
+%%
+% test the model located by EBC vs the fully regularized model
+[~,bestebcidx] = min(eb_path);
+inner = X*beta_path(:,bestebcidx);
+prob = exp(inner)./(1+exp(inner));
+dev_reg = -2*sum(log(y.*prob+(1-y).*(1-prob)));
+pvalue = 1 - chi2cdf(dev_orig-dev_reg,22);
+display(pvalue);
