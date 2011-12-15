@@ -6,7 +6,7 @@
    <!--
 This HTML was auto-generated from MATLAB code.
 To make changes, update the MATLAB code and republish this document.
-      --><title>Sparse generalized linear model (GLM)</title><meta name="generator" content="MATLAB 7.12"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2011-11-04"><meta name="DC.source" content="demo_glm.m"><style type="text/css">
+      --><title>Sparse generalized linear model (GLM)</title><meta name="generator" content="MATLAB 7.12"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2011-12-15"><meta name="DC.source" content="demo_glm.m"><style type="text/css">
 
 body {
   background-color: white;
@@ -117,7 +117,7 @@ title([penalty <span class="string">'('</span> num2str(penparam) <span class="st
 </pre><pre class="codeoutput">
 lambdastart =
 
-    1.5919
+    2.0000
 
 </pre><img vspace="5" hspace="5" src="demo_glm_01.png" alt=""> <img vspace="5" hspace="5" src="demo_glm_02.png" alt=""> <p>Solution path for lasso</p><pre class="codeinput">maxpreds = [];              <span class="comment">% try to obtain the whole solution path</span>
 model = <span class="string">'logistic'</span>;         <span class="comment">% do logistic regression</span>
@@ -203,8 +203,8 @@ ans =
      0     0     0     0     0     0     0     0     1    -1     0
      0     0     0     0     0     0     0     0     0     1    -1
 
-</pre><img vspace="5" hspace="5" src="demo_glm_06.png" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span> <span class="string">'scad'</span>};
-penparam = [0.5 1 1 3.7];
+</pre><img vspace="5" hspace="5" src="demo_glm_06.png" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span> <span class="string">'log'</span>};
+penparam = [0.5 1 1 0];
 <span class="keyword">for</span> i=1:length(penalty)
     tic;
     [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty{i},penparam(i),model);
@@ -214,10 +214,6 @@ penparam = [0.5 1 1 3.7];
     xlim([min(rho_path),max(rho_path)]);
     title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
 <span class="keyword">end</span>
-</pre><pre class="codeoutput">Warning: Matrix is close to singular or badly scaled.
-         Results may be inaccurate. RCOND = 1.013005e-020. 
-Warning: Matrix is close to singular or badly scaled.
-         Results may be inaccurate. RCOND = 3.521545e-020. 
 </pre><img vspace="5" hspace="5" src="demo_glm_07.png" alt=""> <h2>Sparse logistic regression (n&lt;p)<a name="8"></a></h2><p>Simulate another sample data set (n=100, p=200)</p><pre class="codeinput">clear;
 n = 100;
 p = 500;
@@ -313,7 +309,7 @@ title([penalty <span class="string">'('</span> num2str(penparam) <span class="st
 </pre><pre class="codeoutput">
 lambdastart =
 
-    5.3168
+    4.7754
 
 </pre><img vspace="5" hspace="5" src="demo_glm_10.png" alt=""> <img vspace="5" hspace="5" src="demo_glm_11.png" alt=""> <p>Solution path for lasso</p><pre class="codeinput">maxpreds = [];              <span class="comment">% try to obtain the whole solution path</span>
 model = <span class="string">'loglinear'</span>;        <span class="comment">% do logistic regression</span>
@@ -373,8 +369,8 @@ D(10:10:90) = 1;
 D(19:10:99) = -1;
 display(D(1:9,1:11));
 model = <span class="string">'loglinear'</span>;
-penalty = <span class="string">'scad'</span>;           <span class="comment">% set penalty function to lasso</span>
-penparam = 3.7;
+penalty = <span class="string">'enet'</span>;          <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
 wt = [];                    <span class="comment">% equal weights for all observations</span>
 tic;
 [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
@@ -564,8 +560,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
+penalty = {'power' 'log' 'mcp' 'log'};
+penparam = [0.5 1 1 0];
 for i=1:length(penalty)
     tic;
     [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty{i},penparam(i),model);
@@ -752,8 +748,8 @@ D(10:10:90) = 1;
 D(19:10:99) = -1;
 display(D(1:9,1:11));
 model = 'loglinear';
-penalty = 'scad';           % set penalty function to lasso
-penparam = 3.7;
+penalty = 'enet';          % set penalty function to lasso
+penparam = 1;
 wt = [];                    % equal weights for all observations
 tic;
 [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);

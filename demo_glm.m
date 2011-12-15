@@ -10,7 +10,7 @@
 % Simulate a sample data set (n=500, p=50)
 clear;
 n = 500;
-p = 100;
+p = 50;
 
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
@@ -89,10 +89,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
-profile on;
 [rho_path,beta_path] = ...  % compute solution path
     glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
-profile viewer;
 timing = toc;
 
 figure;
@@ -151,8 +149,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
+penalty = {'power' 'log' 'mcp' 'log'};
+penparam = [0.5 1 1 0];
 for i=1:length(penalty)
     tic;
     [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty{i},penparam(i),model);
