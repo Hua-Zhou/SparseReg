@@ -1059,6 +1059,142 @@
       END DO
       END SUBROUTINE PENALIZED_L2_REGRESSION
 !
+      SUBROUTINE PENALIZED_GLM_REGRESSION_IRLS(ESTIMATE,X,Y,WT,LAMBDA, &
+         PENIDX,MAXITERS,PENTYPE,PENPARAM,MODEL)
+!
+!     This subroutine carries out penalized GLM regression with design
+!     matrix X, dependent variable Y, weights WT and penalty constant 
+!     LAMBDA, using iteratively reweighted least squares (IRLS).
+!
+      IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: PENTYPE,MODEL
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: LAMBDA
+      LOGICAL, DIMENSION(:), INTENT(IN) :: PENIDX
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: PENPARAM,WT,Y
+      REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(INOUT) :: ESTIMATE
+      REAL(KIND=DBLE_PREC), DIMENSION(:,:), INTENT(IN) :: X
+!
+!     Local variables
+!      
+      INTEGER :: ITERATION,MAXITERS
+      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=2E1,CRITERION=1E-4,EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: LOSS,NEW_OBJECTIVE,OBJECTIVE
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(Y)) :: EXPINNER,INNER,IRLSWT,IRLSY,MU
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(ESTIMATE)) :: PENALTY
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X,1),SIZE(X,2)) :: X_SQUARE
+!
+!     Check that the number of cases is well defined.
+!
+      IF (SIZE(Y)/=SIZE(X,1)) THEN
+         PRINT*," THE NUMBER OF CASES IS NOT WELL DEFINED."
+         RETURN
+      END IF
+!
+!     Check that the number of predictors is well defined.
+!
+      IF (SIZE(ESTIMATE)/=SIZE(X,2)) THEN
+         PRINT*, " THE NUMBER OF PREDICTORS IS NOT WELL DEFINED."
+         RETURN
+      END IF
+!
+!     Check the index for penalized predictors
+!
+      IF (SIZE(PENIDX)/=SIZE(X,2)) THEN
+         PRINT*, " THE PENALTY INDEX ARRAY IS NOT WELL DEFINED"
+         RETURN
+      END IF
+!
+!     Precompute elementwise square of design matrix
+!
+      X_SQUARE = X**2
+!
+!     Compute the loss, IRLS weights, and penalty values
+!      
+      IF (ANY(ABS(ESTIMATE)>EPS)) THEN
+         INNER = MATMUL(X,ESTIMATE)
+      ELSE
+         INNER = ZERO
+      END IF
+      EXPINNER = EXP(INNER)
+      SELECT CASE(MODEL)
+      CASE("LOGISTIC")
+         WHERE (INNER>=BIG)
+            MU = ONE
+         ELSEWHERE (INNER<=-BIG)
+            MU = ZERO
+         ELSEWHERE
+            MU = EXPINNER/(ONE+EXPINNER)
+         END WHERE
+         LOSS = - SUM(WT*LOG(Y*MU+(ONE-Y)*(ONE-MU)))
+         IRLSWT = WT*MU*(ONE-MU)
+         IRLSY = INNER+(Y-MU)/IRLSWT
+      CASE("LOGLINEAR")
+         LOSS = - SUM(WT*(Y*INNER-EXPINNER))
+         IRLSWT = WT*EXPINNER
+         IRLSY = INNER+(Y-EXPINNER)*EXPINNER
+      END SELECT
+      CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
+      OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
+      PRINT*, "OBJECTIVE = "
+      PRINT*, OBJECTIVE
+!
+!     Initialize maximum number of iterations
+!
+      IF (MAXITERS<=0) THEN
+         MAXITERS = 1000
+      END IF
+!
+!     Enter the main iteration loop.
+!
+      DO ITERATION = 1,MAXITERS
+!
+!     Solve penalized weighted least squares
+!
+         CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,IRLSY,IRLSWT,LAMBDA, &
+            MATMUL(IRLSWT,X_SQUARE),PENIDX,5,PENTYPE,PENPARAM)
+!
+!     Update IRLS weights and loss function
+!
+         INNER = MATMUL(X,ESTIMATE)
+         EXPINNER = EXP(INNER)
+         SELECT CASE(MODEL)
+         CASE("LOGISTIC")
+            WHERE (INNER>=BIG)
+               MU = ONE
+            ELSEWHERE (INNER<=-BIG)
+               MU = ZERO
+            ELSEWHERE
+               MU = EXPINNER/(ONE+EXPINNER)
+            END WHERE
+            LOSS = - SUM(WT*LOG(Y*MU+(ONE-Y)*(ONE-MU)))
+            IRLSWT = WT*MU*(ONE-MU)
+            IRLSY = INNER+(Y-MU)/IRLSWT
+         CASE("LOGLINEAR")
+            LOSS = - SUM(WT*(Y*INNER-EXPINNER))
+            IRLSWT = WT*EXPINNER
+            IRLSY = INNER+(Y-EXPINNER)*EXPINNER
+         END SELECT
+         CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
+         NEW_OBJECTIVE = LOSS+SUM(PENALTY,PENIDX)
+         IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
+            PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
+         END IF
+!
+!     Check for a descent failure or convergence.  If neither occurs,
+!     record the new value of the objective function.
+!
+!         IF (NEW_OBJECTIVE>OBJECTIVE+EPS) THEN
+!            PRINT*," *** ERROR *** OBJECTIVE FUNCTION INCREASE AT ITERATION",ITERATION
+!            RETURN
+!         END IF
+         IF (ABS(OBJECTIVE-NEW_OBJECTIVE)<CRITERION*(ABS(OBJECTIVE)+ONE)) THEN
+            RETURN
+         ELSE
+            OBJECTIVE = NEW_OBJECTIVE
+         END IF
+      END DO
+      END SUBROUTINE PENALIZED_GLM_REGRESSION_IRLS
+!
       SUBROUTINE PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
          PENIDX,MAXITERS,PENTYPE,PENPARAM,MODEL)
 !
@@ -1102,8 +1238,8 @@
          RETURN
       END IF
 !
-!     Initialize the number of cases M and the number of regression
-!     coefficients N.
+!     Initialize the number of cases N and the number of regression
+!     coefficients P.
 !
       N = SIZE(Y)
       P = SIZE(ESTIMATE)
@@ -1139,7 +1275,6 @@
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,LAMBDA,PENPARAM(1),PENTYPE,MODEL)
             ELSE
                ESTIMATE(J) = GLM_THRESHOLDING(X(:,J),C,Y,WT,ZERO,PENPARAM(1),PENTYPE,MODEL)
-               PRINT*, "J=", J
             END IF
             ROOTDIFF = ESTIMATE(J)-OLDROOT
             IF (ABS(ROOTDIFF)>EPS) THEN
@@ -1156,7 +1291,6 @@
          IF (ITERATION==1.OR.MOD(ITERATION,1)==0) THEN
             PRINT*," ITERATION = ",ITERATION," FUN = ",NEW_OBJECTIVE
          END IF
-         PRINT*, "ESTIMATE = ", ESTIMATE         
 !
 !     Check for a descent failure or convergence.  If neither occurs,
 !     record the new value of the objective function.
@@ -1306,12 +1440,14 @@
 !
 !     Test PENALIZED_GLM_REGRESSION
 !
-      MAXITERS = 3
-      LAMBDA = 8.1013
+      MAXITERS = 0
+      LAMBDA = ONE
       PENIDX(1:42) = .TRUE.
       PENIDX(43:64) = .FALSE.
       WT = ONE
-      CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
+!      CALL PENALIZED_GLM_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
+!         PENIDX,MAXITERS,"ENET",(/ONE/),"LOGISTIC")
+      CALL PENALIZED_GLM_REGRESSION_IRLS(ESTIMATE,X,Y,WT,LAMBDA, &
          PENIDX,MAXITERS,"ENET",(/ONE/),"LOGISTIC")
       PRINT*, "ESTIMATE="
       PRINT*, ESTIMATE
