@@ -56,14 +56,17 @@
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
-      LOGICAL :: CONTLOG
-      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC), INTENT(IN) :: ETA,RHO
+      REAL(KIND=DBLE_PREC), INTENT(IN), DIMENSION(:) :: BETA
+      REAL(KIND=DBLE_PREC), INTENT(OUT), DIMENSION(:) :: PEN
+      REAL(KIND=DBLE_PREC), INTENT(OUT), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
+!
+!     Local variables
+!   
+      LOGICAL :: CONTLOG
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8         
       REAL(KIND=DBLE_PREC) :: ETAC
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: BETA
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: PEN
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(BETA)) :: ABSBETA
-      REAL(KIND=DBLE_PREC), OPTIONAL, DIMENSION(:) :: D1PEN,D2PEN,DPENDRHO
 !
 !     Check nonnegativity of tuning parameter
 !
@@ -175,7 +178,7 @@
                D2PEN = RHO*ETA*(ETA-ONE)*ABSBETA**(ETA-TWO)
             END WHERE           
          CASE("SCAD")
-            WHERE (ABSBETA<RHO.OR.ABSBETA>ETA*RHO)
+            WHERE (ABSBETA<RHO.OR.ABSBETA>=ETA*RHO)
                D2PEN = ZERO
             ELSEWHERE
                D2PEN = ONE/(ONE-ETA)
@@ -221,7 +224,7 @@
       FUNCTION LSQ_THRESHOLDING(A,B,RHO,ETA,PENTYPE) RESULT(XMIN)
 !
 !     This subroutine performs univariate soft thresholding for least squares:
-!        argmin .5*a*x^2+b*x+PEN(abs(x),eta).
+!     argmin .5*a*x^2+b*x+PEN(abs(x),eta).
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE      
@@ -400,22 +403,82 @@
                PRINT*,"THE SCAD PARAMETER ETA SHOULD BE GREATER THAN 2."
                RETURN
             END IF 
-            IF (RHO<=A*ABSB) THEN
-               IF (A*(RHO-ABSB)+RHO>=ZERO) THEN
-                  XMIN = ABSB - RHO/A
-               ELSEIF (RHO*ETA-ABSB>=ZERO) THEN
-                  XMIN = (A*ABSB*(ETA-ONE)-RHO*ETA)/(A*(ETA-ONE)-ONE)
-               ELSE
-                  XMIN = ABSB
-               END IF
-            ELSEIF (ABSB<=RHO*ETA.OR.A*(ETA-ONE)>=ONE) THEN
+!            IF (RHO<=A*ABSB) THEN
+!               IF (A*(RHO-ABSB)+RHO>=ZERO) THEN
+!                  XMIN = ABSB - RHO/A
+!               ELSEIF (RHO*ETA-ABSB>=ZERO) THEN
+!                  XMIN = (A*ABSB*(ETA-ONE)-RHO*ETA)/(A*(ETA-ONE)-ONE)
+!               ELSE
+!                  XMIN = ABSB
+!               END IF
+!            ELSEIF (ABSB<=RHO*ETA.OR.A*(ETA-ONE)>=ONE) THEN
+!               XMIN = ZERO
+!            ELSE
+!               IF (A*BC*BC<RHO*RHO*(ETA+ONE)) THEN
+!                  XMIN = ZERO
+!               ELSE
+!                  XMIN = ABSB
+!               END IF
+!            END IF
+!            XMIN = SIGN(XMIN,BC)
+!
+!     Compute minimum on [0,rho]
+!
+            UB = MIN(ABSB,RHO)
+            ROOT = ABSB-RHO/A
+            IF (ROOT<=ZERO) THEN
                XMIN = ZERO
             ELSE
-               IF (A*BC*BC<RHO*RHO*(ETA+ONE)) THEN
-                  XMIN = ZERO
+               XMIN = MIN(ROOT,UB)
+            END IF
+            IF (ABSB<=RHO) THEN
+               XMIN = SIGN(XMIN,BC)
+               RETURN
+            END IF
+!
+!     Compute minimum on [rho,eta*rho]
+!            
+            UB = MIN(ETA*RHO,ABSB)
+            ROOT = (A*ABSB*(ETA-ONE)-ETA*RHO)/(A*(ETA-ONE)-ONE)
+            IF (A*(ETA-ONE)<ONE) THEN
+               IF (TWO*ROOT>=RHO+UB) THEN
+                  XMIN2 = RHO
                ELSE
-                  XMIN = ABSB
+                  XMIN2 = UB
                END IF
+            ELSE IF (A*(ETA-ONE)>ONE) THEN
+               IF (ROOT<=RHO) THEN
+                  XMIN2 = RHO
+               ELSE IF (ROOT>UB) THEN
+                  XMIN2 = UB
+               ELSE
+                  XMIN2 = ROOT
+               END IF
+            ELSE
+               IF (ETA*RHO>=ABSB) THEN
+                  XMIN2 = RHO
+               ELSE
+                  XMIN2 = UB
+               END IF
+            END IF
+            F1 = HALF*(XMIN-ABSB)**2 + RHO*XMIN
+            F2 = HALF*(XMIN2-ABSB)**2 + RHO**2 + ETA*RHO*(XMIN2-RHO)/(ETA-ONE) &
+               - HALF*(XMIN2**2-RHO**2)/(ETA-ONE)
+            IF (F2<F1) THEN
+               XMIN = XMIN2
+               F1 = F2
+            END IF
+            IF (ABSB<=ETA*RHO) THEN
+               XMIN = SIGN(XMIN,BC)
+               RETURN
+            END IF
+!
+!     Compute minimum on (eta*rho,infty)
+!                        
+            XMIN2 = ABSB
+            F2 = HALF*RHO**2*(ETA+ONE)
+            IF (F2<F1) THEN
+               XMIN = XMIN2
             END IF
             XMIN = SIGN(XMIN,BC)
          END SELECT
@@ -467,12 +530,15 @@
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL
-      INTEGER :: I,N
       REAL(KIND=DBLE_PREC), INTENT(IN) :: BETA
-      REAL(KIND=DBLE_PREC) :: LOSS
-      REAL(KIND=DBLE_PREC), OPTIONAL :: D1,D2
-      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
+      REAL(KIND=DBLE_PREC), INTENT(OUT) :: LOSS
+      REAL(KIND=DBLE_PREC), INTENT(OUT), OPTIONAL :: D1,D2
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,WT,X,Y
+!
+!     Local variables
+!      
+      INTEGER :: I,N
+      REAL(KIND=DBLE_PREC), PARAMETER :: BIG=TWO*TEN
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(X)) :: EXPINNER,INNER,PROB
 !
 !     Check argument
@@ -552,9 +618,12 @@
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
       REAL(KIND=DBLE_PREC), INTENT(IN) :: A,B
-      REAL(KIND=DBLE_PREC) :: BC,ETA,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
-      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: PENPARAM
+!
+!     Local variables
+!
+      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: BC,ETA,L,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
 !
 !     Locate the max rho
 !
@@ -685,96 +754,16 @@
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: MODEL,PENTYPE
-      INTEGER, PARAMETER :: GRIDPTS=50
-      INTEGER :: I
-      LOGICAL :: ISINFRHO,ISNEGROOT
-      REAL(KIND=DBLE_PREC), PARAMETER :: EPS=1E-8,MULTIPLIER=TWO
-      REAL(KIND=DBLE_PREC) :: DELTABETA,ETA,L,LOSS,M,MAXRHO,R,ROOTL,ROOTM,ROOTR
       REAL(KIND=DBLE_PREC), DIMENSION(:), INTENT(IN) :: C,PENPARAM,WT,X,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(GRIDPTS) :: BETAGRID,LOSSGRID,PENGRID
 !
-!     Figure out whether max rho is infinity
+!     Local variables
 !
-      ETA = PENPARAM(1)
-      SELECT CASE(PENTYPE)
-      CASE("ENET")
-         IF (ABS(ETA-TWO)<EPS) THEN
-            ISINFRHO = .TRUE.
-         ELSE
-            ISINFRHO = .FALSE.
-         END IF
-      CASE("LOG")
-         ISINFRHO = .FALSE.
-      CASE("MCP")
-         ISINFRHO = .FALSE.
-      CASE("POWER")
-         IF (ETA>ONE) THEN
-            ISINFRHO = .TRUE.
-         ELSE
-            ISINFRHO = .FALSE.
-         END IF
-      CASE("SCAD")
-         ISINFRHO = .FALSE.
-      END SELECT
+      REAL(KIND=DBLE_PREC) :: D1,D2,LOSS,MAXRHO
 !
-!     Compute unpenalized root
-!
-      L = ZERO
-      ROOTL = GLM_THRESHOLDING(X,C,Y,WT,L,ETA,PENTYPE,MODEL)
-      IF (ROOTL<ZERO) THEN
-         ISNEGROOT = .TRUE.
-      END IF
-!
-!     If max rho is infinity, output rho such that estimate<.1*unbiased estimate
-!
-      IF (ISINFRHO) THEN
-         R = ONE
-         DO 
-            ROOTR = GLM_THRESHOLDING(X,C,Y,WT,R,ETA,PENTYPE,MODEL)
-            IF (ABS(ROOTR)<=ABS(ROOTL)/TEN) THEN
-               EXIT
-            END IF
-            R = R*MULTIPLIER
-         END DO
-         MAXRHO = R
-         RETURN
-      END IF
-!
-!     Crude search for right bracket
-!
-      DELTABETA = ROOTL/(GRIDPTS-1)
-      DO I=1,GRIDPTS
-         BETAGRID(I) = DELTABETA*(I-1)
-         CALL SIMPLE_GLM_LOSS(BETAGRID(I),X,C,Y,WT,MODEL,LOSSGRID(I))
-      END DO
-      R = ONE
-      DO
-         CALL PENALTY_FUN(BETAGRID,R,ETA,PENTYPE,PENGRID)
-         IF (ALL(LOSSGRID+PENGRID>=LOSSGRID(1)+PENGRID(1)-EPS)) THEN
-            EXIT
-         ELSE
-            R = R*MULTIPLIER
-         END IF
-      END DO
-      ROOTR = ZERO
-!
-!     Bisection to locate the max rho
-!
-      DO
-         M = HALF*(L+R)
-         ROOTM = GLM_THRESHOLDING(X,C,Y,WT,M,ETA,PENTYPE,MODEL)
-         IF (ABS(ROOTM)>EPS) THEN
-            L = M
-            ROOTL = ROOTM
-         ELSE
-            R = M
-            ROOTR = ROOTM
-         END IF
-         IF (ABS(L-R)<EPS) THEN
-            MAXRHO = HALF*(L+R)
-            EXIT
-         END IF
-      END DO
+!     Obtain derivatives of beta
+!      
+      CALL SIMPLE_GLM_LOSS(ZERO,X,C,Y,WT,MODEL,LOSS,D1,D2)           
+      MAXRHO = MAX_RHO(D2,D1,PENTYPE,PENPARAM)
       END FUNCTION GLM_MAXRHO
 !
       SUBROUTINE PENALIZED_L2_REGRESSION(ESTIMATE,X,Y,WT,LAMBDA, &
@@ -787,16 +776,21 @@
 !
       IMPLICIT NONE
       CHARACTER(LEN=*), INTENT(IN) :: PENTYPE
-      INTEGER :: I,ITERATION,M,MAXITERS,N
-      REAL(KIND=DBLE_PREC) :: CRITERION=1E-4,EPS=1E-8
-      REAL(KIND=DBLE_PREC) :: A,B,LAMBDA,NEW_OBJECTIVE,OLDROOT
-      REAL(KIND=DBLE_PREC) :: OBJECTIVE,ROOTDIFF
-      LOGICAL, DIMENSION(:) :: PENIDX
-      REAL(KIND=DBLE_PREC), DIMENSION(:) :: ESTIMATE,PENPARAM,SUM_X_SQUARES,WT,Y
-      REAL(KIND=DBLE_PREC), DIMENSION(:,:) :: X
+      INTEGER :: MAXITERS
+      LOGICAL, INTENT(IN), DIMENSION(:) :: PENIDX
+      REAL(KIND=DBLE_PREC), INTENT(IN) :: LAMBDA
+      REAL(KIND=DBLE_PREC), INTENT(IN), DIMENSION(:) :: PENPARAM,SUM_X_SQUARES,WT,Y
+      REAL(KIND=DBLE_PREC), INTENT(INOUT), DIMENSION(:) :: ESTIMATE
+      REAL(KIND=DBLE_PREC), INTENT(IN), DIMENSION(:,:) :: X
+!
+!     Local variables.
+!
+      INTEGER :: I,ITERATION,M,N
       LOGICAL, DIMENSION(SIZE(ESTIMATE)) :: NZIDX
-      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(Y)) :: R
+      REAL(KIND=DBLE_PREC), PARAMETER :: CRITERION=1E-4,EPS=1E-8
+      REAL(KIND=DBLE_PREC) :: A,B,NEW_OBJECTIVE,OLDROOT,OBJECTIVE,ROOTDIFF
       REAL(KIND=DBLE_PREC), DIMENSION(SIZE(ESTIMATE)) :: PENALTY
+      REAL(KIND=DBLE_PREC), DIMENSION(SIZE(Y)) :: R
 !
 !     Check that the number of cases is well defined.
 !
@@ -848,7 +842,7 @@
 !
       DO ITERATION = 1,MAXITERS
          DO I = 1,N
-            OLDROOT = ESTIMATE(I)           
+            OLDROOT = ESTIMATE(I)
             A = SUM_X_SQUARES(I)
             B = - SUM(WT*R*X(:,I)) - A*OLDROOT
             IF (PENIDX(I)) THEN
@@ -952,7 +946,7 @@
             MU = EXPINNER/(ONE+EXPINNER)
          END WHERE
          LOSS = - SUM(WT*LOG(Y*MU+(ONE-Y)*(ONE-MU)))
-         IRLSWT = MU*(ONE-MU)
+         IRLSWT = WT*MU*(ONE-MU)
          IRLSY = INNER+(Y-MU)/IRLSWT
       CASE("LOGLINEAR")
          LOSS = - SUM(WT*(Y*INNER-EXPINNER))
@@ -961,6 +955,7 @@
          ELSEWHERE
             IRLSWT = EXPINNER
          END WHERE
+         IRLSWT = WT*IRLSWT
          IRLSY = INNER+(Y-EXPINNER)/IRLSWT
       END SELECT
       CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
@@ -980,7 +975,7 @@
 !
 !     Solve penalized weighted least squares
 !
-         CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,IRLSY,WT*IRLSWT,LAMBDA, &
+         CALL PENALIZED_L2_REGRESSION(ESTIMATE,X,IRLSY,IRLSWT,LAMBDA, &
             MATMUL(IRLSWT,X_SQUARE),PENIDX,5,PENTYPE,PENPARAM)
 !
 !     Update IRLS weights and loss function
@@ -997,7 +992,7 @@
                MU = EXPINNER/(ONE+EXPINNER)
             END WHERE
             LOSS = - SUM(WT*LOG(Y*MU+(ONE-Y)*(ONE-MU)))
-            IRLSWT = MU*(ONE-MU)
+            IRLSWT = WT*MU*(ONE-MU)
             IRLSY = INNER+(Y-MU)/IRLSWT
          CASE("LOGLINEAR")
             LOSS = - SUM(WT*(Y*INNER-EXPINNER))
@@ -1006,6 +1001,7 @@
             ELSEWHERE
                IRLSWT = EXPINNER
             END WHERE
+            IRLSWT = WT*IRLSWT
             IRLSY = INNER+(Y-EXPINNER)/IRLSWT
          END SELECT
          CALL PENALTY_FUN(ESTIMATE,LAMBDA,PENPARAM(1),PENTYPE,PENALTY)
@@ -1145,8 +1141,9 @@
 !      RHO = ONE
 !      ETA = 3
 !      PRINT*, "RHO = ", RHO
-!      PRINT*, "XMIN = ", GLM_THRESHOLDING(X(:,15),C,Y,WT,RHO,ETA,"SCAD","LOGISTIC")
-!      PRINT*, "XMIN = ", GLM_THRESHOLDING_IRLS(X(:,15),C,Y,WT,RHO,ETA,"SCAD","LOGISTIC")
+!      DO J=-3,3
+!      PRINT*, "XMIN = ", GLM_THRESHOLDING(X(:,15),C,Y,WT,TEN**J,ETA,"SCAD","LOGISTIC")
+!      END DO
 !
 !     Test find max rho
 !
@@ -1154,7 +1151,7 @@
       WT = ONE
       DO J=1,5
          PRINT*, "J = ", J
-         MAXRHO = GLM_MAXRHO(X(:,J),C,Y,WT,"LOG",(/ONE/),"LOGISTIC")
+         MAXRHO = GLM_MAXRHO(X(:,J),C,Y,WT,"SCAD",(/FOUR/),"LOGISTIC")
          PRINT*, "MAXRHO = ", MAXRHO
       END DO
 !!
