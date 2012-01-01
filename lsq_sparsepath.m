@@ -1,65 +1,61 @@
 function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
-    lsq_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam)
-% LSQ_SPARSEREG Solution path for sparse linear regression
-%   argmin .5*sum(wt.*(y-X*beta).^2)+rho*sum(penfun(beta(penidx)))
+    lsq_sparsepath(X,y,varargin)
+% LSQ_SPARSEPATH Solution path of sparse linear regression
 %
-% INPUT:
-%   X - n-by-p design matrix
-%   y - n-by-1 responses
-%   wt - n-by-1 weights; wt = ones(p,1) if not supplied
-%   penidx - p-by-1 logical index of the coefficients being penalized;
-%       penidx = true(p,1) if not supplied
-%   maxpreds - maximum number of top predictors requested; maxpreds=min(n,p)
-%       if not supplied
-%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
-%   penargs - index parameter for penalty function penname; allowed range
-%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
-%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
+%   [RHO_PATH,BETA_PATH] = LSQ_SPARSEPATH(X,Y) computes the solution path
+%   of penalized linear regression using the predictor matrix X and
+%   response Y. The result RHO_PATH holds rhos along the patha. The result
+%   BETA_PATH holds solution vectors at each rho. By default it fits the
+%   lasso regression.
 %
-% Output:
-%   rho_path - rhos along the path
-%   beta_path - solution vectors at each rho
-%   rho_kinks - kinks of the solution paths
-%   fval_kinks - objective values at kinks
+%   [RHO_PATH,BETA_PATH] = LSQ_SPARSEPATH(X,Y,'PARAM1',val1,'PARAM2',val2,...)
+%   allows you to specify optional parameter name/value pairs to control
+%   the model fit. Parameters are:
 %
-% COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+%       'maxpreds' - maximum number of top predictors requested.
+%
+%       'penalty' - ENET|LOG|MCP|POWER|SCAD
+%
+%       'penidx' - a logical vector indicating penalized coefficients.
+%
+%       'penparam' - index parameter for penalty; default values: ENET, 1,
+%       LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%
+%       'weights' - a vector of prior weights.
+%
+%   [RHO_PATH,BETA_PATH,RHO_KINKS,FVAL_KINKS] = LSQ_SPARSEPATH(...) returns
+%   the kinks of the solution paths and objective values at kinks
+%
+%   REFERENCE
+%
+%   EXAMPLE
+%
+%   See also LSQ_SPARSEREG,GLM_SPARSEREG,GLM_SPARSEPATH.
 
-% check arguments
+%   Copyright 2011-2012 North Carolina State University
+%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+
+% input parsing rule
 [n,p] = size(X);
+rankX = rank(X);
+argin = inputParser;
+argin.addRequired('X', @isnumeric);
+argin.addRequired('y', @(x) length(y)==n);
+argin.addParamValue('maxpreds', rankX, @(x) isnumeric(x) && x>0);
+argin.addParamValue('penalty', 'enet', @ischar);
+argin.addParamValue('penparam', 1, @isnumeric);
+argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
+argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
+    length(x)==n);
 
-if (numel(y)~=n)
-    error('y has incompatible size');
-elseif (size(y,1)==1)
-    y = y';    
-end
-
-if (isempty(wt))
-    wt = ones(n,1);
-elseif (numel(wt)~=n)
-    error('wt has incompatible size');
-elseif (size(wt,1)==1)
-    wt = wt';
-elseif (any(wt<=0))
-    error('weights wt should be positive');    
-end
-
-if (isempty(penidx))
-    penidx = true(p,1);
-elseif (numel(penidx)~=p)
-    error('penidx has incompatible size');
-elseif (size(penidx,1)==1)
-    penidx = penidx';
-end
-
-if (isempty(maxpreds) || maxpreds>=min(n,p))
-    maxpreds = rank(X);
-%     maxpreds = min(n,p);
-elseif (maxpreds<=0)
-    error('maxpreds should be a positive integer');
-end
-
-pentype = upper(pentype);
+% parse inputs
+argin.parse(X,y,varargin{:});
+maxpreds = round(argin.Results.maxpreds);
+penidx = reshape(argin.Results.penidx,p,1);
+pentype = upper(argin.Results.penalty);
+penparam = argin.Results.penparam;
+wt = reshape(argin.Results.weights,n,1);
+% set up penalty parameter for penalty families
 if (strcmp(pentype,'ENET'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
@@ -74,7 +70,7 @@ elseif (strcmp(pentype,'LOG'))
     end
 elseif (strcmp(pentype,'MCP'))
     if (isempty(penparam))
-        penparam = 1;   % lasso by default
+        penparam = 1;   % 1 by default
     elseif (penparam<=0)
         error('index parameter for MCP penalty should be positive');
     end
@@ -86,18 +82,18 @@ elseif (strcmp(pentype,'POWER'))
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
-        penparam = 3.7;
+        penparam = 3.7; % 3.7 by default
     elseif (penparam<=2)
         error('index parameter for SCAD penalty should be larger than 2');
     end
 else
-    error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
+    error('penalty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
 % precompute and allocate storage for path
 tiny = 1e-4;
 b = - X'*(wt.*y);
-sum_x_squares = wt'*(X.*X);
+sum_x_squares = sum(bsxfun(@times,X.^2,wt),1);
 islargep = maxpreds<p || p>=1000;
 if (islargep)
     A = sparse(p,p);    % compute A on-the-fly
@@ -113,7 +109,7 @@ setKeep = ~penidx;      % set of unpenalized coefficients
 setPenZ = penidx;       % set of penalized coefficients that are zero
 setPenNZ = false(p,1);  % set of penalized coefficients that are non-zero
 coeff = zeros(p,1);     % subgradient coefficients
-if (nnz(setKeep)>min(n,p))
+if (nnz(setKeep)>rankX)
     error('number of unpenalized coefficients exceeds rank of X');
 end
 if (islargep)
@@ -128,7 +124,7 @@ else
 end
 
 % set up ODE solver and unconstrained optimizer
-maxiters = 5*min([n,p]);    % max iterations for path algorithm
+maxiters = 5*rankX;         % max iterations for path algorithm
 maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events,'Refine',refine);
@@ -144,8 +140,9 @@ rho_path(1) = rho;
 % determine active set and refine solution
 rho = max(rho-tiny,0);
 % update activeSet
-x0 = lsq_sparsereg(X,y,wt,rho,beta_path(:,1),sum_x_squares,...
-    penidx,maxrounds,pentype,penparam);
+x0 = lsq_sparsereg(X,y,rho,'weights',wt,'x0',beta_path(:,1), ...
+    'sum_x_squares',sum_x_squares,'penidx',penidx,'maxiter',maxrounds,...
+    'penalty',pentype,'penparam',penparam);
 setPenZ = abs(x0)<1e-8;
 setPenNZ = ~setPenZ;
 setPenZ(setKeep) = false;
@@ -167,21 +164,22 @@ fval_kinks = fval;
 
 % main loop for path following
 for k=2:maxiters
-
+    
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
     [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
-
+    
     % accumulate solution path
     rho_path = [rho_path tseg']; %#ok<*AGROW>
     beta_path(setActive,(end+1):(end+size(xseg,1))) = xseg';
-
+    
     % update activeSet
     rho = max(rho_path(end)-tiny,0);
     x0 = beta_path(:,end);
     x0(setPenZ) = coeff(setPenZ);
-    x0 = lsq_sparsereg(X,y,wt,rho,x0,sum_x_squares,...
-        penidx,maxrounds,pentype,penparam);
+    x0 = lsq_sparsereg(X,y,rho,'weights',wt,'x0',x0, ...
+        'sum_x_squares',sum_x_squares,'penidx',penidx,'maxiter',maxrounds,...
+        'penalty',pentype,'penparam',penparam);
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
     setPenZ(setKeep) = false;

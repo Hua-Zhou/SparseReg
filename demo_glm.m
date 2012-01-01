@@ -1,10 +1,9 @@
 %% Sparse generalized linear model (GLM)
-% A demonstration of sparse GLM regression using SparseReg 
-% toolbox. Sparsity is in the general sense: variable selection, 
-% fused sparse regression (total variation regularization), polynomial trend 
-% filtering, and others. Various penalties are implemented:
-% elestic net (enet), power family (bridge regression), log penalty, SCAD, 
-% and MCP.
+% A demonstration of sparse GLM regression using SparseReg toolbox.
+% Sparsity is in the general sense: variable selection, total variation
+% regularization, polynomial trend filtering, and others. Various penalties
+% are implemented: elestic net (enet), power family (bridge regression),
+% log penalty, SCAD, and MCP.
 
 %% Sparse logistic regression (n>p)
 % Simulate a sample data set (n=500, p=50)
@@ -24,27 +23,23 @@ y = double(rand(n,1)<prob);
 
 %%
 % Sparse logistic regression at a fixed tuning parameter value
-c = [];                     % constant vector is 0 by default
 model = 'logistic';         % set model to logistic
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
-wt = [];                    % equal observation weights
 lambdastart = 0;            % find the maximum tuning parameter to start
 for j=1:size(X,2)
     if (penidx(j))
     lambdastart = max(lambdastart, ...
-        glm_maxlambda(X(:,j),c,y,wt,penalty,penparam,model));
+        glm_maxlambda(X(:,j),y,model,'penalty',penalty,'penparam',penparam));
     end
 end
 display(lambdastart);
 
 lambda = 0.9*lambdastart;   % tuning parameter value
-maxiter = [];               % use default maximum number of iterations
-wt = [];                    % use default observation weights (1)
-x0 = [];                    % use default start value (0)
 betahat = ...               % sparse regression
-    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,penalty,penparam,model);
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty,...
+    'penparam',penparam);
 
 figure;                     % plot penalized estimate
 bar(0:length(betahat)-1,betahat);
@@ -55,7 +50,8 @@ title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 lambda = 0.5*lambdastart;   % tuning parameter value
 betahat = ...               % sparse regression
-    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,penalty,penparam,model);
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty,...
+    'penparam',penparam);
 
 figure;                     % plot penalized estimate
 bar(0:length(betahat)-1,betahat);
@@ -66,15 +62,14 @@ title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 %% 
 % Solution path for lasso
-maxpreds = [];              % try to obtain the whole solution path
 model = 'logistic';         % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
-wt = [];                    % equal observation weights by default
 tic;
 [rho_path,beta_path] = ...  % compute solution path
-    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
 timing = toc;
 
 figure;
@@ -86,11 +81,12 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %% 
 % Solution path for power (0.5)
-penalty = 'power';          % set penalty function to power
-penparam = 0.5;
+penalty = 'scad';          % set penalty function to power
+penparam = 4;
 tic;
 [rho_path,beta_path] = ...  % compute solution path
-    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
 timing = toc;
 
 figure;
@@ -102,17 +98,16 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %% 
 % Compare solution paths from different penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
 penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = [];                    % equal osbservation weights by default
 
 figure;
 for i=1:length(penalty)
     tic;
     [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i}, ...
+        'penparam',penparam(i));
     timing = toc;
     subplot(3,3,i);
     plot(rho_path,beta_path);
@@ -135,9 +130,9 @@ display(D(1:9,1:11));
 model = 'logistic';
 penalty = 'enet';           % set penalty function to lasso
 penparam = 1;
-wt = [];                    % equal weights for all observations
 tic;
-[rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
+[rho_path, beta_path] = glm_regpath(X,y,D,model,'penalty',penalty, ...
+    'penparam',penparam);
 timing = toc;
 
 figure;
@@ -149,11 +144,12 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'log'};
-penparam = [0.5 1 1 0];
+penalty = {'power' 'log' 'mcp' 'scad'};
+penparam = [0.5 1 1 3.7];
 for i=1:length(penalty)
     tic;
-    [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty{i},penparam(i),model);
+    [rho_path, beta_path] = glm_regpath(X,y,D,model,'penalty',penalty{i},...
+        'penparam',penparam(i));
     timing = toc;
     subplot(2,2,i);
     plot(rho_path,beta_path(2:11,:));
@@ -164,7 +160,7 @@ end
 %% Sparse logistic regression (n<p)
 % Simulate another sample data set (n=100, p=200)
 clear;
-n = 100;
+n = 200;
 p = 500;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
@@ -178,15 +174,15 @@ y = binornd(1,prob);        % generate binary response
 
 %% 
 % Solution path for lasso
-maxpreds = 11;              % request path to the first 11 predictors
+maxpreds = 51;              % request path to the first 21 predictors
 model = 'logistic';         % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
-wt = [];                    % equal observation weights by default
 tic;
 [rho_path,beta_path] = ...  % compute solution path
-    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'maxpreds',maxpreds, ...
+    'penalty',penalty,'penparam',penparam);
 timing = toc;
 
 figure;
@@ -202,7 +198,8 @@ penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
 [rho_path,beta_path] = ...  % compute solution path
-    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'maxpreds',maxpreds, ...
+    'penalty',penalty,'penparam',penparam);
 timing = toc;
 
 figure;
@@ -228,27 +225,23 @@ y = poissrnd(exp(inner));   % generate response from Poisson
 
 %%
 % Sparse loglinear regression at a fixed tuning parameter value
-c = [];                     % constant vector is 0 by default
 model = 'loglinear';        % set model to logistic
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
-wt = [];                    % equal observation weights
 lambdastart = 0;            % find the maximum tuning parameter to start
 for j=1:size(X,2)
     if (penidx(j))
     lambdastart = max(lambdastart, ...
-        glm_maxlambda(X(:,j),c,y,wt,penalty,penparam,model));
+        glm_maxlambda(X(:,j),y,model,'penalty',penalty,'penparam',penparam));
     end
 end
 display(lambdastart);
 
 lambda = 0.9*lambdastart;   % tuning parameter value
-maxiter = [];               % use default maximum number of iterations
-wt = [];                    % use default observation weights (1)
-x0 = [];                    % use default start value (0)
 betahat = ...               % sparse regression
-    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,penalty,penparam,model);
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
 
 figure;                     % plot penalized estimate
 bar(1:length(betahat),betahat);
@@ -259,7 +252,8 @@ title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 lambda = 0.5*lambdastart;   % tuning parameter value
 betahat = ...               % sparse regression
-    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,penalty,penparam,model);
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
 
 figure;                     % plot penalized estimate
 bar(1:length(betahat),betahat);
@@ -270,15 +264,14 @@ title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
 %% 
 % Solution path for lasso
-maxpreds = [];              % try to obtain the whole solution path
 model = 'loglinear';        % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
-wt = [];                    % equal observation weights by default
 tic;
 [rho_path,beta_path] = ...  % compute solution path
-    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
 timing = toc;
 
 figure;
@@ -294,7 +287,8 @@ penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
 [rho_path,beta_path] = ...  % compute solution path
-    glm_sparsepath(X,y,wt,penidx,maxpreds,penalty,penparam,model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
 timing = toc;
 
 figure;
@@ -306,17 +300,15 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %% 
 % Compare solution paths from different penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
 penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = [];                    % equal osbservation weights by default
 
 figure;
 for i=1:length(penalty)
     tic;
-    [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i}, ...
+    'penparam',penparam(i));
     timing = toc;
     subplot(3,3,i);
     plot(rho_path,beta_path);
@@ -339,9 +331,9 @@ display(D(1:9,1:11));
 model = 'loglinear';
 penalty = 'enet';          % set penalty function to lasso
 penparam = 1;
-wt = [];                    % equal weights for all observations
 tic;
-[rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
+[rho_path, beta_path] = glm_regpath(X,y,D,model,'penalty',penalty, ...
+    'penparam',penparam);
 timing = toc;
 
 figure;
@@ -357,7 +349,8 @@ penalty = {'power' 'log' 'mcp' 'scad'};
 penparam = [0.5 1 1 3.7];
 for i=1:length(penalty)
     tic;
-    [rho_path, beta_path] = glm_regpath(X,y,wt,D,penalty{i},penparam(i),model);
+    [rho_path, beta_path] = glm_regpath(X,y,D,model,'penalty',penalty{i}, ...
+        'penparam',penparam(i));
     timing = toc;
     subplot(2,2,i);
     plot(rho_path,beta_path(2:11,:));

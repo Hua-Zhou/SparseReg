@@ -1,45 +1,54 @@
-function [rho_path, beta_path, eb_path] = ...
-    glm_regpath(X,y,wt,D,pentype,penparam,model)
-% LSQ_REGPATH Calculate the solution path of  
-%   argmin loss(beta)+sum(penfun(D*beta))
+function [rho_path, beta_path, eb_path] = glm_regpath(X,y,D,model,varargin)
+% GLM_REGPATH Solution path of regularized GLM regression
 %
-% INPUT:
-%   X - n-by-p design matrix
-%   y - n-by-1 responses
-%   wt - n-by-1 weights; wt = ones(p,1) if not supplied
-%   D - m-by-p regularization matrix
+%   [RHO_PATH,BETA_PATH,EB_PATH] = GLM_REGPATH(X,Y,D,MODEL) computes the
+%   solution path of regularized GLM regression using the predictor matrix
+%   X and response Y and regularization matrix D:
+%   loss(beta)+penalty(D*beta,lambda). The result RHO_PATH holds rhos along
+%   the patha. BETA_PATH holds solution vectors at each rho. EB_PATH holds
+%   the empicial Bayes criteria at each rho. By default it fits the lasso
+%   regularization.
 %
-% OUTPUT:
-%   rho_path - rhos along the path
-%   beta_path - solution vectors at each rho
+%   [RHO_PATH,BETA_PATH] = GLM_REGPATH(X,Y,'PARAM1',val1,'PARAM2',val2,...)
+%   allows you to specify optional parameter name/value pairs to control
+%   the model fit. Parameters are:
+%
+%       'penalty' - ENET|LOG|MCP|POWER|SCAD
+%
+%       'penparam' - index parameter for penalty; default values: ENET, 1,
+%       LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%
+%       'weights' - a vector of prior weights.
+%
+%   See also LSQ_REGPATH,LSQ_SPARSEPATH,GLM_SPARSEPATH.
+%
+%   References:
+%
 
-% COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
+%   Copyright 2011-2012 North Carolina State University
+%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 
-% check dimensions of inputs
+% input parsing rule
 [n,p] = size(X);
+argin = inputParser;
+argin.addRequired('X', @isnumeric);
+argin.addRequired('y', @(x) length(x)==n);
+argin.addRequired('D', @(x) isnumeric(x) && size(x,2)==p);
+argin.addRequired('model', @ischar);
+argin.addParamValue('penalty', 'enet', @ischar);
+argin.addParamValue('penparam', 1, @isnumeric);
+argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
+    length(x)==n);
 
-if (numel(y)~=n)
-    error('y has incompatible size');
-elseif (size(y,1)==1)
-    y = y';    
-end
+% parse inputs
+argin.parse(X,y,D,model,varargin{:});
+pentype = upper(argin.Results.penalty);
+penparam = argin.Results.penparam;
+wt = reshape(argin.Results.weights,n,1);
+y = reshape(y,n,1);
 
-if (isempty(wt))
-    wt = ones(n,1);
-elseif (numel(wt)~=n)
-    error('wt has incompatible size');
-elseif (size(wt,1)==1)
-    wt = wt';
-elseif (any(wt<=0))
-    error('weights wt should be positive');    
-end
-
-m = size(D,1);
-if (size(D,2)~=p)
-    error('regularization matrix D must be a m-by-p');
-end
 % Check rank of D
+m = size(D,1);
 D = sparse(D);
 [~,R,perm] = qr(D,0);
 rankD = sum(abs(diag(R)) > abs(R(1))*max(m,p)*eps(class(R)));
@@ -85,12 +94,12 @@ end
 model = upper(model);
 if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
-       error('responses outside [0,1]'); 
+        error('responses outside [0,1]');
     end
 elseif (strcmp(model,'LOGLINEAR'))
     if (any(y<0))
-       error('responses y must be nonnegative'); 
-    end    
+        error('responses y must be nonnegative');
+    end
 else
     error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
@@ -107,10 +116,9 @@ end
 T = (V'*V)\V';
 
 % performa path following in new variables
-maxpreds = [];
 penidx = [true(m,1); false(p-rankD,1)];
-[rho_path,beta_path,eb_path] = ...
-    glm_sparsepath(X*T,y,wt,penidx,maxpreds,pentype,penparam,model);
+[rho_path,beta_path,eb_path] = glm_sparsepath(X*T,y,model,'weights',wt, ...
+    'penidx',penidx,'penalty',pentype,'penparam',penparam);
 
 % transform from new variables back to beta
 beta_path = T*beta_path;

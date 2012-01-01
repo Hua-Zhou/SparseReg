@@ -1,29 +1,27 @@
 function [maxlambda] = lsq_maxlambda(a,b,pentype,penparam)
-%LSQ_MAXLAMBDA Find the max lambda such that
-%       argmin 0.5*a*x^2 + b*x + pen(abs(x),lambda)
-%   is nonzero
+% LSQ_MAXLAMBDA Max lambda for the solution path of sparse linear regression
+%   MAXLAMBDA = LSQ_MAXLAMBDA(A,B,PENTYPE,PENPARAM) returns the max lambda
+%   of solution path for penalized lienar regression. A is a vector of
+%   quadratic coefficients. B is a vector of linear coefficients. PENTYPE
+%   is the penalty name 'enet', 'log', 'mcp', 'power', or 'scad'. PENPARAM
+%   is the parameter for the penalty. Allowable range and default values of
+%   PENPARAM are enet [1,2] (1 by default), log (0,inf) (1 by default), mcp
+%   (0,inf) (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7
+%   by default). The result MAXLAMBDA is the max lambda such that argmin
+%   0.5*a*x^2+b*x+penalty(abs(x),lambda) is nonzero.
 %
-% INPUT
-%   a: n-by-1 quadratic coefficient
-%   b: n-by-1 linear coefficient
-%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
-%   penargs - index parameter for penalty function penname; allowed range
-%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
-%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
+%   See also LSQ_SPARSEREG,LSQ_SPARSEPATH.
 %
-% OUTPUT
-%   maxlambda: max lambda such that argmin 0.5*a*x^2+b*x+pen(abs(x),lambda)
-%       becomes nonzero
+%   References:
 %
-% COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+%   Copyright 2011-2012 North Carolina State University
+%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
 
 % check proper input arguments
 [n,m] = size(a);
 if (size(b,1)~=n || size(b,2)~=m)
     error('a and b have incompatible sizes');
 end
-
 pentype = upper(pentype);
 if (strcmp(pentype,'ENET'))
     if (isempty(penparam))

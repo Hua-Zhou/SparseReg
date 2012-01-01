@@ -16,7 +16,6 @@ function [xmin] = lsq_thresholding(a,b,lambda,pentype,penparam)
 %
 % COPYRIGHT: North Carolina State University
 % AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
-% RELEASE DATE: ??/??/????
 
 % check proper input arguments
 [n,m] = size(a);

@@ -39,7 +39,7 @@ elseif (strcmp(pentype,'LOG'))
     end
 elseif (strcmp(pentype,'MCP'))
     if (isempty(penparam))
-        penparam = 1;   % lasso by default
+        penparam = 1;   % 1 by default
     elseif (penparam<=0)
         error('index parameter for MCP penalty should be positive');
     end
@@ -51,7 +51,7 @@ elseif (strcmp(pentype,'POWER'))
     end
 elseif (strcmp(pentype,'SCAD'))
     if (isempty(penparam))
-        penparam = 3.7;
+        penparam = 3.7; % 3.7 by default
     elseif (penparam<=2)
         error('index parameter for SCAD penalty should be larger than 2');
     end

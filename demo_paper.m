@@ -6,7 +6,7 @@
 %% Prostate cancer data set - solution paths
 % Load data set
 clear;
-printfig = true;           % print figure to eps file
+printfig = false;           % print figure to eps file
 fid = fopen('../../datasets/prostate.txt');
 prostate = textscan(fid, ['%d',repmat('%f',1,9),'%s'], 'HeaderLines', 1, ...
     'CollectOutput', true);
@@ -16,7 +16,6 @@ names = {'lcavol', 'lweight', 'age', 'lbph', 'svi',	'lcp', 'gleason', ...
 trainidx = strcmp(prostate{3},'T');     % index for training sample
 prostate = prostate{2};     % 97-by-9 data matrix
 X = prostate(trainidx,1:8); % training design matrix
-n = size(X,1);
 X = bsxfun(@minus, X, mean(X,1));   % scale predictors to have mean 0
 X = bsxfun(@rdivide, X, std(X));    % and variance 96\
 X = [ones(size(X,1),1), X]; % add intercept
@@ -30,17 +29,16 @@ ytest = prostate(~trainidx,end);
 
 %% 
 % Compute and display solution paths from different penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
 penparam = [1 1.5 2 0.5 1 0 1 0.1 3.7];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 
 figure;
 for i=1:length(penalty)
     tic;
     [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i));
+        lsq_sparsepath(X,y,'penidx',penidx,'penalty',penalty{i}, ...
+        'penparam',penparam(i));
     timing = toc;
     subplot(3,3,i);
     plot(rho_path,beta_path(2:end,:));
@@ -60,17 +58,15 @@ end
 
 %% Prostate cancer data set - power/enet penalty
 % compute solution paths from power and enet penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'power' 'power' 'power' 'power' 'enet' 'enet' 'enet' 'enet' 'enet'};
 penparam = [0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
-    [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i));
+    [rho_path,beta_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
+        'penalty',penalty{i},'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -125,17 +121,16 @@ end
 
 %% Prostate cancer data set - log penalty
 % compute solution paths from log penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'log' 'log' 'log' 'log' 'log'};
 penparam = [0.1 0.5 1 2 0];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i));
+        lsq_sparsepath(X,y,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -189,17 +184,16 @@ end
 
 %% Prostate cancer data set - MC+ penalty
 % compute solution paths from MC+ penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'mcp' 'mcp' 'mcp' 'mcp'};
 penparam = [0.05 0.1 0.5 1];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i));
+        lsq_sparsepath(X,y,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -253,17 +247,16 @@ end
 
 %% Prostate cancer data set - SCAD penalty
 % compute solution paths from SCAD
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'scad' 'scad' 'scad' 'scad' 'scad'};
 penparam = [2.05 3 4 5 10];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i));
+        lsq_sparsepath(X,y,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -318,7 +311,7 @@ end
 %% South Africa heart disease data - solution paths
 % read in data
 clear;
-printfig = true;
+printfig = false;
 fid = fopen('../../datasets/saheart.txt');
 rawdata = textscan(fid, [repmat('%f ', 1, 5) '%s ' repmat('%f ', 1, 6)],...
     'HeaderLines', 1, 'delimiter', '\t', 'CollectOutput', true);
@@ -342,18 +335,17 @@ ytest = rawdata(~trainidx,end-1);
 
 %%
 % Compare solution paths from different penalties
-maxpreds = [];              % try to obtain the whole solution paths
 model = 'logistic';
 penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
 penparam = [1 1.5 2 0.5 1 0 1 0.1 3.7];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 
 figure;
 for i=1:length(penalty)
     tic;
     [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     timing = toc;
     subplot(3,3,i);
     plot(rho_path,beta_path(2:end,:));
@@ -373,17 +365,16 @@ end
 
 %% South Africa heart disease data set - power/enet penalty
 % compute solution paths from power and enet penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'power' 'power' 'power' 'power' 'enet' 'enet' 'enet' 'enet' 'enet'};
 penparam = [0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -439,17 +430,16 @@ if (printfig)
 end
 %% South Africa heart disease data set - log penalty
 % compute solution paths from power and enet penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'log' 'log' 'log' 'log' 'log'};
 penparam = [0.1 0.5 1 2 0];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -505,17 +495,16 @@ if (printfig)
 end
 %% South Africa heart disease data set - MC+ penalty
 % compute solution paths from power and enet penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'mcp' 'mcp' 'mcp' 'mcp'};
 penparam = [0.05 0.1 0.5 1];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -571,17 +560,16 @@ if (printfig)
 end
 %% South Africa heart disease data set - SCAD penalty
 % compute solution paths from power and enet penalties
-maxpreds = [];              % try to obtain the whole solution paths
 penalty = {'scad' 'scad' 'scad' 'scad' 'scad'};
 penparam = [2.05 3 4 5 10];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-wt = ones(n,1);             % equal weights for all data points
 beta_all = cell(length(penalty),1);
 rho_all = cell(length(penalty),1);
 tic;
 for i=1:length(penalty)
     [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,wt,penidx,maxpreds,penalty{i},penparam(i),model);
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
+        'penparam',penparam(i));
     beta_all{i} = beta_path;
     rho_all{i} = rho_path;
 end
@@ -685,11 +673,11 @@ end
 %% fit cubic trend filtering using power penalty
 % path algorithm
 model = 'logistic';
-penalty = 'log';          % set penalty function to log
+penalty = 'power';          % set penalty function to log
 penparam = 0.5;
-wt = [];                    % equal weights for all observations
 tic;
-[rho_path,beta_path,eb_path] = glm_regpath(X,y,wt,D,penalty,penparam,model);
+[rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty','log', ...
+    'penparam',penparam);
 timing = toc;
 %%
 % plot solution path
@@ -708,7 +696,7 @@ figure;
 plot(rho_path(~isnan(eb_path)),eb_path(~isnan(eb_path)));
 ylabel('EBC');
 xlim([min(rho_path),max(rho_path)]);
-title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+title([penalty '(' num2str(penparam) ')']);
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/manda_ebcpath_power', '.eps']);
 end

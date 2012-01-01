@@ -1,57 +1,59 @@
-function [maxlambda] = glm_maxlambda(x,c,y,wt,pentype,penparam,model)
-%GLM_MAXLAMBDA Find the max lambda such that
-%       argmin loss(beta*x+c) + pen(abs(beta),lambda)
-%   is nonzero
+function [maxlambda] = glm_maxlambda(x,y,model,varargin)
+% GLM_MAXLAMBDA Max lambda for the solution path of sparse GLM
 %
-% INPUT
-%   x: n-by-1 predictor vector
-%   c: n-by-1 constant vector (0 vector by default)
-%   y: n-by-1 response vector
-%   pentype - 'enet'|'log'|'mcp'|'power'|'scad'
-%   penargs - index parameter for penalty function penname; allowed range
-%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
-%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
-%   model - GLM model "logistic"|"loglinear"
+%   MAXLAMBDA = GLM_MAXLAMBDA(X,Y,MODEL) returns the
+%   max lambda of solution path for penalized GLM. X is the covariate
+%   vector. Y is the response vector. MODEL indicates the GLM model:
+%   'logistic' or 'loglinear'. The result MAXLAMBDA is the max lambda such
+%   that argmin loss(b)+pen(abs(b),lambda) is nonzero. By default, it
+%   assumes lasso solution path.
 %
-% OUTPUT
-%   maxlambda: max lambda such that argmin loss(x)+pen(abs(x),lambda)
-%       becomes nonzero
+%   MAXLAMBDA = GLM_MAXLAMBDA(X,Y,'PARAM1',val1,'PARAM2',val2,...)
+%   allows you to specify optional parameter name/value pairs to control
+%   the model fit. Parameters are:
 %
-% COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+%       'offset' - a vector of offset constants.
+%
+%       'penalty' - ENET|LOG|MCP|POWER|SCAD
+%
+%       'penparam' - index parameter for penalty; default values: ENET, 1,
+%       LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%
+%       'weights' - a vector of prior weights.
+%
+%   See also LSQ_MAXLAMBDA.
+%
+%   References:
+%
 
-% check proper input arguments
+%   Copyright 2011-2012 North Carolina State University
+%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+
+% input parsing rule
 if (size(x,1)>1 && size(x,2)>1)
     error('x must be a vector');
 else
     n = length(x);
 end
+argin = inputParser;
+argin.addRequired('x', @isnumeric);
+argin.addRequired('y', @(x) length(x)==n);
+argin.addRequired('model', @(x) strcmpi(x,'logistic')||strcmpi(x,'loglinear'));
+argin.addParamValue('offset', zeros(n,1), @(x) length(x)==n);
+argin.addParamValue('penalty', 'enet', @ischar);
+argin.addParamValue('penparam', [], @isnumeric);
+argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) ...
+    && length(x)==n);
 
-if (size(c,1)>1 && size(c,2)>1)
-    error('c must be a vector');
-elseif (isempty(c))
-    c = zeros(n,1);
-elseif (length(c)~=n)
-    error('size of c is incompatible with x');
-end
+% parse inputs
+x = reshape(x,n,1);
+y = reshape(y,n,1);
+argin.parse(x,y,model,varargin{:});
+c = reshape(argin.Results.offset,n,1);
+pentype = upper(argin.Results.penalty);
+penparam = argin.Results.penparam;
+wt = reshape(argin.Results.weights,n,1);
 
-if (size(y,1)>1 && size(y,2)>1)
-    error('y must be a vector');
-elseif (length(y)~=n)
-    error('size of y is incompatible with x');
-end
-
-if (size(wt,1)>1 && size(wt,2)>1)
-    error('wt must be a vector');
-elseif (isempty(wt))
-    wt = ones(n,1);
-elseif (length(wt)~=n)
-    error('size of wt is incompatible with x');
-elseif (any(wt<=0))
-    error('weights wt should be positive');
-end
-
-pentype = upper(pentype);
 if (strcmp(pentype,'ENET'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
@@ -89,12 +91,12 @@ end
 model = upper(model);
 if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
-       error('responses y outside [0,1]'); 
+        error('responses y outside [0,1]');
     end
 elseif (strcmp(model,'LOGLINEAR'))
     if (any(y<0))
-       error('responses y must be nonnegative'); 
-    end    
+        error('responses y must be nonnegative');
+    end
 else
     error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end

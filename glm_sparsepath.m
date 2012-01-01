@@ -1,65 +1,61 @@
 function [rho_path,beta_path,eb_path,rho_kinks,fval_kinks] = ...
-    glm_sparsepath(X,y,wt,penidx,maxpreds,pentype,penparam,model)
-% GLM_SPARSEPATH Solution path for sparse GLM regression
-%   argmin loss(beta) + rho*sum(penfun(beta(penidx)))
+    glm_sparsepath(X,y,model,varargin)
+% GLM_SPARSEPATH Solution path of sparse GLM regression
+%   [RHO_PATH,BETA_PATH] = GLM_SPARSEPATH(X,Y) computes the solution path
+%   of penalized GLM regression using the predictor matrix X and response
+%   Y. MODEL specifies the model: 'logistic' or 'loglinear'. The result
+%   RHO_PATH holds rhos along the patha. The result BETA_PATH holds
+%   solution vectors at each rho. By default it fits the lasso regression.
 %
-% INPUT:
-%   X - n-by-p design matrix
-%   y - n-by-1 responses
-%   wt - n-by-1 weights; wt = ones(p,1) if not supplied
-%   penidx - p-by-1 logical index of the coefficients being penalized;
-%       penidx = true(p,1) if not supplied
-%   maxpreds - maximum number of top predictors requested; maxpreds=min(n,p)
-%       if not supplied
-%   penname - 'enet'|'log'|'mcp'|'power'|'scad'
-%   penargs - index parameter for penalty function penname; allowed range
-%       enet [1,2] (1 by default), log (0,inf) (1 by default), mcp (0,inf) 
-%       (1 by default), power (0,2] (1 by default), scad (2,inf) (3.7 by default)
-%   model - GLM model specifiler: LOGISTIC|LOGLINEAR
+%   [RHO_PATH,BETA_PATH] = GLM_SPARSEPATH(X,Y,MDOEL,'PARAM1',val1,'PARAM2',val2,...) allows you to
+%   specify optional parameter name/value pairs to control the model fit.
+%   Parameters are:
 %
-% Output:
-%   rho_path - rhos along the path
-%   x_path - solution vectors at each rho
-%   rho_kinks - kinks of the solution paths
-%   fval_kinks - objective values at kinks
+%       'maxpreds' - maximum number of top predictors requested.
 %
-% COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+%       'penalty' - ENET|LOG|MCP|POWER|SCAD
+%
+%       'penidx' - a logical vector indicating penalized coefficients.
+%
+%       'penparam' - index parameter for penalty; default values: ENET, 1,
+%       LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%
+%       'weights' - a vector of prior weights.
+%
+%   [RHO_PATH,BETA_PATH,RHO_KINKS,FVAL_KINKS] = LSQ_SPARSEPATH(...) returns
+%   the kinks of the solution paths and objective values at kinks
+%
+%   See also LSQ_SPARSEREG,GLM_SPARSEREG,GLM_SPARSEPATH.
+%
+%   References:
+%
 
-% check arguments
+%   Copyright 2011-2012 North Carolina State University
+%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+
+% input parsing rule
 [n,p] = size(X);
+rankX = rank(X);
+argin = inputParser;
+argin.addRequired('X', @isnumeric);
+argin.addRequired('y', @(x) length(y)==n);
+argin.addRequired('model', @(x) strcmpi(x,'logistic')||strcmpi(x,'loglinear'));
+argin.addParamValue('maxpreds', rankX, @(x) isnumeric(x) && x>0);
+argin.addParamValue('penalty', 'enet', @ischar);
+argin.addParamValue('penparam', 1, @isnumeric);
+argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
+argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
+    length(x)==n);
 
-if (numel(y)~=n)
-    error('y has incompatible size');
-elseif (size(y,1)==1)
-    y = y';
-end
+% parse inputs
+y = reshape(y,n,1);
+argin.parse(X,y,model,varargin{:});
+maxpreds = round(argin.Results.maxpreds);
+penidx = reshape(argin.Results.penidx,p,1);
+pentype = upper(argin.Results.penalty);
+penparam = argin.Results.penparam;
+wt = reshape(argin.Results.weights,n,1);
 
-if (isempty(wt))
-    wt = ones(n,1);
-elseif (numel(wt)~=n)
-    error('wt has incompatible size');
-elseif (size(wt,1)==1)
-    wt = wt';
-elseif (any(wt<=0))
-    error('wt should be positive');    
-end
-
-if (isempty(penidx))
-    penidx = true(p,1);
-elseif (numel(penidx)~=p)
-    error('penidx has incompatible size');
-elseif (size(penidx,1)==1)
-    penidx = penidx';
-end
-
-if (isempty(maxpreds) || maxpreds>=min(n,p))
-    maxpreds = rank(X);
-elseif (maxpreds<=0)
-    error('maxpreds should be a positive integer');
-end
-
-pentype = upper(pentype);
 if (strcmp(pentype,'ENET'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
@@ -106,12 +102,12 @@ end
 model = upper(model);
 if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
-       error('responses outside [0,1]'); 
+        error('responses outside [0,1]');
     end
 elseif (strcmp(model,'LOGLINEAR'))
     if (any(y<0))
-       error('responses y must be nonnegative'); 
-    end    
+        error('responses y must be nonnegative');
+    end
 else
     error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
@@ -130,7 +126,7 @@ end
 rho_path = 0;
 
 % set up ODE solver and unconstrained optimizer
-maxiters = 2*min([n,p]);    % max iterations for path algorithm
+maxiters = 2*rankX;         % max iterations for path algorithm
 maxrounds = 3;              % max iterations for glm_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events, 'Refine',refine);
@@ -143,7 +139,7 @@ setPenZ = penidx;           % set of penalized coefficients that are zero
 setPenNZ = false(p,1);      % set of penalized coefficients that are non-zero
 setActive = setKeep;
 coeff = zeros(p,1);         % subgradient coefficients
-if (nnz(setKeep)>min(n,p))
+if (nnz(setKeep)>rankX)
     error('number of unpenalized coefficients exceeds rank of X');
 end
 if (any(setKeep))
@@ -158,15 +154,15 @@ end
 % determine the maximum rho to start
 [~,d1f] = glmfun(inner,X,y,wt,model);
 [~,inext] = max(abs(d1f));
-rho = glm_maxlambda(X(:,inext),X(:,setKeep)*beta_path(setKeep,1), ...
-    y,wt,pentype,penparam,model);
+rho = glm_maxlambda(X(:,inext),y,model,'weights',wt,'penalty',pentype, ...
+    'penparam',penparam,'offset',X(:,setKeep)*beta_path(setKeep,1));
 rho_path(1) = rho;
 
 % determine active set and refine solution
 rho = max(rho-tiny,0);
 % update activeSet
-x0 = glm_sparsereg(X,y,wt,rho,beta_path(:,1),penidx,maxrounds,...
-    pentype,penparam,model);
+x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',beta_path(:,1), ...
+    'penidx',penidx,'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
 if (any(isnan(x0)))
     display(x0);
     error('NaN encountered from glm_sparsereg');
@@ -186,7 +182,7 @@ fval_kinks = fval;
 
 % main loop for path following
 for k=2:maxiters
-
+    
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
     [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
@@ -194,11 +190,11 @@ for k=2:maxiters
     % accumulate solution path
     rho_path = [rho_path tseg']; %#ok<*AGROW>
     beta_path(setActive,(end+1):(end+size(xseg,1))) = xseg';
-
+    
     % update activeSet
     rho = max(rho_path(end)-tiny,0);
-    if (rho==0); 
-        break; 
+    if (rho==0);
+        break;
     end;
     x0 = beta_path(:,end);
     if (~isconvex)
@@ -207,8 +203,8 @@ for k=2:maxiters
     if (any(isnan(x0)))
         error('NaN encountered from x0');
     end
-    x0 = glm_sparsereg(X,y,wt,rho,x0,penidx,maxrounds,...
-        pentype,penparam,model);
+    x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',x0,'penidx',penidx, ...
+        'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
     if (any(isnan(x0)))
         display(x0);
         error('NaN encountered from glm_sparsereg');
@@ -219,7 +215,7 @@ for k=2:maxiters
     setPenNZ(setKeep) = false;
     setActive = setKeep|setPenNZ;
     coeff(setPenNZ) = sign(x0(setPenNZ));
-
+    
     % improve parameter estimates
     [x0,fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
     rho_path = [rho_path rho];
@@ -282,9 +278,6 @@ end
             coeff(setPenZ) = 0;
             value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
         elseif (any(setPenZ))
-%             % try coordinate descent direction for zero coeffs
-%             xPenZ_trial = glm_thresholding(X(:,setPenZ), ...
-%                 inner,y,wt,t,pentype,penparam,model);
             % try coordinate descent direction for zero coeffs using
             % weighted least squares approximation
             [~,d1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
@@ -372,15 +365,15 @@ end
                 loss = - sum(wt.*(y.*inner-expinner));
         end
         if (nargout>1)
-           switch upper(model)
-               case 'LOGISTIC'
-                   prob = expinner./(1+expinner);
-                   prob(inner>big) = 1;
-                   prob(inner<-big) = 0;
-                   lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
-               case 'LOGLINEAR'
-                   lossd1 = - sum(bsxfun(@times, X, wt.*(y-expinner)),1)';
-           end
+            switch upper(model)
+                case 'LOGISTIC'
+                    prob = expinner./(1+expinner);
+                    prob(inner>big) = 1;
+                    prob(inner<-big) = 0;
+                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
+                case 'LOGLINEAR'
+                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-expinner)),1)';
+            end
         end
         if (nargout>2)
             switch upper(model)

@@ -1,77 +1,60 @@
-function [betahat] = ...
-    glm_sparsereg(X,y,wt,lambda,x0,penidx,maxiter,pentype,penparam,model)
+function [betahat] = glm_sparsereg(X,y,lambda,model,varargin)
 % GLM_SPARSEREG Sparse GLM regression at a fixed penalty value
-%   Compute argmin loss(beta) + penalty(beta(penidx),lambda)
+%   BETAHAT = GLM_SPARSEREG(X,Y,LAMBDA,MODEL) fits penalized GLM regression
+%   using the predictor matrix X, response Y, and tuning parameter value
+%   LAMBDA. MODEL specifies the model: 'logistic' or 'loglinear'. The result BETAHAT is a vector of coefficient estimates. By
+%   default it fits the lasso regression.
 %
-% INPUT
-%   X - n-by-p design matrix
-%   y - n-by-1 response vector
-%   wt - n-by-1 weights; set to ones if empty
-%   lambda - penalty constant (>=0)
-%   x0 - p-by-1 initial estimate; set to zeros if empty
-%   penidx - p-by-1 logical vector indicating penalized coefficients; 
-%       set to trues if empty
-%   maxiter - maxmum number of iterations; set to 1000 if empty
-%   pentype - ENET|LOG|MCP|POWER|SCAD
-%   penparam - index parameter for penalty; if empty, set to default values:
-%       ENET, 1, LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
-%   model - GLM model specifiler: LOGISTIC|LOGLINEAR
+%   BETAHAT = LSQ_SPARSEREG(X,y,lambda,'PARAM1',val1,'PARAM2',val2,...)
+%   allows you to specify optional parameter name/value pairs to control
+%   the model fit. Parameters are:
 %
-% OUTPUT
-%   betahat - regression coefficient estimate
+%       'maxiter' - maxmum number of iterations
 %
-% COPYRIGHT: North Carolina State University
-% AUTHOR: Hua Zhou, hua_zhou@ncsu.edu
+%       'penidx' - a logical vector indicating penalized coefficients
+%
+%       'penalty' - ENET|LOG|MCP|POWER|SCAD
+%
+%       'penparam' - index parameter for penalty; default values: ENET, 1,
+%       LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
+%
+%       'weights' - a vector of prior weights
+%
+%       'x0' - a vector of starting point
+%
+%   See also LSQ_SPARSEPATH,LSQ_SPARSEREG,GLM_SPARSEPATH.
+%
+%   References:
+%
 
-% check proper input arguments
+%   Copyright 2011-2012 North Carolina State University
+%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+
+% input parsing rule
 [n,p] = size(X);
+argin = inputParser;
+argin.addRequired('X', @isnumeric);
+argin.addRequired('y', @(x) length(y)==n);
+argin.addRequired('lambda', @(x) x>=0);
+argin.addRequired('model', @(x) strcmpi(x,'logistic')||strcmpi(x,'loglinear'));
+argin.addParamValue('maxiter', 1000, @(x) isnumeric(x) && x>0);
+argin.addParamValue('penalty', 'enet', @ischar);
+argin.addParamValue('penparam', [], @isnumeric);
+argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
+argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
+    length(x)==n);
+argin.addParamValue('x0', zeros(p,1), @(x) isnumeric(x) && length(x)==p);
 
-if (isempty(x0))
-    x0 = zeros(p,1);
-elseif (numel(x0)~=p)
-    error('x0 has incompatible size');
-elseif (size(x0,1)==1)
-    x0 = x0';
-end
-if (issparse(x0))
-    x0 = full(x0);
-end
+% parse inputs
+y = reshape(y,n,1);
+argin.parse(X,y,lambda,model,varargin{:});
+maxiter = round(argin.Results.maxiter);
+penidx = reshape(argin.Results.penidx,p,1);
+pentype = upper(argin.Results.penalty);
+penparam = argin.Results.penparam;
+wt = reshape(argin.Results.weights,n,1);
+x0 = reshape(full(argin.Results.x0),p,1);
 
-if (numel(y)~=n)
-    error('y has incompatible size');
-elseif (size(y,1)==1)
-    y = y';    
-end
-
-if (isempty(wt))
-    wt = ones(n,1);
-elseif (numel(wt)~=n)
-    error('wt has incompatible size');
-elseif (size(wt,1)==1)
-    wt = wt';
-elseif (any(wt<=0))
-    error('weights wt should be positive');    
-end
-
-if (lambda<0)
-    error('penalty constant lambda should be nonnegative');
-end
-
-if (isempty(penidx))
-    penidx = true(p,1);
-elseif (numel(penidx)~=p)
-    error('penidx has incompatible size');
-elseif (size(penidx,1)==1)
-    penidx = penidx';
-end
-
-if (isempty(maxiter))
-    maxiter = 1000;
-elseif (maxiter<=0)
-    error('maxiter should be a positive integer');
-end
-
-pentype = upper(pentype);
 if (strcmp(pentype,'ENET'))
     if (isempty(penparam))
         penparam = 1;   % lasso by default
@@ -109,12 +92,12 @@ end
 model = upper(model);
 if (strcmp(model,'LOGISTIC'))
     if (any(y<0) || any(y>1))
-       error('responses outside [0,1]'); 
+        error('responses outside [0,1]');
     end
 elseif (strcmp(model,'LOGLINEAR'))
     if (any(y<0))
-       error('responses y must be nonnegative'); 
-    end    
+        error('responses y must be nonnegative');
+    end
 else
     error('model not recogonized. LOGISTIC|POISSON accepted');
 end
