@@ -5,15 +5,15 @@ clear;
 n = 100;
 p = 10000;
 b = zeros(p+1,1);           % true signal
-b(2:6) = 5;                 % first 5 predictors are 1
-b(7:11) = -5;               % next 5 predictors are -1
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
 truemodel = false(p,1);
 truemodel(1:10) = true;
-reps = 10;
+reps = 1;
 penalty = 'power';
 penparam = [0.25 0.5 0.75 1];
 penidx = [false; true(p,1)];
-maxpreds = 51;              % run solution path until 50 predictors are in
+maxpreds = 76;
 
 mse = zeros(reps,length(penparam),3);
 runtime = zeros(reps,length(penparam),3);
@@ -101,7 +101,7 @@ save(['sim-results-' timestamp '.mat']);
 %% 
 % post-processing
 
-load('sim-results-02-Jan-2012-17-20-27.mat');
+% load('sim-results-02-Jan-2012-17-20-27.mat');
 
 printfig = false;
 ylabels = {'Linear', 'Poisson', 'Logistic'};
@@ -138,7 +138,7 @@ for i=1:size(fpr,3)
     end
     ylabel(ylabels{i});
     if (i==1)
-        title('FPR of Empr. Bayes Model');
+        title('FPR of Empirical Bayes Model');
     elseif (i==size(fpr,3))
         xlabel('Exponent of power penalty \eta');
     end
@@ -159,7 +159,7 @@ for i=1:size(fnr,3)
     end
     ylabel(ylabels{i});
     if (i==1)
-        title('FNR of Empr. Bayes Model');
+        title('FNR of Empirical Bayes Model');
     elseif (i==size(fnr,3))
         xlabel('Exponent of power penalty \eta');
     end
@@ -180,7 +180,7 @@ for i=1:size(mse,3)
     end
     ylabel(ylabels{i});
     if (i==1)
-        title('MSE of Empr. Bayes Model');
+        title('MSE of Emprical Bayes Model');
     elseif (i==size(mse,3))
         xlabel('Exponent of power penalty \eta');
     end

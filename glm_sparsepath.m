@@ -164,7 +164,7 @@ rho = max(rho-tiny,0);
 x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',beta_path(:,1), ...
     'penidx',penidx,'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
 if (any(isnan(x0)))
-    display(x0);
+%     display(x0);
     warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
     return;
 end
@@ -208,7 +208,7 @@ for k=2:maxiters
     x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',x0,'penidx',penidx, ...
         'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
     if (any(isnan(x0)))
-        display(x0);
+%         display(x0);
         warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
         return;
     end
@@ -289,6 +289,8 @@ else
 end
 
     function [value,isterminal,direction] = events(t,x)
+        isterminal = true(p,1);
+        direction = zeros(p,1);
         value = ones(p,1);
         value(setPenNZ) = x(penidx(setActive));
         inner = X(:,setActive)*x;
@@ -311,8 +313,6 @@ end
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)<1e-8;
         end
-        isterminal = true(p,1);
-        direction = zeros(p,1);
     end%EVENTS
 
     function dx = odefun(t, x)
@@ -328,8 +328,8 @@ end
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
         if (any(isnan(M(:))))
-            display(d2pen);
-            display(M);
+%             display(d2pen);
+%             display(M);
             warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
             return;
         end

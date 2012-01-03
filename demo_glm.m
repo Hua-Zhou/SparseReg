@@ -190,7 +190,7 @@ for i=1:length(penalty)
 end
 
 %% Sparse logistic regression (n<p)
-% Simulate another sample data set (n=100, p=200)
+% Simulate another sample data set (n=100, p=10000)
 clear;
 n = 100;
 p = 10000;
@@ -198,15 +198,15 @@ X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1),X];  % add intercept
 b = zeros(p+1,1);           % true signal
-b(2:6) = 1;                 % first 5 predictors are 1
-b(7:11) = -1;               % next 5 predictors are -1
+b(2:6) = 5;                 % first 5 predictors are 1
+b(7:11) = -5;               % next 5 predictors are -1
 inner = X*b;                % linear parts
 prob = 1./(1+exp(-inner));
 y = binornd(1,prob);        % generate binary response
 
 %% 
 % Solution path for lasso
-maxpreds = 51;              % request path to the first 51 predictors
+maxpreds = 76;              % request path to the first 51 predictors
 model = 'logistic';         % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
@@ -453,14 +453,14 @@ X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
 b = zeros(p+1,1);           % true signal: first ten predictors are 3
-b(2:6) = 1;                 % first 5 predictors are 3
-b(7:11) = -1;               % next 5 predictors are -3
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
 inner = X*b;                % linear parts
 y = poissrnd(exp(inner));   % generate response from Poisson
 
 %% 
 % Solution path for lasso
-maxpreds = 51;              % obtain solution path to top 50 predictors
+maxpreds = 76;              % obtain solution path to top 50 predictors
 model = 'loglinear';        % do Poisson regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;

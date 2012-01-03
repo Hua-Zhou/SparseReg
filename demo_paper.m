@@ -6,7 +6,7 @@
 %% Prostate cancer data set - solution paths
 % Load data set
 clear;
-printfig = true;           % print figure to eps file
+printfig = false;           % print figure to eps file
 fid = fopen('../../datasets/prostate.txt');
 prostate = textscan(fid, ['%d',repmat('%f',1,9),'%s'], 'HeaderLines', 1, ...
     'CollectOutput', true);
@@ -185,7 +185,7 @@ end
 %% South Africa heart disease data - solution paths
 % read in data
 clear;
-printfig = true;
+printfig = false;
 fid = fopen('../../datasets/saheart.txt');
 rawdata = textscan(fid, [repmat('%f ', 1, 5) '%s ' repmat('%f ', 1, 6)],...
     'HeaderLines', 1, 'delimiter', '\t', 'CollectOutput', true);
@@ -371,7 +371,7 @@ end
 %% M&A data - logistic regression with cubic trend filtering
 % load data
 clear;
-printfig = true;
+printfig = false;
 load '../../datasets/MandAcleanData.mat';
 X = x; clear x;
 display(names);
