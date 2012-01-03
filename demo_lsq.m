@@ -143,7 +143,7 @@ end
 % Simulate another sample data set (n=100, p=500)
 clear;
 n = 100;
-p = 500;
+p = 10000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
@@ -154,14 +154,23 @@ y = X*b+randn(n,1);         % response vector
 
 %% 
 % Solution path for lasso
-maxpreds = 50;              % run solution path until 50 predictors are in
+maxpreds = 51;              % run solution path until 50 predictors are in
 penalty = 'enet';           % set penalty function
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 tic;
-[rho_path,beta_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
+[rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 figure;
 plot(rho_path,beta_path);
@@ -169,15 +178,25 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 %% 
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
-penparam = 0.5;
+penparam = 0.75;
 tic;
-[rho_path,beta_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
+[rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 figure;
 plot(rho_path,beta_path);
@@ -185,3 +204,4 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);

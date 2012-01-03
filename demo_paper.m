@@ -6,7 +6,7 @@
 %% Prostate cancer data set - solution paths
 % Load data set
 clear;
-printfig = false;           % print figure to eps file
+printfig = true;           % print figure to eps file
 fid = fopen('../../datasets/prostate.txt');
 prostate = textscan(fid, ['%d',repmat('%f',1,9),'%s'], 'HeaderLines', 1, ...
     'CollectOutput', true);
@@ -182,136 +182,10 @@ if (printfig)
     print('-depsc2', ['../../manuscripts/notes/prostate_mse_log', '.eps']);
 end
 
-%% Prostate cancer data set - MC+ penalty
-% compute solution paths from MC+ penalties
-penalty = {'mcp' 'mcp' 'mcp' 'mcp'};
-penparam = [0.05 0.1 0.5 1];
-penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-beta_all = cell(length(penalty),1);
-rho_all = cell(length(penalty),1);
-tic;
-for i=1:length(penalty)
-    [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,'penidx',penidx,'penalty',penalty{i},...
-        'penparam',penparam(i));
-    beta_all{i} = beta_path;
-    rho_all{i} = rho_path;
-end
-timing = toc;
-yhat_path = cellfun(@(B) X*B, beta_all, 'UniformOutput', false);
-R2_path = cellfun(@(yhat) var(yhat)/var(yhat(:,end)), yhat_path, ...
-    'UniformOutput', false);
-modelsize_path = cellfun(@(B) sum(abs(B)>1e-6), beta_all, ...
-    'UniformOutput', false);
-%%
-% plot $R^2$ vs model size
-figure; 
-set(gca,'FontSize',15);
-penparam_str = cell(length(R2_path),1);
-for i=1:length(R2_path)
-	plot(modelsize_path{i}, R2_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 10]);
-ylim([-0.05,1.05]);
-xlabel('# predictors');
-ylabel('Adjusted R^2');
-title(['MC+, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'southeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/prostate_R2_mcp', '.eps']);
-end
-%%
-% plot prediction MSE vs model size
-mse_path = cellfun(@(B) var(repmat(ytest,1,size(B,2))-Xtest*B), beta_all, ...
-    'UniformOutput', false);
-figure;
-set(gca,'FontSize',15);
-set(gcf,'DefaultAxesLineStyleOrder','-|-.|--|:');
-penparam_str = cell(length(mse_path),1);
-for i=1:length(mse_path)
-	plot(modelsize_path{i}, mse_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 10]);
-ylim([0.4,1.1]);
-xlabel('# predictors');
-ylabel('prediction MSE');
-title(['MC+, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'northeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/prostate_mse_mcp', '.eps']);
-end
-
-%% Prostate cancer data set - SCAD penalty
-% compute solution paths from SCAD
-penalty = {'scad' 'scad' 'scad' 'scad' 'scad'};
-penparam = [2.05 3 4 5 10];
-penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-beta_all = cell(length(penalty),1);
-rho_all = cell(length(penalty),1);
-tic;
-for i=1:length(penalty)
-    [rho_path,beta_path] = ...
-        lsq_sparsepath(X,y,'penidx',penidx,'penalty',penalty{i},...
-        'penparam',penparam(i));
-    beta_all{i} = beta_path;
-    rho_all{i} = rho_path;
-end
-timing = toc;
-yhat_path = cellfun(@(B) X*B, beta_all, 'UniformOutput', false);
-R2_path = cellfun(@(yhat) var(yhat)/var(yhat(:,end)), yhat_path, ...
-    'UniformOutput', false);
-modelsize_path = cellfun(@(B) sum(abs(B)>1e-6), beta_all, ...
-    'UniformOutput', false);
-%%
-% plot $R^2$ vs model size
-figure; 
-set(gca,'FontSize',15);
-penparam_str = cell(length(R2_path),1);
-for i=1:length(R2_path)
-	plot(modelsize_path{i}, R2_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 10]);
-ylim([-0.05,1.05]);
-xlabel('# predictors');
-ylabel('Adjusted R^2');
-title(['SCAD, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'southeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/prostate_R2_scad', '.eps']);
-end
-%%
-% plot prediction MSE vs model size
-mse_path = cellfun(@(B) var(repmat(ytest,1,size(B,2))-Xtest*B), beta_all, ...
-    'UniformOutput', false);
-figure;
-set(gca,'FontSize',15);
-set(gcf,'DefaultAxesLineStyleOrder','-|-.|--|:');
-penparam_str = cell(length(mse_path),1);
-for i=1:length(mse_path)
-	plot(modelsize_path{i}, mse_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 10]);
-ylim([0.4,1.1]);
-xlabel('# predictors');
-ylabel('prediction MSE');
-title(['SCAD, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'northeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/prostate_mse_scad', '.eps']);
-end
-
 %% South Africa heart disease data - solution paths
 % read in data
 clear;
-printfig = false;
+printfig = true;
 fid = fopen('../../datasets/saheart.txt');
 rawdata = textscan(fid, [repmat('%f ', 1, 5) '%s ' repmat('%f ', 1, 6)],...
     'HeaderLines', 1, 'delimiter', '\t', 'CollectOutput', true);
@@ -493,137 +367,8 @@ legend(penparam_str, 'location', 'northeast');
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/saheart_mse_log', '.eps']);
 end
-%% South Africa heart disease data set - MC+ penalty
-% compute solution paths from power and enet penalties
-penalty = {'mcp' 'mcp' 'mcp' 'mcp'};
-penparam = [0.05 0.1 0.5 1];
-penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-beta_all = cell(length(penalty),1);
-rho_all = cell(length(penalty),1);
-tic;
-for i=1:length(penalty)
-    [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
-        'penparam',penparam(i));
-    beta_all{i} = beta_path;
-    rho_all{i} = rho_path;
-end
-timing = toc;
-yhat_path = cellfun(@(B) glmval(B,X(:,2:end),'logit'), beta_all, ...
-    'UniformOutput', false);
-dev_path = cellfun(@(yhat) 2*sum(log(bsxfun(@times,yhat,y) ...
-    + bsxfun(@times,1-yhat,1-y))), yhat_path, 'UniformOutput', false);
-modelsize_path = cellfun(@(B) sum(abs(B)>1e-6), beta_all, ...
-    'UniformOutput', false);
-%%
-% plot deviance vs model size
-figure;
-set(gca,'FontSize',15);
-set(gcf,'DefaultAxesLineStyleOrder','-|-.|--|:');
-penparam_str = cell(length(dev_path),1);
-for i=1:length(dev_path)
-	plot(modelsize_path{i}, dev_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 8]);
-xlabel('# predictors');
-ylabel('- deviance');
-title(['MC+, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'southeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/saheart_dev_mcp', '.eps']);
-end
-%% 
-% plot prediction MSE vs model size
-ypred_path = cellfun(@(B) glmval(B,Xtest(:,2:end),'logit'), beta_all, ...
-    'UniformOutput', false);
-mse_path = cellfun(@(ypred) sqrt(sum(bsxfun(@minus,ytest,ypred).^2)/length(ytest)), ...
-    ypred_path, 'UniformOutput', false);
-figure;
-set(gca,'FontSize',15);
-set(gcf,'DefaultAxesLineStyleOrder','-|-.|--|:');
-penparam_str = cell(length(mse_path),1);
-for i=1:length(mse_path)
-	plot(modelsize_path{i}, mse_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 8]);
-ylim([0.42 0.475]);
-xlabel('# predictors');
-ylabel('prediction MSE');
-title(['MC+, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'northeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/saheart_mse_mcp', '.eps']);
-end
-%% South Africa heart disease data set - SCAD penalty
-% compute solution paths from power and enet penalties
-penalty = {'scad' 'scad' 'scad' 'scad' 'scad'};
-penparam = [2.05 3 4 5 10];
-penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
-beta_all = cell(length(penalty),1);
-rho_all = cell(length(penalty),1);
-tic;
-for i=1:length(penalty)
-    [rho_path,beta_path] = ...
-        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i},...
-        'penparam',penparam(i));
-    beta_all{i} = beta_path;
-    rho_all{i} = rho_path;
-end
-timing = toc;
-yhat_path = cellfun(@(B) glmval(B,X(:,2:end),'logit'), beta_all, ...
-    'UniformOutput', false);
-dev_path = cellfun(@(yhat) 2*sum(log(bsxfun(@times,yhat,y) ...
-    + bsxfun(@times,1-yhat,1-y))), yhat_path, 'UniformOutput', false);
-modelsize_path = cellfun(@(B) sum(abs(B)>1e-6), beta_all, ...
-    'UniformOutput', false);
-%%
-% plot deviance vs model size
-figure;
-set(gca,'FontSize',15);
-set(gcf,'DefaultAxesLineStyleOrder','-|-.|--|:');
-penparam_str = cell(length(dev_path),1);
-for i=1:length(dev_path)
-	plot(modelsize_path{i}, dev_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 8]);
-xlabel('# predictors');
-ylabel('- deviance');
-title(['SCAD, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'southeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/saheart_dev_scad', '.eps']);
-end
-%% 
-% plot prediction MSE vs model size
-ypred_path = cellfun(@(B) glmval(B,Xtest(:,2:end),'logit'), beta_all, ...
-    'UniformOutput', false);
-mse_path = cellfun(@(ypred) sqrt(sum(bsxfun(@minus,ytest,ypred).^2)/length(ytest)), ...
-    ypred_path, 'UniformOutput', false);
-figure;
-set(gca,'FontSize',15);
-set(gcf,'DefaultAxesLineStyleOrder','-|-.|--|:');
-penparam_str = cell(length(mse_path),1);
-for i=1:length(mse_path)
-	plot(modelsize_path{i}, mse_path{i});
-    penparam_str{i} = [penalty{i} '(' num2str(penparam(i)) ')'];
-    hold all;
-end
-xlim([1 8]);
-ylim([0.42 0.475]);
-xlabel('# predictors');
-ylabel('prediction MSE');
-title(['SCAD, ', num2str(timing,2) 's']);
-legend(penparam_str, 'location', 'northeast');
-if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/saheart_mse_scad', '.eps']);
-end
-%% M&A data
+
+%% M&A data - logistic regression with cubic trend filtering
 % load data
 clear;
 printfig = true;
@@ -670,7 +415,7 @@ for j=1:7
         zeros(size(fusemat,1),sum(nj(j+1:end)))]; %#ok<*AGROW>
     D = [D; fusemat];
 end
-%% fit cubic trend filtering using power penalty
+%%
 % path algorithm
 model = 'logistic';
 penalty = 'power';          % set penalty function to log
@@ -679,6 +424,7 @@ tic;
 [rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty','log', ...
     'penparam',penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
 %%
 % plot solution path
 figure;
@@ -687,6 +433,7 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx),rho_path(ebidx)],ylim);
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/manda_solpath_power', '.eps']);
 end
@@ -697,6 +444,7 @@ plot(rho_path(~isnan(eb_path)),eb_path(~isnan(eb_path)));
 ylabel('EBC');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) ')']);
+line([rho_path(ebidx),rho_path(ebidx)],ylim);
 if (printfig)
     print('-depsc2', ['../../manuscripts/notes/manda_ebcpath_power', '.eps']);
 end
@@ -710,7 +458,7 @@ display(pvalue);
 %% 
 % plot unconstrained/constrained estimates
 rhokink = 1;            % fully regularized estimate
-rhokink2 = bestebcidx;  % estiamte located by EBC
+[~,rhokink2] = min(eb_path);  % estiamte located by EBC
 load '../../datasets/MandAcleanData.mat' x;
 figure;
 set(gca,'FontSize', 15);

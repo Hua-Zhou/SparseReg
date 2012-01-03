@@ -1,4 +1,4 @@
-function [rho_path,beta_path,rho_kinks,fval_kinks] = ...
+function [rho_path,beta_path,eb_path,rho_kinks,fval_kinks] = ...
     lsq_sparsepath(X,y,varargin)
 % LSQ_SPARSEPATH Solution path of sparse linear regression
 %
@@ -94,6 +94,7 @@ end
 tiny = 1e-4;
 b = - X'*(wt.*y);
 sum_x_squares = sum(bsxfun(@times,X.^2,wt),1);
+ynorm = sum(wt.*y.*y);
 islargep = maxpreds<p || p>=1000;
 if (islargep)
     A = sparse(p,p);    % compute A on-the-fly
@@ -210,6 +211,37 @@ for k=2:maxiters
 end
 fval_kinks = fval_kinks + norm(wt.*y)^2;
 
+% compute the emprical Bayes criterion along the path
+if (strcmpi(pentype,'enet') && penparam==1)
+    pentype = 'power';
+end
+compute_eb_path = strcmpi(pentype,'power') && nargin>=3;
+if (compute_eb_path)
+    eb_path = zeros(1,length(rho_path));
+    for t=1:length(eb_path)
+        setPenZ = abs(beta_path(:,t))<1e-8;
+        setPenNZ = ~setPenZ;
+        setPenZ(setKeep) = false;
+        setPenNZ(setKeep) = false;
+        setActive = setKeep|setPenNZ;
+        [objf,~,objd2f] = objfun(beta_path(setActive,t), rho_path(t));
+        q = nnz(setActive);
+        if (strcmpi(pentype,'power'))
+            if (rho_path(t)>0)
+                eb_path(t) = - q*(.5*log(pi/2) + log(penparam) ...
+                    + log(rho_path(t))/penparam - gammaln(1/penparam)) ...
+                    + ((n-q)/2+q/penparam)*(1+log(objf)-log((n-q)/2+q/penparam)) ...
+                    + 0.5*real(log(det(objd2f)));
+            else
+                eb_path(t) = nan;
+            end
+        else
+        end
+    end
+else
+    eb_path = nan;
+end
+
     function [value,isterminal,direction] = events(t,x)
         value = ones(p,1);
         value(setPenNZ) = x(penidx(setActive));
@@ -219,7 +251,8 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
             d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
             xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
             if (any(isnan(xPenZ_trial)))
-                error('NAN encountered from lsq_thresholding()');
+                warning('lsq_sparsepath:nan', 'NaN encountered from lsq_sparsereg');
+                return;
             end
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)==0;
@@ -248,7 +281,7 @@ fval_kinks = fval_kinks + norm(wt.*y)^2;
     function [f, d1f, d2f] = objfun(x, t)
         [pen,d1pen,d2pen] = ...
             penalty_function(x(penidx(setActive)),t,pentype,penparam);
-        f = 0.5*x'*A(setActive,setActive)*x + b(setActive)'*x ...
+        f = 0.5*x'*A(setActive,setActive)*x + b(setActive)'*x + ynorm ...
             + sum(pen);
         if (nargout>1)
             d1f = A(setActive,setActive)*x + b(setActive);

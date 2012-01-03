@@ -165,7 +165,8 @@ x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',beta_path(:,1), ...
     'penidx',penidx,'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
 if (any(isnan(x0)))
     display(x0);
-    error('NaN encountered from glm_sparsereg');
+    warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+    return;
 end
 setPenZ = abs(x0)<1e-8;
 setPenNZ = ~setPenZ;
@@ -201,13 +202,15 @@ for k=2:maxiters
         x0(setPenZ) = coeff(setPenZ);
     end
     if (any(isnan(x0)))
-        error('NaN encountered from x0');
+        warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+        return;
     end
     x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',x0,'penidx',penidx, ...
         'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
     if (any(isnan(x0)))
         display(x0);
-        error('NaN encountered from glm_sparsereg');
+        warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+        return;
     end
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
@@ -231,11 +234,28 @@ for k=2:maxiters
     if (n<p && nnz(setActive)>=maxpreds)
         break;
     end
+    % detect separation in logistic and loglinear models
+    inner = X(:,setActive)*x0;
+    if (strcmpi(model,'logistic'))
+        if (all(inner(y>0.5)>0) && all(inner(y<0.5)<0))
+            warning('glm_sparsepath:logistic:separation',['separation detected; ' ...
+                'perfect prediction achieved']);
+            break;
+        end
+    elseif (strcmpi(model,'loglinear'))
+        if (all(inner(y<=eps)<0) && all(abs(inner(y>eps))<=eps))
+            warning('glm_sparsepath:loglinear:separation','separation detected');
+            break;          
+        end
+    end
 end
 
 % compute the emprical Bayes criterion along the path
-compute_eb_path = (strcmpi(pentype,'power') || strcmpi(pentype,'log')) ...
-    && nargin>=3;
+if (strcmpi(pentype,'enet') && penparam==1)
+    pentype = 'power';
+end
+compute_eb_path = (nargin>=3 && ...
+    (strcmpi(pentype,'power') || strcmpi(pentype,'log')));
 if (compute_eb_path)
     eb_path = zeros(1,length(rho_path));
     for t=1:length(eb_path)
@@ -285,7 +305,8 @@ end
             d2PenZ = glmwts'*X2(:,setPenZ);
             xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
             if (any(isnan(xPenZ_trial)))
-                error('NaN encountered from glm_thresholding');
+                warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+                return;
             end
             coeff(setPenZ) = xPenZ_trial;
             value(setPenZ) = abs(xPenZ_trial)<1e-8;
@@ -309,7 +330,8 @@ end
         if (any(isnan(M(:))))
             display(d2pen);
             display(M);
-            error('NaN encountered in M');
+            warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+            return;
         end
         dx = - M\dx;
         if (any(isinf(dx)))
