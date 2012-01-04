@@ -112,10 +112,8 @@ else
     error('model not recogonized. LOGISTIC|LOGLINEAR accepted');
 end
 
-% precompute the elementwise square of design matrix
-X2 = X.^2;
-
 % precompute and allocate storage for path
+X2 = X.^2;
 tiny = 1e-4;
 islargep = p>=1000;
 if (islargep)
@@ -124,6 +122,7 @@ else
     beta_path = zeros(p,1);
 end
 rho_path = 0;
+eb_path = nan;
 
 % set up ODE solver and unconstrained optimizer
 maxiters = 2*rankX;         % max iterations for path algorithm
@@ -156,7 +155,12 @@ end
 [~,inext] = max(abs(d1f));
 rho = glm_maxlambda(X(:,inext),y,model,'weights',wt,'penalty',pentype, ...
     'penparam',penparam,'offset',X(:,setKeep)*beta_path(setKeep,1));
-rho_path(1) = rho;
+if (isnan(rho))
+    warning('glm_sparsepath:nan', 'NaN encountered from glm_maxlambda');
+    return;
+else
+    rho_path(1) = rho;
+end
 
 % determine active set and refine solution
 rho = max(rho-tiny,0);
@@ -164,7 +168,6 @@ rho = max(rho-tiny,0);
 x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',beta_path(:,1), ...
     'penidx',penidx,'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
 if (any(isnan(x0)))
-%     display(x0);
     warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
     return;
 end
@@ -201,16 +204,11 @@ for k=2:maxiters
     if (~isconvex)
         x0(setPenZ) = coeff(setPenZ);
     end
-    if (any(isnan(x0)))
-        warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
-        return;
-    end
     x0 = glm_sparsereg(X,y,rho,model,'weights',wt,'x0',x0,'penidx',penidx, ...
         'maxiter',maxrounds,'penalty',pentype,'penparam',penparam);
     if (any(isnan(x0)))
-%         display(x0);
         warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
-        return;
+        break;
     end
     setPenZ = abs(x0)<1e-8;
     setPenNZ = ~setPenZ;
@@ -236,17 +234,10 @@ for k=2:maxiters
     end
     % detect separation in logistic and loglinear models
     inner = X(:,setActive)*x0;
-    if (strcmpi(model,'logistic'))
-        if (all(inner(y>0.5)>0) && all(inner(y<0.5)<0))
-            warning('glm_sparsepath:logistic:separation',['separation detected; ' ...
-                'perfect prediction achieved']);
-            break;
-        end
-    elseif (strcmpi(model,'loglinear'))
-        if (all(inner(y<=eps)<0) && all(abs(inner(y>eps))<=eps))
-            warning('glm_sparsepath:loglinear:separation','separation detected');
-            break;          
-        end
+    if (detect_separation(inner,y,model))
+        warning('glm_sparsepath:logistic:separation',['separation detected; ' ...
+            'perfect prediction achieved']);
+        break;
     end
 end
 
@@ -284,8 +275,6 @@ if (compute_eb_path)
             end
         end
     end
-else
-    eb_path = nan;
 end
 
     function [value,isterminal,direction] = events(t,x)
@@ -294,20 +283,27 @@ end
         value = ones(p,1);
         value(setPenNZ) = x(penidx(setActive));
         inner = X(:,setActive)*x;
+        % detect nan and complete separation
+        if (any(isnan(x)) || detect_separation(inner,y,model))
+            value(1) = 0;
+            return;
+        end
         if (isconvex)
-            [~,lossD1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
+            [~,lossD1PenZ] = glmfun(inner,X,y,wt,model);
             [~,penD1PenZ] = penalty_function(0,t,pentype,penparam);
             coeff(setPenZ) = 0;
-            value(setPenZ) = abs(lossD1PenZ)<abs(penD1PenZ);
+            value(setPenZ) = abs(lossD1PenZ(setPenZ))<abs(penD1PenZ);
         elseif (any(setPenZ))
-            % try coordinate descent direction for zero coeffs using
+            % try thresholding for zero coeffs using
             % weighted least squares approximation
-            [~,d1PenZ] = glmfun(inner,X(:,setPenZ),y,wt,model);
+            [~,d1PenZ] = glmfun(inner,X,y,wt,model);
             glmwts = glmweights(inner,wt,model);
-            d2PenZ = glmwts'*X2(:,setPenZ);
-            xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
+            d2PenZ = glmwts'*X2;
+            xPenZ_trial = lsq_thresholding(d2PenZ(setPenZ),...
+                d1PenZ(setPenZ),t,pentype,penparam);
             if (any(isnan(xPenZ_trial)))
-                warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+                warning('glm_sparsepath:nan', ...
+                    'NaN encountered from lsq_thresholding');
                 return;
             end
             coeff(setPenZ) = xPenZ_trial;
@@ -328,9 +324,8 @@ end
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
         if (any(isnan(M(:))))
-%             display(d2pen);
-%             display(M);
-            warning('glm_sparsepath:nan', 'NaN encountered from glm_sparsereg');
+            warning('glm_sparsepath:nan', ...
+                'NaN encountered from glm_sparsereg');
             return;
         end
         dx = - M\dx;
@@ -384,7 +379,7 @@ end
                 loss = - sum(wt.*(y.*inner-logterm));
             case 'LOGLINEAR'
                 expinner = exp(inner);
-                loss = - sum(wt.*(y.*inner-expinner));
+                loss = - sum(wt.*(y.*inner-expinner)) + sum(gammaln(y+1));
         end
         if (nargout>1)
             switch upper(model)
@@ -392,9 +387,9 @@ end
                     prob = expinner./(1+expinner);
                     prob(inner>big) = 1;
                     prob(inner<-big) = 0;
-                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-prob)),1)';
+                    lossd1 = - ((wt.*(y-prob))'*X)';
                 case 'LOGLINEAR'
-                    lossd1 = - sum(bsxfun(@times, X, wt.*(y-expinner)),1)';
+                    lossd1 = - ((wt.*(y-expinner))'*X)';
             end
         end
         if (nargout>2)
@@ -421,5 +416,18 @@ end
                 glmwts = wt.*expinner;
         end
     end%GLMWEIGHTS
+
+    function s = detect_separation(inner,y,model)
+        s = 0;  % 0 - no separation
+        if (strcmpi(model,'logistic'))
+            if (all(inner(y>0.5)>0) && all(inner(y<0.5)<0))
+                s=1;
+            end
+        elseif (strcmpi(model,'loglinear'))
+            if (all(inner(y<=eps)<=0) && all(abs(inner(y>eps))<eps))
+                s=1;
+            end
+        end
+    end
 
 end

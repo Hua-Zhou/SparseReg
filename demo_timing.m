@@ -2,7 +2,7 @@
 % 
 clear;
 
-n = 100;
+n = 200;
 p = 10000;
 b = zeros(p+1,1);           % true signal
 b(2:6) = 3;                 % first 5 predictors are 3
@@ -13,7 +13,7 @@ reps = 10;
 penalty = 'power';
 penparam = [0.25 0.5 0.75 1];
 penidx = [false; true(p,1)];
-maxpreds = 76;
+maxpreds = 101;
 
 mse = zeros(reps,length(penparam),3);
 runtime = zeros(reps,length(penparam),3);
@@ -23,7 +23,7 @@ rng(52570);               % seed
 warning off all;
 for replicate=1:reps
     
-    disp('');
+    disp(' ');
     display(['replicate ' num2str(replicate)]);
     X = randn(n,p);             % generate a random design matrix
     X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
@@ -101,7 +101,8 @@ save(['sim-results-' timestamp '.mat']);
 %% 
 % post-processing
 
-% load('sim-results-02-Jan-2012-17-20-27.mat');
+% load('sim-results-02-Jan-2012-17-20-27.mat'); % betaj = 1, 10 replicates, top 76 predictors
+% load('sim-results-03-Jan-2012-12-32-28.mat'); % betaj = 3, 10 replicates, top 76 predictors 
 
 printfig = false;
 ylabels = {'Linear', 'Poisson', 'Logistic'};
@@ -110,7 +111,7 @@ figure;
 for i=1:size(runtime,3)
     subplot(size(runtime,3),1,i)
     if (i<size(runtime,3))
-        boxplot(runtime(:,:,i));
+        boxplot(runtime(:,:,i),'datalim',[0,50]);
         set(gca,'XTickLabel',{' '})
     else
         boxplot(runtime(:,:,i),'labels',penparam);
@@ -131,10 +132,10 @@ figure;
 for i=1:size(fpr,3)
     subplot(size(fpr,3),1,i)
     if (i<size(fpr,3))
-        boxplot(fpr(:,:,i));
+        boxplot(fpr(:,:,i),'datalim',[0,0.008]);
         set(gca,'XTickLabel',{' '})
     else
-        boxplot(fpr(:,:,i),'labels',penparam,'datalim',[0,0.006]);
+        boxplot(fpr(:,:,i),'labels',penparam,'datalim',[0,0.005]);
     end
     ylabel(ylabels{i});
     if (i==1)
@@ -173,7 +174,7 @@ figure;
 for i=1:size(mse,3)
     subplot(size(mse,3),1,i)
     if (i<size(mse,3))
-        boxplot(mse(:,:,i));
+        boxplot(mse(:,:,i),'datalim',[0,0.2]);
         set(gca,'XTickLabel',{' '})
     else
         boxplot(mse(:,:,i),'labels',penparam,'datalim',[0,1]);

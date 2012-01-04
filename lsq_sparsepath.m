@@ -92,15 +92,11 @@ end
 
 % precompute and allocate storage for path
 tiny = 1e-4;
-b = - X'*(wt.*y);
 sum_x_squares = sum(bsxfun(@times,X.^2,wt),1);
-ynorm = sum(wt.*y.*y);
 islargep = maxpreds<p || p>=1000;
 if (islargep)
-    A = sparse(p,p);    % compute A on-the-fly
     beta_path = sparse(p,1);
 else
-    A = X'*bsxfun(@times,X,wt);    % p-by-p
     beta_path = zeros(p,1);
 end
 rho_path = 0;
@@ -110,16 +106,14 @@ setKeep = ~penidx;      % set of unpenalized coefficients
 setPenZ = penidx;       % set of penalized coefficients that are zero
 setPenNZ = false(p,1);  % set of penalized coefficients that are non-zero
 coeff = zeros(p,1);     % subgradient coefficients
+setActive = setKeep;    % set of active coefficients
 if (nnz(setKeep)>rankX)
     error('number of unpenalized coefficients exceeds rank of X');
 end
-if (islargep)
-    A(:,setKeep) = X'*bsxfun(@times,X(:,setKeep),wt);
-    A(setKeep,:) = A(:,setKeep)';
-    setAcomputed = setKeep;
-end
-if (any(setKeep))
-    beta_path(setKeep,1) = - A(setKeep,setKeep)\b(setKeep);
+XsetActive = X(:,setActive);
+if (any(setActive))
+    beta_path(setActive,1) = ...
+        (XsetActive'*bsxfun(@times,XsetActive,wt))\(XsetActive'*(wt.*y));
 else
     beta_path(:,1) = 0;
 end
@@ -133,7 +127,8 @@ fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
 tfinal = 0;
 
 % determine the maximum rho to start
-d1f = A(:,setKeep)*beta_path(setKeep,1)+b;
+res = y-XsetActive*beta_path(setActive,1);
+d1f = - ((wt.*res)'*X)';
 [d1fnext,inext] = max(abs(d1f));
 rho = lsq_maxlambda(sum_x_squares(inext),d1fnext,pentype,penparam);
 rho_path(1) = rho;
@@ -150,12 +145,7 @@ setPenZ(setKeep) = false;
 setPenNZ(setKeep) = false;
 setActive = setKeep|setPenNZ;
 coeff(setPenNZ) = sign(x0(setPenNZ));
-if (islargep)
-    setAnew = find(setActive&(~setAcomputed));
-    A(:,setAnew) = X'*bsxfun(@times,X(:,setAnew),wt);
-    A(setAnew,:) = A(:,setAnew)';
-    setAcomputed = setActive|setAcomputed;
-end
+XsetActive = X(:,setActive);
 % improve parameter estimates
 [x0, fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
 rho_path = [rho_path rho];
@@ -187,12 +177,7 @@ for k=2:maxiters
     setPenNZ(setKeep) = false;
     setActive = setKeep|setPenNZ;
     coeff(setPenNZ) = sign(x0(setPenNZ));
-    if (islargep)
-        setAnew = find(setActive&(~setAcomputed));
-        A(:,setAnew) = X'*bsxfun(@times,X(:,setAnew),wt);  %#ok<SPRIX>
-        A(setAnew,:) = A(:,setAnew)'; %#ok<SPRIX>
-        setAcomputed = setActive|setAcomputed;
-    end
+    XsetActive = X(:,setActive);
     % improve parameter estimates
     [x0,fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
     rho_path = [rho_path rho];
@@ -209,7 +194,6 @@ for k=2:maxiters
         break;
     end
 end
-fval_kinks = fval_kinks + norm(wt.*y)^2;
 
 % compute the emprical Bayes criterion along the path
 if (strcmpi(pentype,'enet') && penparam==1)
@@ -224,6 +208,7 @@ if (compute_eb_path)
         setPenZ(setKeep) = false;
         setPenNZ(setKeep) = false;
         setActive = setKeep|setPenNZ;
+        XsetActive = X(:,setActive);
         [objf,~,objd2f] = objfun(beta_path(setActive,t), rho_path(t));
         q = nnz(setActive);
         if (strcmpi(pentype,'power'))
@@ -243,22 +228,14 @@ else
 end
 
     function [value,isterminal,direction] = events(t,x)
-        value = ones(p,1);
-        value(setPenNZ) = x(penidx(setActive));
-        % try coordinate descent direction for zero coeffs
-        if (any(setPenZ))
-            d2PenZ = sum_x_squares(setPenZ);
-            d1PenZ = A(setPenZ,setActive)*x+b(setPenZ);
-            xPenZ_trial = lsq_thresholding(d2PenZ,d1PenZ,t,pentype,penparam);
-            if (any(isnan(xPenZ_trial)))
-                warning('lsq_sparsepath:nan', 'NaN encountered from lsq_sparsereg');
-                return;
-            end
-            coeff(setPenZ) = xPenZ_trial;
-            value(setPenZ) = abs(xPenZ_trial)==0;
-        end
         isterminal = true(p,1);
         direction = zeros(p,1);
+        value = ones(p,1);
+        lossd1 = -((wt.*(y-XsetActive*x))'*X)';
+        x_trial = lsq_thresholding(sum_x_squares,lossd1,t,pentype,penparam);
+        value(penidx) = x_trial(penidx);
+        coeff(setPenZ) = value(setPenZ);
+        value(setPenZ) = abs(value(setPenZ))<eps;
     end%EVENTS
 
     function dx = odefun(t, x)
@@ -268,7 +245,7 @@ end
         if (any(setPenNZ))
             dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
         end
-        M = A(setActive,setActive);
+        M = XsetActive'*bsxfun(@times, XsetActive, wt);
         diagidx = find(penidx(setActive));
         diagidx = (diagidx-1)*length(x) + diagidx;
         M(diagidx) = M(diagidx) + d2pen;
@@ -281,17 +258,16 @@ end
     function [f, d1f, d2f] = objfun(x, t)
         [pen,d1pen,d2pen] = ...
             penalty_function(x(penidx(setActive)),t,pentype,penparam);
-        f = 0.5*x'*A(setActive,setActive)*x + b(setActive)'*x + ynorm ...
-            + sum(pen);
+        f = .5*sum(wt.*(y-XsetActive*x).^2) + sum(pen);
         if (nargout>1)
-            d1f = A(setActive,setActive)*x + b(setActive);
+            d1f = -  ((wt.*res)'*XsetActive)';
             if (any(setPenNZ))
                 d1f(penidx(setActive)) = d1f(penidx(setActive)) + ...
                     coeff(setPenNZ).*d1pen;
             end
         end
         if (nargout>2)
-            d2f = A(setActive,setActive);
+            d2f = XsetActive'*bsxfun(@times, XsetActive, wt);
             diagidx = find(penidx(setActive));
             diagidx = (diagidx-1)*length(x) + diagidx;
             d2f(diagidx) = d2f(diagidx) + d2pen;

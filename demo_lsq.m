@@ -142,7 +142,7 @@ end
 %% Sparse linear regression (n<p)
 % Simulate another sample data set (n=100, p=500)
 clear;
-n = 100;
+n = 200;
 p = 10000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
@@ -154,13 +154,15 @@ y = X*b+randn(n,1);         % response vector
 
 %% 
 % Solution path for lasso
-maxpreds = 51;              % run solution path until 50 predictors are in
+maxpreds = 101;              % run solution path until 50 predictors are in
 penalty = 'enet';           % set penalty function
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 tic;
+profile on;
 [rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
+profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 
@@ -183,10 +185,12 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 %% 
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
-penparam = 0.75;
+penparam = 0.5;
 tic;
+profile on;
 [rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
+profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 

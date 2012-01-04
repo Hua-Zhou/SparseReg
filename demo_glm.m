@@ -444,10 +444,10 @@ for i=1:length(penalty)
     line([rho_path(ebidx), rho_path(ebidx)], ylim);
 end
 
-%% Sparse loglinear (Poisson) regression (n<p)
+%% Sparse loglinear (Poisson) regression (n<<p)
 % Simulate a sample data set (n=500, p=50)
 clear;
-n = 100;
+n = 200;
 p = 10000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
@@ -460,15 +460,17 @@ y = poissrnd(exp(inner));   % generate response from Poisson
 
 %% 
 % Solution path for lasso
-maxpreds = 76;              % obtain solution path to top 50 predictors
+maxpreds = 101;              % obtain solution path to top 50 predictors
 model = 'loglinear';        % do Poisson regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
 tic;
+profile on;
 [rho_path,beta_path,eb_path] = ...  % compute solution path
     glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
     'penparam',penparam,'maxpreds',maxpreds);
+profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 
@@ -493,9 +495,11 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
+profile on;
 [rho_path,beta_path,eb_path] = ...  % compute solution path
     glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
     'penparam',penparam,'maxpreds',maxpreds);
+profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 
