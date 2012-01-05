@@ -209,14 +209,15 @@ if (compute_eb_path)
         setPenNZ(setKeep) = false;
         setActive = setKeep|setPenNZ;
         XsetActive = X(:,setActive);
-        [objf,~,objd2f] = objfun(beta_path(setActive,t), rho_path(t));
+        [objf,~,objd2f] = objfun(beta_path(setActive,t),rho_path(t));
         q = nnz(setActive);
         if (strcmpi(pentype,'power'))
             if (rho_path(t)>0)
                 eb_path(t) = - q*(.5*log(pi/2) + log(penparam) ...
                     + log(rho_path(t))/penparam - gammaln(1/penparam)) ...
-                    + ((n-q)/2+q/penparam)*(1+log(objf)-log((n-q)/2+q/penparam)) ...
-                    + 0.5*real(log(det(objd2f)));
+                    + ((n-q)/2-q/penparam) ...
+                    * (1 + log(objf) - log((n-q)/2+q/penparam)) ...
+                    + log(det(objd2f))/2;
             else
                 eb_path(t) = nan;
             end
