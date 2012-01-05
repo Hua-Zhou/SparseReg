@@ -5,8 +5,8 @@ clear;
 n = 200;
 p = 10000;
 b = zeros(p+1,1);           % true signal
-b(2:6) = 3;                 % first 5 predictors are 3
-b(7:11) = -3;               % next 5 predictors are -3
+b(2:6) = 5;                 % first 5 predictors are 3
+b(7:11) = -5;               % next 5 predictors are -3
 truemodel = false(p,1);
 truemodel(1:10) = true;
 reps = 10;
