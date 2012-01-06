@@ -123,7 +123,7 @@ maxiters = 5*rankX;         % max iterations for path algorithm
 maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events,'Refine',refine);
-fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
+% fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
 tfinal = 0;
 
 % determine the maximum rho to start
@@ -146,19 +146,20 @@ setPenNZ(setKeep) = false;
 setActive = setKeep|setPenNZ;
 coeff(setPenNZ) = sign(x0(setPenNZ));
 XsetActive = X(:,setActive);
-% improve parameter estimates
-[x0, fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
-rho_path = [rho_path rho];
-beta_path(setActive,end+1) = x0;
+xsetActive = x0(setActive);
+M = XsetActive'*bsxfun(@times, XsetActive, wt); % quadratic part
+diagidx = find(penidx(setActive));
+diagidx = (diagidx-1)*nnz(setActive) + diagidx;
+% accumulate kink information
 rho_kinks = length(rho_path);
-fval_kinks = fval;
+fval_kinks = objfun(xsetActive,rho);
 
 % main loop for path following
 for k=2:maxiters
     
     % Solve ode until the next kink or discontinuity
     tstart = rho_path(end);
-    [tseg,xseg] = ode45(@odefun,[tstart tfinal],x0,odeopt);
+    [tseg,xseg] = ode45(@odefun,[tstart tfinal],xsetActive,odeopt);
     
     % accumulate solution path
     rho_path = [rho_path tseg']; %#ok<*AGROW>
@@ -178,12 +179,14 @@ for k=2:maxiters
     setActive = setKeep|setPenNZ;
     coeff(setPenNZ) = sign(x0(setPenNZ));
     XsetActive = X(:,setActive);
-    % improve parameter estimates
-    [x0,fval] = fminunc(@objfun, x0(setActive), fminopt, rho);
-    rho_path = [rho_path rho];
-    beta_path(setActive,end+1) = x0;
+    xsetActive = x0(setActive);
+    M = XsetActive'*bsxfun(@times, XsetActive, wt); % quadratic part
+    diagidx = find(penidx(setActive));
+    diagidx = (diagidx-1)*nnz(setActive) + diagidx;
+    
+    % accumulate kink information
     rho_kinks = [rho_kinks length(rho_path)];
-    fval_kinks = [fval_kinks fval];
+    fval_kinks = [fval_kinks objfun(xsetActive,rho)];
     tstart = rho;
     
     % termination
@@ -232,7 +235,8 @@ end
         isterminal = true(p,1);
         direction = zeros(p,1);
         value = ones(p,1);
-        lossd1 = -((wt.*(y-XsetActive*x))'*X)';
+        res = y-XsetActive*x;
+        lossd1 = -((wt.*res)'*X)';
         x_trial = lsq_thresholding(sum_x_squares,lossd1,t,pentype,penparam);
         value(penidx) = x_trial(penidx);
         coeff(setPenZ) = value(setPenZ);
@@ -246,11 +250,9 @@ end
         if (any(setPenNZ))
             dx(penidx(setActive)) = dpendrho.*coeff(setPenNZ);
         end
-        M = XsetActive'*bsxfun(@times, XsetActive, wt);
-        diagidx = find(penidx(setActive));
-        diagidx = (diagidx-1)*length(x) + diagidx;
-        M(diagidx) = M(diagidx) + d2pen;
-        dx = - M\dx;
+        H = M;
+        H(diagidx) = H(diagidx)+d2pen;
+        dx = - H\dx;
         if (any(isinf(dx)))
             dx(isinf(dx)) = 1e8*sign(dx(isinf(dx)));
         end
@@ -259,7 +261,8 @@ end
     function [f, d1f, d2f] = objfun(x, t)
         [pen,d1pen,d2pen] = ...
             penalty_function(x(penidx(setActive)),t,pentype,penparam);
-        f = .5*sum(wt.*(y-XsetActive*x).^2) + sum(pen);
+        res = y-XsetActive*x;
+        f = .5*sum(wt.*res.^2) + sum(pen);
         if (nargout>1)
             d1f = -  ((wt.*res)'*XsetActive)';
             if (any(setPenNZ))

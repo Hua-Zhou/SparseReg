@@ -428,6 +428,6 @@ end
                 s=1;
             end
         end
-    end
+    end%DETECT_SEPARATION
 
 end

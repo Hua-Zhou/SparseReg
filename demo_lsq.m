@@ -54,8 +54,10 @@ penalty = 'enet';           % set penalty function
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 tic;
+profile on;
 [rho_path,beta_path] = ...  % compute solution path
     lsq_sparsepath(X,y,'penalty',penalty,'penparam',penparam,'penidx',penidx);
+profile viewer;
 timing = toc;
 
 figure;
@@ -70,8 +72,10 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
+profile on;
 [rho_path,beta_path] = ...
     lsq_sparsepath(X,y,'penalty',penalty,'penparam',penparam,'penidx',penidx);
+profile viewer;
 timing = toc;
 
 figure;

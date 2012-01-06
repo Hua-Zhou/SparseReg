@@ -101,8 +101,9 @@ save(['sim-results-' timestamp '.mat']);
 %% 
 % post-processing
 
-% load('sim-results-02-Jan-2012-17-20-27.mat'); % betaj = 1, 10 replicates, top 76 predictors
-% load('sim-results-03-Jan-2012-12-32-28.mat'); % betaj = 3, 10 replicates, top 76 predictors 
+% load('sim-results-02-Jan-2012-17-20-27.mat'); % n=100, p=10000, betaj = 1, 10 replicates, top 76 predictors
+% load('sim-results-03-Jan-2012-12-32-28.mat'); % n=100, p=10000, betaj = 3, 10 replicates, top 76 predictors 
+load('sim-results-04-Jan-2012-20-23-23.mat'); % n=200, p=10000, betaj = 3, 10 replicates, top 101 predictors 
 
 printfig = false;
 ylabels = {'Linear', 'Poisson', 'Logistic'};
@@ -111,7 +112,7 @@ figure;
 for i=1:size(runtime,3)
     subplot(size(runtime,3),1,i)
     if (i<size(runtime,3))
-        boxplot(runtime(:,:,i),'datalim',[0,50]);
+        boxplot(runtime(:,:,i));
         set(gca,'XTickLabel',{' '})
     else
         boxplot(runtime(:,:,i),'labels',penparam);
@@ -132,10 +133,10 @@ figure;
 for i=1:size(fpr,3)
     subplot(size(fpr,3),1,i)
     if (i<size(fpr,3))
-        boxplot(fpr(:,:,i),'datalim',[0,0.008]);
+        boxplot(fpr(:,:,i));
         set(gca,'XTickLabel',{' '})
     else
-        boxplot(fpr(:,:,i),'labels',penparam,'datalim',[0,0.005]);
+        boxplot(fpr(:,:,i),'labels',penparam);
     end
     ylabel(ylabels{i});
     if (i==1)
@@ -174,10 +175,10 @@ figure;
 for i=1:size(mse,3)
     subplot(size(mse,3),1,i)
     if (i<size(mse,3))
-        boxplot(mse(:,:,i),'datalim',[0,0.2]);
+        boxplot(mse(:,:,i));
         set(gca,'XTickLabel',{' '})
     else
-        boxplot(mse(:,:,i),'labels',penparam,'datalim',[0,1]);
+        boxplot(mse(:,:,i),'labels',penparam);
     end
     ylabel(ylabels{i});
     if (i==1)
