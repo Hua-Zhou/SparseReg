@@ -460,7 +460,7 @@ y = poissrnd(exp(inner));   % generate response from Poisson
 
 %% 
 % Solution path for lasso
-maxpreds = 101;              % obtain solution path to top 50 predictors
+maxpreds = 51;              % obtain solution path to top 50 predictors
 model = 'loglinear';        % do Poisson regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
