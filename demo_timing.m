@@ -9,7 +9,7 @@ b(2:6) = 5;                 % first 5 predictors are 3
 b(7:11) = -5;               % next 5 predictors are -3
 truemodel = false(p,1);
 truemodel(1:10) = true;
-reps = 10;
+reps = 100;
 penalty = 'power';
 penparam = [0.25 0.5 0.75 1];
 penidx = [false; true(p,1)];
@@ -103,9 +103,10 @@ save(['sim-results-' timestamp '.mat']);
 
 % load('sim-results-02-Jan-2012-17-20-27.mat'); % n=100, p=10000, betaj = 1, 10 replicates, top 76 predictors
 % load('sim-results-03-Jan-2012-12-32-28.mat'); % n=100, p=10000, betaj = 3, 10 replicates, top 76 predictors 
-load('sim-results-04-Jan-2012-20-23-23.mat'); % n=200, p=10000, betaj = 3, 10 replicates, top 101 predictors 
+% load('sim-results-04-Jan-2012-20-23-23.mat'); % n=200, p=10000, betaj = 3, 10 replicates, top 101 predictors 
+load('sim-results-15-Jan-2012-02-31-30.mat'); % n=200, p=10000, betaj = 3, 100 replicates, top 101 predictors 
 
-printfig = false;
+printfig = true;
 ylabels = {'Linear', 'Poisson', 'Logistic'};
 % plot run times
 figure; 
