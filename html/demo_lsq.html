@@ -6,7 +6,7 @@
    <!--
 This HTML was auto-generated from MATLAB code.
 To make changes, update the MATLAB code and republish this document.
-      --><title>Sparse Linear Regression</title><meta name="generator" content="MATLAB 7.12"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2011-12-19"><meta name="DC.source" content="demo_lsq.m"><style type="text/css">
+      --><title>Sparse Linear Regression</title><meta name="generator" content="MATLAB 7.12"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2012-02-02"><meta name="DC.source" content="demo_lsq.m"><style type="text/css">
 
 body {
   background-color: white;
@@ -102,7 +102,7 @@ title([penalty <span class="string">'('</span> num2str(penparam) <span class="st
 </pre><pre class="codeoutput">
 lambdastart =
 
-    6.0127
+    4.9619
 
 </pre><img vspace="5" hspace="5" src="demo_lsq_01.png" alt=""> <img vspace="5" hspace="5" src="demo_lsq_02.png" alt=""> <p>Solution path for lasso</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function</span>
 penparam = 1;
@@ -131,8 +131,8 @@ xlabel(<span class="string">'\rho'</span>);
 ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
-</pre><img vspace="5" hspace="5" src="demo_lsq_04.png" alt=""> <p>Compare solution paths from different penalties</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'mcp'</span> <span class="string">'scad'</span>};
-penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+</pre><img vspace="5" hspace="5" src="demo_lsq_04.png" alt=""> <p>Compare solution paths from different penalties</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'scad'</span>};
+penparam = [1 1.5 2 0.5 1 0 1 5 3.7];
 penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
 
 figure
@@ -171,44 +171,32 @@ title([penalty <span class="string">'('</span> num2str(penparam) <span class="st
 </pre><pre class="codeoutput">
 ans =
 
-  Columns 1 through 4
+  Columns 1 through 10
 
-     0     1    -1     0
-     0     0     1    -1
-     0     0     0     1
-     0     0     0     0
-     0     0     0     0
-     0     0     0     0
-     0     0     0     0
-     0     0     0     0
-     0     0     0     0
+     0     1    -1     0     0     0     0     0     0     0
+     0     0     1    -1     0     0     0     0     0     0
+     0     0     0     1    -1     0     0     0     0     0
+     0     0     0     0     1    -1     0     0     0     0
+     0     0     0     0     0     1    -1     0     0     0
+     0     0     0     0     0     0     1    -1     0     0
+     0     0     0     0     0     0     0     1    -1     0
+     0     0     0     0     0     0     0     0     1    -1
+     0     0     0     0     0     0     0     0     0     1
 
-  Columns 5 through 8
+  Column 11
 
-     0     0     0     0
-     0     0     0     0
-    -1     0     0     0
-     1    -1     0     0
-     0     1    -1     0
-     0     0     1    -1
-     0     0     0     1
-     0     0     0     0
-     0     0     0     0
+     0
+     0
+     0
+     0
+     0
+     0
+     0
+     0
+    -1
 
-  Columns 9 through 11
-
-     0     0     0
-     0     0     0
-     0     0     0
-     0     0     0
-     0     0     0
-     0     0     0
-    -1     0     0
-     1    -1     0
-     0     1    -1
-
-</pre><img vspace="5" hspace="5" src="demo_lsq_06.png" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span> <span class="string">'scad'</span>};
-penparam = [0.5 1 1 3.7];
+</pre><img vspace="5" hspace="5" src="demo_lsq_06.png" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span>};
+penparam = [1.5 0.5 1 1];
 <span class="keyword">for</span> i=1:length(penalty)
     tic;
     [rho_path, beta_path] = lsq_regpath(X,y,D,<span class="string">'penalty'</span>,penalty{i},<span class="keyword">...</span>
@@ -219,9 +207,9 @@ penparam = [0.5 1 1 3.7];
     xlim([min(rho_path),max(rho_path)]);
     title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
 <span class="keyword">end</span>
-</pre><img vspace="5" hspace="5" src="demo_lsq_07.png" alt=""> <h2>Sparse linear regression (n&lt;p)<a name="8"></a></h2><p>Simulate another sample data set (n=100, p=500)</p><pre class="codeinput">clear;
+</pre><img vspace="5" hspace="5" src="demo_lsq_07.png" alt=""> <h2>Sparse linear regression (n&lt;p)<a name="8"></a></h2><p>Simulate another sample data set (n=100, p=1000)</p><pre class="codeinput">clear;
 n = 100;
-p = 500;
+p = 1000;
 X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
 X = [ones(size(X,1),1) X];  <span class="comment">% add intercept</span>
@@ -229,14 +217,23 @@ b = zeros(p+1,1);           <span class="comment">% true signal</span>
 b(2:6) = 3;                 <span class="comment">% first 5 predictors are 3</span>
 b(7:11) = -3;               <span class="comment">% next 5 predictors are -3</span>
 y = X*b+randn(n,1);         <span class="comment">% response vector</span>
-</pre><p>Solution path for lasso</p><pre class="codeinput">maxpreds = 50;              <span class="comment">% run solution path until 50 predictors are in</span>
+</pre><p>Solution path for lasso</p><pre class="codeinput">maxpreds = 51;              <span class="comment">% run solution path until 50 predictors are in</span>
 penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function</span>
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
 tic;
-[rho_path,beta_path] = lsq_sparsepath(X,y,<span class="string">'penidx'</span>,penidx, <span class="keyword">...</span>
+[rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,<span class="string">'penidx'</span>,penidx, <span class="keyword">...</span>
     <span class="string">'maxpreds'</span>,maxpreds,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 figure;
 plot(rho_path,beta_path);
@@ -244,12 +241,22 @@ xlabel(<span class="string">'\rho'</span>);
 ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
-</pre><img vspace="5" hspace="5" src="demo_lsq_08.png" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_lsq_08.png" alt=""> <img vspace="5" hspace="5" src="demo_lsq_09.png" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
 penparam = 0.5;
 tic;
-[rho_path,beta_path] = lsq_sparsepath(X,y,<span class="string">'penidx'</span>,penidx, <span class="keyword">...</span>
+[rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,<span class="string">'penidx'</span>,penidx, <span class="keyword">...</span>
     <span class="string">'maxpreds'</span>,maxpreds,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 figure;
 plot(rho_path,beta_path);
@@ -257,15 +264,16 @@ xlabel(<span class="string">'\rho'</span>);
 ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
-</pre><img vspace="5" hspace="5" src="demo_lsq_09.png" alt=""> <p class="footer"><br>
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_lsq_10.png" alt=""> <img vspace="5" hspace="5" src="demo_lsq_11.png" alt=""> <p class="footer"><br>
       Published with MATLAB&reg; 7.12<br></p></div><!--
 ##### SOURCE BEGIN #####
 %% Sparse Linear Regression
-% A demonstration of sparse linear regression using SparseReg 
-% toolbox. Sparsity is in the general sense: variable selection, 
-% total variation regularization, polynomial trend filtering, and others. 
-% Various penalties are implemented: elestic net (enet), power family 
-% (bridge regression), log penalty, SCAD, and MCP.
+% A demonstration of sparse linear regression using SparseReg toolbox.
+% Sparsity is in the general sense: variable selection, total variation
+% regularization, polynomial trend filtering, and others. Various penalties
+% are implemented: elestic net (enet), power family (bridge regression),
+% log penalty, SCAD, and MCP.
 
 %% Sparse linear regression (n>p)
 % Simulate a sample data set (n=500, p=100)
@@ -345,8 +353,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %% 
 % Compare solution paths from different penalties
-penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
-penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'log' 'scad'};
+penparam = [1 1.5 2 0.5 1 0 1 5 3.7];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 
 figure
@@ -388,8 +396,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
+penalty = {'enet' 'power' 'log' 'mcp'};
+penparam = [1.5 0.5 1 1];
 for i=1:length(penalty)
     tic;
     [rho_path, beta_path] = lsq_regpath(X,y,D,'penalty',penalty{i},...
@@ -402,10 +410,10 @@ for i=1:length(penalty)
 end
 
 %% Sparse linear regression (n<p)
-% Simulate another sample data set (n=100, p=500)
+% Simulate another sample data set (n=100, p=1000)
 clear;
 n = 100;
-p = 500;
+p = 1000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
@@ -416,14 +424,23 @@ y = X*b+randn(n,1);         % response vector
 
 %% 
 % Solution path for lasso
-maxpreds = 50;              % run solution path until 50 predictors are in
+maxpreds = 51;              % run solution path until 50 predictors are in
 penalty = 'enet';           % set penalty function
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 tic;
-[rho_path,beta_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
+[rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 figure;
 plot(rho_path,beta_path);
@@ -431,15 +448,25 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 %% 
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
-[rho_path,beta_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
+[rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
 timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 figure;
 plot(rho_path,beta_path);
@@ -447,5 +474,7 @@ xlabel('\rho');
 ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
 ##### SOURCE END #####
 --></body></html>
