@@ -174,8 +174,8 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
+penalty = {'enet' 'power' 'log' 'mcp'};
+penparam = [1.5 0.5 1 1];
 for i=1:length(penalty)
     tic;
     [rho_path, beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty{i},...
@@ -190,23 +190,23 @@ for i=1:length(penalty)
 end
 
 %% Sparse logistic regression (n<p)
-% Simulate another sample data set (n=100, p=10000)
+% Simulate another sample data set (n=100, p=1000)
 clear;
 n = 100;
-p = 10000;
+p = 1000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1),X];  % add intercept
 b = zeros(p+1,1);           % true signal
-b(2:6) = 5;                 % first 5 predictors are 1
-b(7:11) = -5;               % next 5 predictors are -1
+b(2:6) = 5;                 % first 5 predictors are 5
+b(7:11) = -5;               % next 5 predictors are -5
 inner = X*b;                % linear parts
 prob = 1./(1+exp(-inner));
 y = binornd(1,prob);        % generate binary response
 
 %% 
 % Solution path for lasso
-maxpreds = 76;              % request path to the first 51 predictors
+maxpreds = 51;              % request path to the first 51 predictors
 model = 'logistic';         % do logistic regression
 penalty = 'enet';           % set penalty to lasso
 penparam = 1;
@@ -429,8 +429,8 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
+penalty = {'enet' 'power' 'log' 'mcp'};
+penparam = [1.5 0.5 1 1];
 for i=1:length(penalty)
     tic;
     [rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty{i}, ...
@@ -447,8 +447,8 @@ end
 %% Sparse loglinear (Poisson) regression (n<<p)
 % Simulate a sample data set (n=500, p=50)
 clear;
-n = 200;
-p = 10000;
+n = 100;
+p = 1000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
@@ -466,11 +466,9 @@ penalty = 'enet';           % set penalty to lasso
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
 tic;
-profile on;
 [rho_path,beta_path,eb_path] = ...  % compute solution path
     glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
     'penparam',penparam,'maxpreds',maxpreds);
-profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 
@@ -495,11 +493,9 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
-profile on;
 [rho_path,beta_path,eb_path] = ...  % compute solution path
     glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
     'penparam',penparam,'maxpreds',maxpreds);
-profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 

@@ -54,10 +54,8 @@ penalty = 'enet';           % set penalty function
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 tic;
-% profile on;
 [rho_path,beta_path] = ...  % compute solution path
     lsq_sparsepath(X,y,'penalty',penalty,'penparam',penparam,'penidx',penidx);
-% profile viewer;
 timing = toc;
 
 figure;
@@ -69,13 +67,11 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %% 
 % Solution path for power (0.5)
-penalty = 'mcp';          % set penalty function to power
-penparam = 2;
+penalty = 'power';          % set penalty function to power
+penparam = 0.5;
 tic;
-% profile on;
 [rho_path,beta_path] = ...
     lsq_sparsepath(X,y,'penalty',penalty,'penparam',penparam,'penidx',penidx);
-% profile viewer;
 timing = toc;
 
 figure;
@@ -87,8 +83,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %% 
 % Compare solution paths from different penalties
-penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
-penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'log' 'scad'};
+penparam = [1 1.5 2 0.5 1 0 1 5 3.7];
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 
 figure
@@ -130,8 +126,8 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
 %%
 % Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'power' 'log' 'mcp' 'scad'};
-penparam = [0.5 1 1 3.7];
+penalty = {'enet' 'power' 'log' 'mcp'};
+penparam = [1.5 0.5 1 1];
 for i=1:length(penalty)
     tic;
     [rho_path, beta_path] = lsq_regpath(X,y,D,'penalty',penalty{i},...
@@ -144,10 +140,10 @@ for i=1:length(penalty)
 end
 
 %% Sparse linear regression (n<p)
-% Simulate another sample data set (n=100, p=500)
+% Simulate another sample data set (n=100, p=1000)
 clear;
-n = 200;
-p = 10000;
+n = 100;
+p = 1000;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
@@ -158,15 +154,13 @@ y = X*b+randn(n,1);         % response vector
 
 %% 
 % Solution path for lasso
-maxpreds = 101;              % run solution path until 50 predictors are in
+maxpreds = 51;              % run solution path until 50 predictors are in
 penalty = 'enet';           % set penalty function
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 tic;
-profile on;
 [rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
-profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 
@@ -191,10 +185,8 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
 tic;
-profile on;
 [rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,'penidx',penidx, ...
     'maxpreds',maxpreds,'penalty',penalty,'penparam',penparam);
-profile viewer;
 timing = toc;
 [~,ebidx] = min(eb_path);
 

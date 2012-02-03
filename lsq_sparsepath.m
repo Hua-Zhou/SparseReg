@@ -23,8 +23,8 @@ function [rho_path,beta_path,eb_path,rho_kinks,fval_kinks] = ...
 %
 %       'weights' - a vector of prior weights.
 %
-%   [RHO_PATH,BETA_PATH,RHO_KINKS,FVAL_KINKS] = LSQ_SPARSEPATH(...) returns
-%   the kinks of the solution paths and objective values at kinks
+%   [RHO_PATH,BETA_PATH,EB_PATH,RHO_KINKS,FVAL_KINKS] = LSQ_SPARSEPATH(...)
+%   returns the kinks of the solution paths and objective values at kinks
 %
 %   REFERENCE
 %
@@ -119,7 +119,7 @@ else
 end
 
 % set up ODE solver and unconstrained optimizer
-maxiters = 5*rankX;         % max iterations for path algorithm
+maxiters = 3*rankX;         % max iterations for path algorithm
 maxrounds = 3;              % max iterations for lsq_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events,'Refine',refine);
