@@ -1,7 +1,7 @@
 function [xmin] = lsq_thresholding(a,b,lambda,pentype,penparam)
 %LSQ_THRESHOLDING Performs univariate least square thresholding
 %   argmin 0.5*a*x^2 + b*x + pen(abs(x),lambda)
-%    
+%
 % INPUT
 %   a: n-by-1 quadratic coefficient
 %   b: n-by-1 linear coefficient
