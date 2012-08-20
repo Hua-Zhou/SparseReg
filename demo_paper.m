@@ -157,7 +157,7 @@ ylabel('Adjusted R^2');
 title(['log penalty, ', num2str(timing,2) 's']);
 legend(penparam_str, 'location', 'southeast');
 if (printfig)
-    print('-depsc2', ['../../manuscripts/notes/prostate_R2_log', '.eps']);
+    print('-depsc2', ['../../manuscripts/notes/prostate_R2_log', '.eps']); %#ok<*UNRCH>
 end
 %%
 % plot prediction MSE vs model size
