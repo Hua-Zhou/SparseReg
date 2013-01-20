@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding="utf-8"?>
+<toc version="2.0">
+    <!-- First tocitem specifies top level in Help browser Contents pane -->
+    <!-- This can be a roadmap page, as shown below, or a content page -->
+
+    <tocitem target="sparsereg_toolbox_product_page.html">SparseReg
+        
+        <tocitem image="$toolbox/matlab/icons/pageicon.gif"
+                 target="./html/demo_lsq.html">Linear Regression</tocitem>
+        <tocitem image="$toolbox/matlab/icons/pageicon.gif"
+                 target="./html/demo_glm.html">GLM</tocitem>
+        
+        <!-- Optional link or links to your or other Web sites -->
+        <tocitem target="http://www.stat.ncsu.edu" 
+                 image="$toolbox/matlab/icons/webicon.gif">
+            SparseReg Toolbox Site
+        </tocitem>
+
+    </tocitem>
+</toc>

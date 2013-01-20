@@ -26,9 +26,9 @@ function [betahat] = lsq_sparsereg(X,y,lambda,varargin)
 %
 %   See also LSQ_SPARSEPATH,GLM_SPARSEREG,GLM_SPARSEPATH.
 %
-%   EXAMPLE
+%   Eexample
 %
-%   References:
+%   References
 %
 %   Copyright 2011-2012 North Carolina State University
 %   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
