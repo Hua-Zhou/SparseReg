@@ -11,7 +11,7 @@
                  target="./html/demo_glm.html">GLM</tocitem>
         
         <!-- Optional link or links to your or other Web sites -->
-        <tocitem target="http://www.stat.ncsu.edu" 
+        <tocitem target="http://hua-zhou.github.io/softwares/sparsereg/" 
                  image="$toolbox/matlab/icons/webicon.gif">
             SparseReg Toolbox Site
         </tocitem>
