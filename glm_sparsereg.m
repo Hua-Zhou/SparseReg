@@ -5,7 +5,7 @@ function [betahat] = glm_sparsereg(X,y,lambda,model,varargin)
 %   LAMBDA. MODEL specifies the model: 'logistic' or 'loglinear'. The result BETAHAT is a vector of coefficient estimates. By
 %   default it fits the lasso regression.
 %
-%   BETAHAT = LSQ_SPARSEREG(X,y,lambda,'PARAM1',val1,'PARAM2',val2,...)
+%   BETAHAT = LSQ_SPARSEREG(X,y,lambda,model,'PARAM1',val1,'PARAM2',val2,...)
 %   allows you to specify optional parameter name/value pairs to control
 %   the model fit. Parameters are:
 %
