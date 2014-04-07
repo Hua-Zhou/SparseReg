@@ -21,7 +21,7 @@ X = randn(n,p);
 y = X*beta + randn(n,1);
 
 % penalty parameter
-lambda = 2000;
+lambda = 100;
 Aeq = ones(1,p);
 beq = 0;
 
@@ -40,14 +40,14 @@ toc;
 % fit constrained lasso using ADMM (quadprog for projection subproblem)
 tic;
 [bhat_admm_matlab,stats] = lsq_constrsparsereg(X,y,lambda,...
-    'method','admm','qp_solver','matlab','Aeq', Aeq, 'beq', beq,'admmVaryScale',true);
+    'method','admm','qp_solver','matlab','Aeq', Aeq, 'beq', beq);
 toc;
 display(stats.ADMM_iters);
 
 % fit constrained lasso using ADMM (GUROBI for projection subproblem)
 tic;
 [bhat_admm_gurobi,stats] = lsq_constrsparsereg(X,y,lambda,...
-    'method','admm','qp_solver','GUROBI','Aeq', Aeq, 'beq', beq,'admmVaryScale',true);
+    'method','admm','qp_solver','GUROBI','Aeq', Aeq, 'beq', beq);
 toc;
 display(stats.ADMM_iters);
 
@@ -55,7 +55,7 @@ display(stats.ADMM_iters);
 tic;
 %profile on;
 [bhat_admm_fh,stats] = lsq_constrsparsereg(X,y,lambda,...
-    'method','admm','projC', @(x) x-mean(x), 'admmVaryScale',true);
+    'method','admm','projC', @(x) x-mean(x));
 %profile viewer;
 toc;
 display(stats.ADMM_iters);
@@ -108,27 +108,26 @@ bhat_gurobi = lsq_constrsparsereg(X,y,lambda,...
     'method','qp','qp_solver','GUROBI','A',A,'b',b);
 toc;
 
-% fit constrained lasso using ADMM (quadprog for projection subproblem)
-tic;
-[bhat_admm_matlab,stats] = lsq_constrsparsereg(X,y,lambda,...
-    'method','admm','qp_solver','matlab',...
-    'admmVaryScale',true,'A',A,'b',b);
-toc;
-display(stats.ADMM_iters);
-
-% fit constrained lasso using ADMM (GUROBI for projection subproblem)
-tic;
-[bhat_admm_gurobi,stats] = lsq_constrsparsereg(X,y,lambda,...
-    'method','admm','qp_solver','GUROBI',...
-    'admmVaryScale',true,'A',A,'b',b);
-toc;
-display(stats.ADMM_iters);
+% % fit constrained lasso using ADMM (quadprog for projection subproblem)
+% tic;
+% [bhat_admm_matlab,stats] = lsq_constrsparsereg(X,y,lambda,...
+%     'method','admm','qp_solver','matlab',...
+%     'admmVaryScale',true,'A',A,'b',b);
+% toc;
+% display(stats.ADMM_iters);
+% 
+% % fit constrained lasso using ADMM (GUROBI for projection subproblem)
+% tic;
+% [bhat_admm_gurobi,stats] = lsq_constrsparsereg(X,y,lambda,...
+%     'method','admm','qp_solver','GUROBI',...
+%     'admmVaryScale',true,'A',A,'b',b);
+% toc;
+% display(stats.ADMM_iters);
 
 % fit constrained lasso using ADMM (func handle for projection subproblem)
 tic;
 [bhat_admm_fh,stats] = lsq_constrsparsereg(X,y,lambda,...
-    'method','admm','projC', @(x) min(max(x,0),1),...
-    'admmVaryScale',true);
+    'method','admm','projC', @(x) min(max(x,0),1));
 toc;
 display(stats.ADMM_iters);
 
@@ -136,8 +135,8 @@ display(stats.ADMM_iters);
 figure; hold on;
 plot(bhat_qp,'rs');
 plot(bhat_gurobi,'-b+');
-plot(bhat_admm_matlab,'go');
-plot(bhat_admm_gurobi,'m*');
+% plot(bhat_admm_matlab,'go');
+% plot(bhat_admm_gurobi,'m*');
 plot(bhat_admm_fh,'kv');
 legend('quadpro', 'GUROBI', 'ADMM (quadprog)', 'ADMM (GUROBI)', 'ADMM (FH)');
 
