@@ -185,7 +185,7 @@ XpinvD = X*pinvD;
 tic;
 [alphahat_admm_fh,stats] = lsq_constrsparsereg(XpinvD,y,lambda,...
     'method','admm','projC', @(x) U1*(U1'*x),...
-    'admmVaryScale',true);
+    'admmScale',1/n);
 toc;
 display(stats.ADMM_iters);
 % back to original parameterization
@@ -195,7 +195,7 @@ betahat_fh = pinvD*alphahat_admm_fh;
 tic;
 [alphahat_admm_gurobi,stats] = lsq_constrsparsereg(XpinvD,y,lambda,...
     'method','admm','qp_solver', 'gurobi', 'Aeq', U2', 'beq',zeros(m-r,1),...
-    'admmVaryScale',true);
+    'admmScale',1/n);
 toc;
 display(stats.ADMM_iters);
 betahat_gurobi = pinvD*alphahat_admm_gurobi;

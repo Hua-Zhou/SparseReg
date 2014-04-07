@@ -65,7 +65,7 @@ argin.addParamValue('b', [], @(x) isnumeric(x));
 argin.addParamValue('Aeq', [], @(x) size(x,2)==p);
 argin.addParamValue('beq', [], @(x) isnumeric(x));
 argin.addParamValue('qp_solver', 'matlab', @ischar);
-argin.addParamValue('maxiter', 1000, @(x) isnumeric(x) && x>0);
+argin.addParamValue('maxiter', 1e5, @(x) isnumeric(x) && x>0);
 argin.addParamValue('method', 'cd', @ischar);
 argin.addParamValue('penalty', 'enet', @ischar);
 argin.addParamValue('penparam', [], @isnumeric);
@@ -285,25 +285,12 @@ else    % with linear constraints
         else
             z = projC(betahat);
         end
-        u = betahat - z;
+        u = z - betahat;
         
         % ADMM loop
         for iADMM = 1:nADMM
-            % update beta - lasso
-            betahat = ...
-                lsqsparse(betahat,[X; eye(p)/sqrt(admmScale)], ...
-                [y;(z-u)/sqrt(admmScale)], ...
-                [wt;ones(p,1)],lambda,sum_x_squares+1/admmScale,penidx,...
-                maxiter,pentype,penparam);
-%             betahat = lsq_constrsparsereg([X; eye(p)/sqrt(admmScale)], ...
-%                 [y;(z-u)/sqrt(admmScale)], lambda, 'method', 'qp', ...
-%                 'qp_solver', 'GUROBI');
-%             betahat = lasso([X; eye(p)/sqrt(admmScale)], ...
-%                 [y;(z-u)/sqrt(admmScale)], 'Lambda', lambda/(size(X,1)+p), ...
-%                 'Standardize', false);
-            % update z - projection to constraint set
-            v = betahat + u;
-            zOld = z;
+            % update z
+            v = betahat - u;
             if isempty(projC)
                 % project to polyhedron using quadratic programming
                 constrRes = G*v - [beq;b];
@@ -320,20 +307,36 @@ else    % with linear constraints
                 % project using user-supplied projection
                 z = projC(v);
             end
+
+            % update beta - lasso
+            betahatOld = betahat;
+            betahat = ...
+                lsqsparse(betahatOld,[X; eye(p)/sqrt(admmScale)], ...
+                [y;(z+u)/sqrt(admmScale)], ...
+                [wt;ones(p,1)],lambda,sum_x_squares+1/admmScale,penidx,...
+                maxiter,pentype,penparam);
+%             betahat = lsq_constrsparsereg([X; eye(p)/sqrt(admmScale)], ...
+%                 [y;(z+u)/sqrt(admmScale)], lambda, 'method', 'qp', ...
+%                 'qp_solver', 'GUROBI');
+%             betahat = lasso([X; eye(p)/sqrt(admmScale)], ...
+%                 [y;(z-u)/sqrt(admmScale)], 'Lambda', lambda/(size(X,1)+p), ...
+%                 'Standardize', false);
+            % update z - projection to constraint set
             % update scaled dual variables u
-            dualResNorm = norm((z-zOld)/admmScale);
-            primalRes = betahat - z;
+            dualResNorm = norm((betahat-betahatOld)/admmScale);
+            primalRes = z - betahat;
             primalResNorm = norm(primalRes);
             u = u + primalRes;
+            
             % stopping criterion
-            %display([primalResNorm dualResNorm]);
-            %display(sum(z));
+            display([admmScale primalResNorm dualResNorm]);
             if (primalResNorm <= sqrt(p)*admmAbsTol ...
                     + admmRelTol*max(norm(betahat),norm(z))) && ...
-                    (dualResNorm <= sqrt(n)*admmAbsTol ...
+                    (dualResNorm <= sqrt(p)*admmAbsTol ...
                     + admmRelTol*norm(u/admmScale))
                 break;
             end
+            
             % update ADMM scale parameter if requested
             if admmVaryScale
                 if primalResNorm/dualResNorm>10
