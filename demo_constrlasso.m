@@ -6,8 +6,8 @@ s = RandStream('mt19937ar','Seed',1);
 RandStream.setGlobalStream(s);
 
 % dimension
-n = 1000;
-p = 500;
+n = 100;
+p = 20;
 
 % truth with sum constraint sum(b)=0
 beta = zeros(p,1);
@@ -21,7 +21,7 @@ X = randn(n,p);
 y = X*beta + randn(n,1);
 
 % penalty parameter
-lambda = 100;
+lambda = 168.3;
 Aeq = ones(1,p);
 beq = 0;
 
