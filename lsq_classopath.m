@@ -55,7 +55,7 @@ argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
 y = reshape(y,n,1);
 argin.parse(X,y,A,b,Aeq,beq,varargin{:});
 qp_solver = argin.Results.qp_solver;
-%penidx = reshape(argin.Results.penidx,p,1);
+penidx = reshape(argin.Results.penidx,p,1);
 
 % check validity of qp_solver
 if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
@@ -106,24 +106,25 @@ elseif strcmpi(qp_solver, 'GUROBI')
     dualpathEq(:,1) = gresult.pi(1:m1);
     dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end),m2,1);
 end
-setActive = abs(betapath(:,1))>1e-16;
+setActive = abs(betapath(:,1))>1e-16 | ~penidx;
 nActive = nnz(setActive);
 betapath(~setActive,1) = 0;
 setIneqBorder = dualpathIneq(:,1)>0;
 residIneq = A*betapath(:,1) - b;
 
-% find the maximum rho
-resid = y - X(:,setActive)*betapath(setActive,1);
-grad = X(:,~setActive)'*resid ...
-    - Aeq(:,~setActive)'*dualpathEq(:,1) ...
-    - A(:,~setActive)'*dualpathIneq(:,1);
-rhopath(1) = 0;
+% % find the maximum rho
+% resid = y - X(:,setActive)*betapath(setActive,1);
+% grad = X(:,~setActive)'*resid ...
+%     - Aeq(:,~setActive)'*dualpathEq(:,1) ...
+%     - A(:,~setActive)'*dualpathIneq(:,1);
 
 % intialize subgradient vector
+rhopath(1) = 0;
 subgrad = zeros(p,1);
 subgrad(setActive) = sign(betapath(setActive,1));
-subgrad(~setActive) = grad / rhopath(1);
-setActive = abs(subgrad-1)<1e-8 | abs(subgrad+1)<1e-8;
+subgrad(~penidx) = 0;
+%subgrad(~setActive) = grad / rhopath(1);
+%setActive = abs(subgrad-1)<1e-8 | abs(subgrad+1)<1e-8;
 
 % main loop for path following
 for k = 2:maxiters
@@ -139,7 +140,7 @@ for k = 2:maxiters
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
 
     % terminate path following
-    if max(abs(dir(1:nActive)))<1e-16
+    if max(abs(dir(1:nActive)))<1e-8
         break;
     end    
     
@@ -150,7 +151,7 @@ for k = 2:maxiters
     nextrhoBeta(~setActive) = ...
         rhopath(:,k-1) * (sign(dirSubgrad)-subgrad(~setActive)) ...
         ./(dirSubgrad-sign(dirSubgrad));
-    nextrhoBeta(nextrhoBeta<=1e-8) = inf;
+    nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
     
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);

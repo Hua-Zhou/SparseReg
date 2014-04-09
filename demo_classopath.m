@@ -16,18 +16,25 @@ beta(round(p/4)+1:round(p/2)) = 1;
 beta(round(p/2)+1:round(3*p/4)) = 0;
 beta(round(3*p/4)+1:end) = -1;
 
-% equality constraint
-Aeq = ones(1,p);
-beq = 0;
+% intercept
+mu = 1;
 
 % generate data
-X = randn(n,p);
-y = X*beta + randn(n,1);
+X = [ones(n,1) randn(n,p)];
+y = X*[mu; beta] + randn(n,1);
+
+% equality constraint
+Aeq = [0 ones(1,p)];
+beq = 0;
+penidx = [false true(1,p)];
+
+p = size(X,2);
 
 %% obtain solution path by path following
 tic;
 [rhopath,betapath] ...
-    = lsq_classopath(X,y,[],[],Aeq,beq,'qp_solver','gurobi');
+    = lsq_classopath(X,y,[],[],Aeq,beq,...
+    'qp_solver','gurobi','penidx',penidx);
 timing_path = toc;
 
 % plot solutions
@@ -47,7 +54,8 @@ for k = 1:length(rhopath)
     display(k);
     [betapath_gurobi(:,k)] ...
     = lsq_constrsparsereg(X,y,rhopath(k),...
-    'method','qp','qp_solver','matlab','Aeq', Aeq, 'beq', beq);
+    'method','qp','qp_solver','matlab','Aeq', Aeq, 'beq', beq,...
+    'penidx',penidx);
 end
 timing_gurobi = toc;
 
@@ -74,7 +82,8 @@ for k = 1:length(rhopath)
     end
     [betapath_admm(:,k)] ...
         = lsq_constrsparsereg(X,y,rhopath(k),...
-        'method','admm','projC', @(x) x-mean(x),'x0',x0);
+        'method','admm','projC', @(x) [x(1); x(2:end)-mean(x(2:end))],...
+        'x0',x0,'penidx',penidx);
 end
 timing_admm = toc;
 
