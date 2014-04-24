@@ -6,8 +6,8 @@ s = RandStream('mt19937ar','Seed',1);
 RandStream.setGlobalStream(s);
 
 % dimension
-n = 1000;
-p = 200;
+n = 100;
+p = 500;
 
 % truth with sum constraint sum(b)=0
 beta = zeros(p,1);
@@ -16,25 +16,21 @@ beta(round(p/4)+1:round(p/2)) = 1;
 beta(round(p/2)+1:round(3*p/4)) = 0;
 beta(round(3*p/4)+1:end) = -1;
 
-% intercept
-mu = 1;
-
 % generate data
-X = [ones(n,1) randn(n,p)];
-y = X*[mu; beta] + randn(n,1);
+X = randn(n,p);
+y = X*beta + randn(n,1);
 
 % equality constraint
-Aeq = [0 ones(1,p)];
+Aeq = ones(1,p);
 beq = 0;
-penidx = [false true(1,p)];
-
+penidx = true(1,p);
 p = size(X,2);
 
 %% obtain solution path by path following
 tic;
 [rhopath,betapath] ...
     = lsq_classopath(X,y,[],[],Aeq,beq,...
-    'qp_solver','gurobi','penidx',penidx);
+    'qp_solver','gurobi','penidx',penidx,'direction','decrease');
 timing_path = toc;
 
 % plot solutions
@@ -54,8 +50,7 @@ for k = 1:length(rhopath)
     display(k);
     [betapath_gurobi(:,k)] ...
     = lsq_constrsparsereg(X,y,rhopath(k),...
-    'method','qp','qp_solver','matlab','Aeq', Aeq, 'beq', beq,...
-    'penidx',penidx);
+    'method','qp','qp_solver','gurobi','Aeq', Aeq, 'beq', beq);
 end
 timing_gurobi = toc;
 
