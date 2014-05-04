@@ -7,7 +7,7 @@ RandStream.setGlobalStream(s);
 
 % dimension
 n = 100;
-p = 500;
+p = 200;
 
 % truth with sum constraint sum(b)=0
 beta = zeros(p,1);

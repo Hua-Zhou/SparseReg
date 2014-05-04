@@ -339,7 +339,7 @@ else    % with linear constraints
                 if primalResNorm/dualResNorm>10
                     admmScale = admmScale/2;
                     u = u/2;
-                elseif primalResNorm/dualResNorm<10
+                elseif primalResNorm/dualResNorm<0.1
                     admmScale = admmScale*2;
                     u = 2*u;
                 end
