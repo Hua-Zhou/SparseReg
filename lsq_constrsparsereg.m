@@ -24,10 +24,10 @@ function [betahat,stats] ...
 %   'beq' - equality constraint vector
 %   'admmAbsTol' - absolute tolerance for ADMM
 %   'admmRelTol' - relative tolerance for ADMM
-%   'admmMaxIter' - maxnum number of iterations for ADMM
-%   'maxiter' - maxmum number of iterations
-%   'method' - 'cd' (default) or 'qp' (quadratic programming, only for
-%      lasso)
+%   'admmMaxIter' - maximum number of iterations for ADMM
+%   'maxiter' - maximum number of iterations
+%   'method' - 'cd' (default), 'qp' (quadratic programming, only for
+%      lasso), or 'admm' (alternating direction method of multipliers)
 %   'penidx' - a logical vector indicating penalized coefficients
 %   'penparam' - index parameter for penalty; default values: ENET, 1,
 %       LOG, 1, MCP, 1, POWER, 1, SCAD, 3.7
@@ -38,6 +38,8 @@ function [betahat,stats] ...
 %   'x0' - a vector of starting point
 %
 % OUTPUT:
+%   'betahat' - solution vector
+%   'stats' - number of iterations (stats.qp_iters or stats.ADMM_iters)
 %
 % See also LSQ_SPARSEPATH,GLM_SPARSEREG,GLM_SPARSEPATH.
 %
@@ -191,13 +193,15 @@ if isempty(A) && isempty(b) && isempty(Aeq) && isempty(beq) && isempty(projC)
             gparam.OutputFlag = 0;
             gresult = gurobi(gmodel, gparam);
             betahat = gresult.x(1:p) - gresult.x(p+1:end);
+            stats.qp_iters=gresult.baritercount; % store gurobi iters
         elseif strcmpi(qp_solver, 'matlab')
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
             options.Display = 'off';
-            x = quadprog(H, f, [], [], [], [], lb, ub, ...
+            [x,~,~,output] = quadprog(H, f, [], [], [], [], lb, ub, ...
                 [max(x0,0);min(x0,0)], options);
             betahat = x(1:p) - x(p+1:end);
+            stats.qp_iters=output.iterations; % store matlab QP iters
         end
     end
     
@@ -222,7 +226,7 @@ else    % with linear constraints
         lb = zeros(2*p,1);  % boundary condition
         ub = inf(2*p,1);
         if strcmpi(qp_solver, 'GUROBI')
-            % use QUROBI solver if available
+            % use GUROBI solver if available
             gmodel.obj = f;
             gmodel.A = sparse([Aeq, -Aeq; A, -A]);
             gmodel.sense = ...
@@ -234,13 +238,15 @@ else    % with linear constraints
             gparam.OutputFlag = 0;
             gresult = gurobi(gmodel, gparam);
             betahat = gresult.x(1:p) - gresult.x(p+1:end);
+            stats.qp_iters=gresult.baritercount; % store gurobi iters
         elseif strcmpi(qp_solver, 'matlab')
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
             options.Display = 'off';
-            x = quadprog(H, f, [A, -A], b, [Aeq, -Aeq], beq, ...
+            [x,~,~,output] = quadprog(H, f, [A, -A], b, [Aeq, -Aeq], beq, ...
                 lb, ub, [max(x0,0);min(x0,0)], options);
             betahat = x(1:p) - x(p+1:end);
+            stats.qp_iters=output.iterations; % store matlab QP iters
         end
         
     elseif strcmpi(method, 'ADMM')
@@ -253,7 +259,7 @@ else    % with linear constraints
             lb(1:size(Aeq,1)) = -inf;
             ub = inf(size(G,1), 1);
             if strcmpi(qp_solver, 'GUROBI')
-                % use QUROBI solver if available
+                % use GUROBI solver if available
                 gmodel.A = sparse(zeros(0,size(G,1)));
                 gmodel.sense = repmat('=',0,1);
                 gmodel.rhs = zeros(0,1);
