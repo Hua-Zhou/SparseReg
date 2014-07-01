@@ -139,7 +139,7 @@ elseif strcmpi(direction, 'decrease')
         % use QUROBI solver if possible
         gmodel.obj = ones(2*p,1);
         gmodel.A = sparse([A -A; Aeq -Aeq]);
-        gmodel.sense = [repmat('<', m1, 1); repmat('=', m2, 1)];
+        gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
         gmodel.rhs = [b; beq];
         gmodel.lb = zeros(2*p,1);
         gparam.OutputFlag = 0;
