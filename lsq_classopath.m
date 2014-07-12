@@ -94,7 +94,7 @@ if strcmpi(direction, 'increase')
         dualpathEq(:,1) = lambda.eqlin;
         dualpathIneq(:,1) = lambda.ineqlin;
     elseif strcmpi(qp_solver, 'GUROBI')
-        % use QUROBI solver if possible
+        % use GUROBI solver if possible
         gmodel.obj = - X'*y;
         gmodel.A = sparse([Aeq; A]);
         gmodel.sense = [repmat('=', m1, 1); repmat('<', m2, 1)];
@@ -136,7 +136,7 @@ elseif strcmpi(direction, 'decrease')
         dualpathEq(:,1) = lambda.eqlin;
         dualpathIneq(:,1) = lambda.ineqlin;
     elseif strcmpi(qp_solver, 'GUROBI')
-        % use QUROBI solver if possible
+        % use GUROBI solver if possible
         gmodel.obj = ones(2*p,1);
         gmodel.A = sparse([A -A; Aeq -Aeq]);
         gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
