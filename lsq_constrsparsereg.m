@@ -25,6 +25,9 @@ function [betahat,stats] ...
 %   'admmAbsTol' - absolute tolerance for ADMM
 %   'admmRelTol' - relative tolerance for ADMM
 %   'admmMaxIter' - maximum number of iterations for ADMM
+%   'admmScale' - ADMM scale parameter, 1/n is default
+%   'admmVaryScale' - dynamically chance the ADMM scale parameter, 
+%      false is default
 %   'maxiter' - maximum number of iterations
 %   'method' - 'cd' (default), 'qp' (quadratic programming, only for
 %      lasso), or 'admm' (alternating direction method of multipliers)
@@ -194,14 +197,16 @@ if isempty(A) && isempty(b) && isempty(Aeq) && isempty(beq) && isempty(projC)
             gresult = gurobi(gmodel, gparam);
             betahat = gresult.x(1:p) - gresult.x(p+1:end);
             stats.qp_iters=gresult.baritercount; % store gurobi iters
+            stats.qp_objval=gresult.objval; % store gurobi obj. value
         elseif strcmpi(qp_solver, 'matlab')
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
             options.Display = 'off';
-            [x,~,~,output] = quadprog(H, f, [], [], [], [], lb, ub, ...
+            [x,fval,~,output] = quadprog(H, f, [], [], [], [], lb, ub, ...
                 [max(x0,0);min(x0,0)], options);
             betahat = x(1:p) - x(p+1:end);
             stats.qp_iters=output.iterations; % store matlab QP iters
+            stats.qp_objval=fval; % store QP objective value
         end
     end
     
@@ -239,14 +244,16 @@ else    % with linear constraints
             gresult = gurobi(gmodel, gparam);
             betahat = gresult.x(1:p) - gresult.x(p+1:end);
             stats.qp_iters=gresult.baritercount; % store gurobi iters
+            stats.qp_objval=gresult.objval; % store gurobi obj. value
         elseif strcmpi(qp_solver, 'matlab')
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
             options.Display = 'off';
-            [x,~,~,output] = quadprog(H, f, [A, -A], b, [Aeq, -Aeq], beq, ...
+            [x,fval,~,output] = quadprog(H, f, [A, -A], b, [Aeq, -Aeq], beq, ...
                 lb, ub, [max(x0,0);min(x0,0)], options);
             betahat = x(1:p) - x(p+1:end);
             stats.qp_iters=output.iterations; % store matlab QP iters
+            stats.qp_objval=fval; % store QP objective value
         end
         
     elseif strcmpi(method, 'ADMM')
