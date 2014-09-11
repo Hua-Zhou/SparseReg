@@ -146,7 +146,7 @@ elseif strcmpi(direction, 'decrease')
         gresult = gurobi(gmodel, gparam);
         betapath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
         dualpathEq(:,1) = gresult.pi(1:m1);
-        dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end),m2,1);
+        dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end),m2,1); 
     end
     
     % initialize sets
@@ -175,17 +175,17 @@ s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters
     
     % path following direction
-    M = [H(setActive, setActive) Aeq(:,setActive)' A(:,setActive)'];
-    M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
-        [Aeq(:,setActive); A(:,setActive)];
+    M = [H(setActive, setActive) Aeq(:,setActive)' A(setIneqBorder,setActive)']; % changed row set of A, A(:,setActive)'
+    M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
+        [Aeq(:,setActive); A(setIneqBorder,setActive)];
     try
         dir = dirsgn ...
-            * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]); 
     catch
         break;
     end
     dirSubgrad = ...
-        - [H(~setActive, setActive) Aeq(:,~setActive)' A(:,~setActive)']...
+        - [H(~setActive, setActive) Aeq(:,~setActive)' A(setIneqBorder,~setActive)']... % also changed row set for A
         * dir;
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
 
@@ -209,7 +209,7 @@ for k = 2:maxiters
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder,k-1) ...
-        ./ dir(nActive+m1+1:end);
+        ./ dir(nActive+m1+1:end)'; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     nextrhoIneq(~setIneqBorder) = - residIneq ./ dirResidIneq;
     nextrhoIneq(nextrhoIneq<0) = inf;
     
@@ -231,7 +231,7 @@ for k = 2:maxiters
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
         + chgrho*dir(nActive+1:nActive+m1);
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
-        + chgrho*dir(nActive+m1+1:end);
+        + chgrho*dir(nActive+m1+1:end); %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     subgrad(~setActive) = ...
         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
     residIneq = A*betapath(:,k) - b;
