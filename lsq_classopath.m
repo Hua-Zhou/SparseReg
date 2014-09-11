@@ -169,13 +169,14 @@ elseif strcmpi(direction, 'decrease')
     dirsgn = 1;
 
 end
-
+k=2
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters
     
     % path following direction
-    M = [H(setActive, setActive) Aeq(:,setActive)' A(setIneqBorder,setActive)']; % changed row set of A, A(:,setActive)'
+    M = [H(setActive, setActive) Aeq(:,setActive)' ...
+        A(setIneqBorder,setActive)']; 
     M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
     try
@@ -185,8 +186,8 @@ for k = 2:maxiters
         break;
     end
     dirSubgrad = ...
-        - [H(~setActive, setActive) Aeq(:,~setActive)' A(setIneqBorder,~setActive)']... % also changed row set for A
-        * dir;
+        - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+        A(setIneqBorder,~setActive)'] * dir;
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
 
 %     % terminate path following
@@ -209,8 +210,9 @@ for k = 2:maxiters
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder,k-1) ...
-        ./ dir(nActive+m1+1:end)'; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    nextrhoIneq(~setIneqBorder) = - residIneq ./ dirResidIneq;
+        ./ dir(nActive+m1+1:end)'; %%%%% I had added in that transpose!!!
+    nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
+        ./ dirResidIneq; % was just residIneq
     nextrhoIneq(nextrhoIneq<0) = inf;
     
     % determine next rho
