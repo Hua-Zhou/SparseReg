@@ -210,7 +210,7 @@ for k = 2:maxiters
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder,k-1) ...
-        ./ dir(nActive+m1+1:end)'; %%%%% I had added in that transpose!!!
+        ./ reshape(dir(nActive+m1+1:end),nnz(setIneqBorder),1);     
     nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
         ./ dirResidIneq; % was just residIneq
     nextrhoIneq(nextrhoIneq<0) = inf;
