@@ -1,7 +1,7 @@
-function [rhopath,betapath,dualpathEq,dualpathIneq] ...
-    = lsq_classopath(X,y,A,b,Aeq,beq,varargin)
+function [rhopath, betapath, dualpathEq, dualpathIneq] ...
+    = lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
-%   BETAHAT = LSQ_SPARSEREG(X,y,lambda) fits penalized linear regression
+%   BETAHAT = LSQ_SPARSEREG(X, y, lambda) fits penalized linear regression
 %   using the predictor matrix X, response Y, and tuning parameter value
 %   LAMBDA. The result BETAHAT is a vector of coefficient estimates. By
 %   default it fits the lasso regression.
@@ -29,7 +29,7 @@ function [rhopath,betapath,dualpathEq,dualpathIneq] ...
 %
 % See also LSQ_SPARSEPATH,GLM_SPARSEREG,GLM_SPARSEPATH.
 %
-% Eexample
+% Example
 %
 % References
 %
@@ -159,7 +159,7 @@ elseif strcmpi(direction, 'decrease')
     resid = y - X*betapath(:,1);
     subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
     subgrad(setActive) = 0;
-    [rhopath(1),idx] = max(abs(subgrad));
+    [rhopath(1), idx] = max(abs(subgrad));
     subgrad(setActive) = sign(betapath(setActive,1));
     subgrad(~setActive) = subgrad(~setActive)/rhopath(1);
     setActive(idx) = true;
@@ -169,7 +169,7 @@ elseif strcmpi(direction, 'decrease')
     dirsgn = 1;
 
 end
-k=2
+
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters
@@ -210,9 +210,9 @@ for k = 2:maxiters
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder,k-1) ...
-        ./ reshape(dir(nActive+m1+1:end),nnz(setIneqBorder),1);     
+        ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
     nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
-        ./ dirResidIneq; % was just residIneq
+        ./ dirResidIneq;
     nextrhoIneq(nextrhoIneq<0) = inf;
     
     % determine next rho
@@ -231,9 +231,9 @@ for k = 2:maxiters
     betapath(setActive,k) = betapath(setActive,k-1) ...
         + chgrho*dir(1:nActive);
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
-        + chgrho*dir(nActive+1:nActive+m1);
+        + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
-        + chgrho*dir(nActive+m1+1:end); %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
     subgrad(~setActive) = ...
         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
     residIneq = A*betapath(:,k) - b;
