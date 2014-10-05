@@ -1,4 +1,4 @@
-function [rho_path, beta_path] = lsq_regpath(X,y,D,varargin)
+function [rho_path, beta_path] = lsq_regpath_old(X,y,D,varargin)
 % LSQ_REGPATH Solution path of regularized linear regression
 %   [RHO_PATH,BETA_PATH] = LSQ_REGPATH(X,Y,D) computes the solution path of
 %   regularized linear regression using the predictor matrix X and response
@@ -45,16 +45,9 @@ pentype = upper(argin.Results.penalty);
 penparam = argin.Results.penparam;
 wt = reshape(argin.Results.weights,n,1);
 y = reshape(y,n,1);
-
-% Check rank of D
 m = size(D,1);
-D = sparse(D);
-[~,R,perm] = qr(D,0);
-rankD = sum(abs(diag(R)) > abs(R(1))*max(m,p)*eps(class(R)));
-if (m>p || rankD<m)
-    error('regularization matrix D must have full row rank');
-end
 
+% penalty setup & error checking 
 pentype = upper(pentype);
 if (strcmp(pentype,'ENET'))
     if (isempty(penparam))
@@ -90,24 +83,66 @@ else
     error('penalty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
-% V is the transformation matrix from beta to new variables
-if rankD < p    % D is column rank deficient
-    V = sparse(p,p);
-    V(1:m,:) = D;
-    V(m+1:end,perm(m+1:end)) = eye(p-rankD);
-else
-    V = D;
+% SVD of D
+% calculate SVD
+[U, Sigma, V] = svd(D);
+% extract singular values
+singVals = diag(Sigma);
+% determine rank
+rankD = nnz(singVals > abs(singVals(1))*eps(singVals(1))*max(size(D)));
+% extract submatrices of V & U
+V1 = V(:,1:rankD); V2 = V(:,rankD+1:end); 
+U1 = U(:,1:rankD); U2 = U(:,rankD+1:end);
+
+
+
+% rankD = sum(abs(diag(R)) > abs(R(1))*max(m,p)*eps(class(R)));
+% if (m>p || rankD<m)
+%     error('regularization matrix D must have full row rank');
+% end
+
+% perform path following 
+if rankD == m % Case 1: D is full row rank
+    % create augmented matrix Dtilde
+    Dtilde = [D; V2'];
+    
+    % only penalize alpha
+    penidx = [true(m,1); false(p-rankD,1)];
+    
+    % path following in new variables using transformed design matrix
+    [rho_path, theta_path] = ...
+        lsq_sparsepath(X/Dtilde, y, 'weights', wt, 'penidx', penidx,...
+        'penalty', pentype, 'penparam', penparam);
+
+    % transform back to original variables 
+    beta_path = Dtilde\theta_path;
+    
+elseif rankD == p % Case 2: D is full column rank
+    
+    % calcuate Moore-Penrose inverse of D
+    Dplus = V1*bsxfun(@times, U1', 1./singVals);
+    
+    
+    
 end
-% T is the transformation matrix from new variables back to beta
-T = (V'*V)\V';
 
-% perform path following in new variables
-penidx = [true(m,1); false(p-rankD,1)];
-[rho_path,beta_path] = ...
-    lsq_sparsepath(X*T,y,'weights',wt,'penidx',penidx,'penalty',pentype,...
-    'penparam',penparam);
 
-% transform from new variables back to beta
-beta_path = T*beta_path;
+% % V is the transformation matrix from beta to new variables
+% if rankD < p    % D is column rank deficient
+%     V = sparse(p,p);
+%     V(1:m,:) = D;
+%     V(m+1:end,perm(m+1:end)) = eye(p-rankD);
+% else
+%     V = D;
+% end
+% % T is the transformation matrix from new variables back to beta
+% T = (V'*V)\V';
+% 
+% % perform path following in new variables
+% penidx = [true(m,1); false(p-rankD,1)];
+% 
+% 
+% % transform from new variables back to beta
+% beta_path = T*beta_path;
 
 end
