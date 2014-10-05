@@ -1,4 +1,4 @@
-function [rho_path, beta_path] = lsq_regpath_old(X,y,D,varargin)
+function [rho_path, beta_path] = lsq_regpath(X,y,D,varargin)
 % LSQ_REGPATH Solution path of regularized linear regression
 %   [RHO_PATH,BETA_PATH] = LSQ_REGPATH(X,Y,D) computes the solution path of
 %   regularized linear regression using the predictor matrix X and response
@@ -38,6 +38,8 @@ argin.addParamValue('penalty', 'enet', @ischar);
 argin.addParamValue('penparam', 1, @isnumeric);
 argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
     length(x)==n);
+argin.addParamValue('direction', 'increase', @ischar); %%%%%
+argin.addParamValue('qp_solver', 'matlab', @ischar);
 
 % parse inputs
 argin.parse(X,y,D,varargin{:});
@@ -45,6 +47,9 @@ pentype = upper(argin.Results.penalty);
 penparam = argin.Results.penparam;
 wt = reshape(argin.Results.weights,n,1);
 y = reshape(y,n,1);
+direction = argin.Results.direction;
+qp_solver = argin.Results.qp_solver;
+
 m = size(D,1);
 
 % penalty setup & error checking 
@@ -122,7 +127,14 @@ elseif rankD == p % Case 2: D is full column rank
     % calcuate Moore-Penrose inverse of D
     Dplus = V1*bsxfun(@times, U1', 1./singVals);
     
-    
+    % transform design matrix 
+    XDplus = X*Dplus;
+
+    [rho_path, alpha_path] = lsq_classopath(XDplus,y,[],[],U2',...
+        zeros(m-rankD,1),'qp_solver','gurobi','direction',direction);
+
+    % transform back to original variables 
+    beta_path = Dplus*alpha_path;
     
 end
 
