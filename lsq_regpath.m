@@ -3,7 +3,7 @@ function [rho_path, beta_path] = lsq_regpath(X,y,D,varargin)
 %   [RHO_PATH,BETA_PATH] = LSQ_REGPATH(X,Y,D) computes the solution path of
 %   regularized linear regression using the predictor matrix X and response
 %   Y and regularization matrix D: loss(beta)+penalty(D*beta,lambda). The
-%   result RHO_PATH holds rhos along the patha. The result BETA_PATH holds
+%   result RHO_PATH holds rhos along the paths. The result BETA_PATH holds
 %   solution vectors at each rho. By default it fits the lasso regularization.
 %
 %   [RHO_PATH,BETA_PATH] = LSQ_REGPATH(X,Y,'PARAM1',val1,'PARAM2',val2,...)
@@ -87,7 +87,7 @@ elseif (strcmp(pentype,'SCAD'))
         error('index parameter for SCAD penalty should be larger than 2');
     end
 else
-    error('penaty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
+    error('penalty type not recogonized. ENET|LOG|MCP|POWER|SCAD accepted');
 end
 
 % V is the transformation matrix from beta to new variables
