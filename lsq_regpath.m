@@ -101,7 +101,7 @@ end
 % T is the transformation matrix from new variables back to beta
 T = (V'*V)\V';
 
-% performa path following in new variables
+% perform path following in new variables
 penidx = [true(m,1); false(p-rankD,1)];
 [rho_path,beta_path] = ...
     lsq_sparsepath(X*T,y,'weights',wt,'penidx',penidx,'penalty',pentype,...
