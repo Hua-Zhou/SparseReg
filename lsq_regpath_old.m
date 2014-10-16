@@ -1,4 +1,4 @@
-function [rho_path, beta_path] = lsq_regpath(X,y,D,varargin)
+function [rho_path, beta_path] = lsq_regpath_old(X,y,D,varargin)
 % LSQ_REGPATH Solution path of regularized linear regression
 %   [RHO_PATH,BETA_PATH] = LSQ_REGPATH(X,Y,D) computes the solution path of
 %   regularized linear regression using the predictor matrix X and response
