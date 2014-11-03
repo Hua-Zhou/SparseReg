@@ -63,6 +63,21 @@ if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
         'qp_solver not recognied');
 end
 
+%%% start here for debugging %%%
+%## misc. setup for this example ##%
+% % path following is actually in terms of X*D^+
+% X = XDplus;
+% % copied from line 41 since n, p are different from data generation since
+% % it's transformed to genlasso
+% [n,p] = size(X); 
+% penidx = true(p,1);
+% 
+% Aeq = U2';
+% beq = zeros(m-rankD,1);
+% A = [];
+% b = [];
+
+
 % allocate space for path solution
 m1 = size(Aeq, 1);  % # equality constraints
 if isempty(Aeq)
@@ -82,6 +97,7 @@ rhopath = zeros(1, maxiters);
 
 % intialization
 H = X'*X;
+%%% end here %%%
 if strcmpi(direction, 'increase')
     
     % initialize beta by quadratic programming
@@ -123,6 +139,8 @@ if strcmpi(direction, 'increase')
 
     % sign in path direction
     dirsgn = -1;
+    % initialize k for manually looking at path following loop
+    k = 2;
     
 elseif strcmpi(direction, 'decrease')
     
@@ -167,7 +185,8 @@ elseif strcmpi(direction, 'decrease')
     
     % sign in path direction
     dirsgn = 1;
-
+    % initialize k for manually looking at path following loop
+    k = 2;
 end
 
 % main loop for path following
@@ -185,9 +204,9 @@ for k = 2:maxiters
     catch
         break;
     end
-    dirSubgrad = ...
-        - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-        A(setIneqBorder,~setActive)'] * dir;
+     dirSubgrad = ...
+         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+         A(setIneqBorder,~setActive)'] * dir;
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
 
 %     % terminate path following
@@ -199,16 +218,27 @@ for k = 2:maxiters
     nextrhoBeta = inf(p, 1);
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
         ./ dir(1:nActive);
-    t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+    
+   % t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+         (-dirSubgrad*dirsgn + dirsgn);
     t1(t1<0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
         ./ (dirSubgrad - dirsgn);
+%    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+%             ./ (-dirSubgrad*dirsgn - dirsgn);
+%    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+ %      ./ (dirSubgrad + dirsgn);
+    
+    
     t2(t2<0) = inf; % hitting floor
+    %nextrhoBeta(~setActive) = min(t1, t2);
     nextrhoBeta(~setActive) = min(t1, t2);
-    nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
+        nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
     
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
+    % left off here:
     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder,k-1) ...
         ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
     nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
