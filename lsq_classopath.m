@@ -64,20 +64,6 @@ if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
 end
 
 %%% start here for debugging %%%
-%## misc. setup for this example ##%
-% % path following is actually in terms of X*D^+
-% X = XDplus;
-% % copied from line 41 since n, p are different from data generation since
-% % it's transformed to genlasso
-% [n,p] = size(X); 
-% penidx = true(p,1);
-% 
-% Aeq = U2';
-% beq = zeros(m-rankD,1);
-% A = [];
-% b = [];
-
-
 % allocate space for path solution
 m1 = size(Aeq, 1);  % # equality constraints
 if isempty(Aeq)
@@ -219,9 +205,9 @@ for k = 2:maxiters
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
         ./ dir(1:nActive);
     
-   % t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-         (-dirSubgrad*dirsgn + dirsgn);
+   %t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+      t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+          (-dirSubgrad*dirsgn + dirsgn);
     t1(t1<0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
         ./ (dirSubgrad - dirsgn);
