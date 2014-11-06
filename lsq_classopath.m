@@ -108,8 +108,8 @@ if strcmpi(direction, 'increase')
         gparam.OutputFlag = 0;
         gresult = gurobi(gmodel, gparam);
         betapath(:,1) = gresult.x;
-        dualpathEq(:,1) = gresult.pi(1:m1);
-        dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end),m2,1);
+        dualpathEq(:,1) = gresult.pi(m2+1:end);
+        dualpathIneq(:,1) = reshape(gresult.pi(1:m2),m2,1);
     end
     setActive = abs(betapath(:,1))>1e-16 | ~penidx;
     nActive = nnz(setActive);
@@ -175,10 +175,10 @@ elseif strcmpi(direction, 'decrease')
     k = 2;
 end
 
-% k = 3;
+%k = 8;
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
-for k = 2:maxiters  %7 for simultaneity issue
+for k = 2:maxiters  %7 for simultaneity issue (when increasing)
     
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
@@ -252,12 +252,12 @@ for k = 2:maxiters  %7 for simultaneity issue
     nextrhoIneq(nextrhoIneq<0) = inf;
     
     % determine next rho
-    chgrho = min([nextrhoBeta; nextrhoIneq]);
-    % [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
-
-    % find indices corresponding to this chgho
-    idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-16); 
-       
+    [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
+    
+%     chgrho = min([nextrhoBeta; nextrhoIneq]);
+%     % find indices corresponding to this chgho
+%     idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-16); 
+%        
     % terminate path following
     if isinf(chgrho)
         break;
@@ -317,13 +317,13 @@ for k = 2:maxiters  %7 for simultaneity issue
 %         end
 %     end
 %     
-%     setActive = abs(betapath(:,1))>1e-16 | ~penidx;
-%     betapath(~setActive,1) = 0;
+%     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
+%     betapath(~setActive,k) = 0;
 %     
-    
+     
     
     % determine new number of active coefficients
-    nActive = nnz(setActive);
+    %nActive = nnz(setActive);
 end
 
 % clean up
