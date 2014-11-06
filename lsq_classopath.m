@@ -109,7 +109,7 @@ if strcmpi(direction, 'increase')
         gresult = gurobi(gmodel, gparam);
         betapath(:,1) = gresult.x;
         dualpathEq(:,1) = gresult.pi(m2+1:end);
-        dualpathIneq(:,1) = reshape(gresult.pi(1:m2),m2,1);
+        dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
     end
     setActive = abs(betapath(:,1))>1e-16 | ~penidx;
     nActive = nnz(setActive);
@@ -149,8 +149,8 @@ elseif strcmpi(direction, 'decrease')
         gparam.OutputFlag = 0;
         gresult = gurobi(gmodel, gparam);
         betapath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
-        dualpathEq(:,1) = gresult.pi(1:m1);
-        dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end),m2,1); 
+        dualpathEq(:,1) = gresult.pi(m2+1:end);
+        dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
     end
     
     % initialize sets
@@ -186,8 +186,12 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
     M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
     try
-        dir = dirsgn ... 
-            * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]); 
+%          dir = dirsgn ... 
+%              * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+        dir = dirsgn ...
+            * (pinv(M) * ...
+            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+        
     catch
         break;
     end
