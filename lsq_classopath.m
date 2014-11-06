@@ -175,9 +175,10 @@ elseif strcmpi(direction, 'decrease')
     k = 2;
 end
 
+% k = 3;
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
-for k = 2:maxiters
+for k = 2:maxiters  %7 for simultaneity issue
     
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
@@ -185,12 +186,12 @@ for k = 2:maxiters
     M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
     try
-        dir = dirsgn ...
+        dir = dirsgn ... 
             * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]); 
     catch
         break;
     end
-     dirSubgrad = ...
+    dirSubgrad = ...
          - [H(~setActive, setActive) Aeq(:,~setActive)' ...
          A(setIneqBorder,~setActive)'] * dir;
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
@@ -205,23 +206,42 @@ for k = 2:maxiters
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
         ./ dir(1:nActive);
     
-   %t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-      t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-          (-dirSubgrad*dirsgn + dirsgn);
-    t1(t1<0) = inf; % hitting ceiling
+    % coefficient becoming positive 
+    t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+    %   t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+     %     (-dirSubgrad*dirsgn + dirsgn);
+    %t1(t1<0) = inf% hitting ceiling
+    t1(t1<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
         ./ (dirSubgrad - dirsgn);
-%    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-%             ./ (-dirSubgrad*dirsgn - dirsgn);
-%    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
- %      ./ (dirSubgrad + dirsgn);
-    
-    
-    t2(t2<0) = inf; % hitting floor
+      %  t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+        %         ./ (-dirSubgrad*dirsgn - dirsgn);
+      %  t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+      %   ./ (dirSubgrad + dirsgnb);
+    % t2(t2<0) = inf; % hitting floor
+    t2(t2<=0) = inf; % hitting floor
     %nextrhoBeta(~setActive) = min(t1, t2);
     nextrhoBeta(~setActive) = min(t1, t2);
-        nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
+    nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
     
+   %# begin: original code for subgradient
+%    t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+%    %   t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+%     %      (-dirSubgrad*dirsgn + dirsgn);
+%     t1(t1<0) = inf; % hitting ceiling
+%     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+%         ./ (dirSubgrad - dirsgn);
+% %    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+% %             ./ (-dirSubgrad*dirsgn - dirsgn);
+% %    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+%  %      ./ (dirSubgrad + dirsgn);
+%     t2(t2<0) = inf; % hitting floor
+%     %nextrhoBeta(~setActive) = min(t1, t2);
+%     nextrhoBeta(~setActive) = min(t1, t2);
+%     nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
+   %# end: original code for subgradient 
+   
+   
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
     % left off here:
@@ -232,30 +252,41 @@ for k = 2:maxiters
     nextrhoIneq(nextrhoIneq<0) = inf;
     
     % determine next rho
-    [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
+    chgrho = min([nextrhoBeta; nextrhoIneq]);
+    % [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
 
+    % find indices corresponding to this chgho
+    idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-16); 
+       
     % terminate path following
     if isinf(chgrho)
         break;
     end
     
     % move to next rho
-    if rhopath(k-1) - dirsgn*chgrho < 0
-        chgrho = rhopath(k-1);
+    if rhopath(k-1) - dirsgn*chgrho < 0 % may wanna change to maxrho
+        chgrho = rhopath(k-1);              % for increasing direction?
     end
     rhopath(k) = rhopath(k-1) - dirsgn*chgrho;
+    % this also doesn't make sense to me...but making the change breaks it
     betapath(setActive,k) = betapath(setActive,k-1) ...
-        + chgrho*dir(1:nActive);
+         + chgrho*dir(1:nActive);
+   % betapath(setActive,k) = betapath(setActive,k-1) ...
+    %    - dirsgn*chgrho*dir(1:nActive);
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
-    subgrad(~setActive) = ...
-        (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+     subgrad(~setActive) = ...
+         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+   % subgrad(~setActive) = ...
+    %    (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
+     %   /rhopath(k);
     residIneq = A*betapath(:,k) - b;
     
     % update sets
     % what about >=2 variables become zero/nonzero together ???
+    % old code:    
     if idx<=p && setActive(idx)
         % an active coefficient hits 0, or
         setActive(idx) = false;
@@ -269,6 +300,30 @@ for k = 2:maxiters
     end
     nActive = nnz(setActive);
 
+% 
+%         j=3;
+%     for j = 1:length(idx)
+%         curidx = idx(j);
+%         if curidx<=p && setActive(curidx)
+%             % an active coefficient hits 0, or
+%             setActive(curidx) = false;
+%         elseif curidx<=p && ~setActive(curidx)
+%             % a zero coefficient becomes nonzero
+%             setActive(curidx) = true;
+%         elseif curidx>p
+%             % an ineq on boundary becomes strict, or
+%             % a strict ineq hits boundary
+%             setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
+%         end
+%     end
+%     
+%     setActive = abs(betapath(:,1))>1e-16 | ~penidx;
+%     betapath(~setActive,1) = 0;
+%     
+    
+    
+    % determine new number of active coefficients
+    nActive = nnz(setActive);
 end
 
 % clean up
