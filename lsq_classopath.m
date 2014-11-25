@@ -214,7 +214,7 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
     %   t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
      %     (-dirSubgrad*dirsgn + dirsgn);
-    %t1(t1<0) = inf% hitting ceiling
+    %t1(t1<0) = inf; % hitting ceiling
     t1(t1<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
         ./ (dirSubgrad - dirsgn);
