@@ -2,12 +2,14 @@
 
 % set seed
 clear;
+addpath('/home/brg/Documents/GitHub/SparseReg')
+addpath('/opt/gurobi563/linux64/matlab')
 s = RandStream('mt19937ar','Seed',1);
 RandStream.setGlobalStream(s);
 
 % dimension
 n = 100;
-p = 200;
+p = 90;
 
 % truth with sum constraint sum(b)=0
 beta = zeros(p,1);
