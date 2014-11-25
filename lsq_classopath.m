@@ -63,7 +63,7 @@ if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
         'qp_solver not recognied');
 end
 
-%%% start here for debugging %%%
+%%% start here for (manual) debugging %%%
 % allocate space for path solution
 m1 = size(Aeq, 1);  % # equality constraints
 if isempty(Aeq)
@@ -108,8 +108,8 @@ if strcmpi(direction, 'increase')
         gparam.OutputFlag = 0;
         gresult = gurobi(gmodel, gparam);
         betapath(:,1) = gresult.x;
-        dualpathEq(:,1) = gresult.pi(m2+1:end);
-        dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
+        dualpathEq(:,1) = gresult.pi(1:m1);
+        dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end), m2, 1);
     end
     setActive = abs(betapath(:,1))>1e-16 | ~penidx;
     nActive = nnz(setActive);
