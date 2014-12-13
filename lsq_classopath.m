@@ -180,9 +180,9 @@ end
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters  %7 for simultaneity issue (when increasing)
 
-%     if rhopath(k-1) == 0
-%        break;
-%     end
+    if rhopath(k-1) == 0
+       break;
+    end
 
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
