@@ -179,7 +179,11 @@ end
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters  %7 for simultaneity issue (when increasing)
-    
+
+%     if rhopath(k-1) == 0
+%        break;
+%     end
+
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
         A(setIneqBorder,setActive)']; 
@@ -204,7 +208,7 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
 %     if max(abs(dir)) < 1e-8
 %         break;
 %     end            
-    
+    betapath(abs(betapath(:, k-1)) < 1e-12, k-1) = 0; 
     % next rho for beta
     nextrhoBeta = inf(p, 1);
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
@@ -272,18 +276,24 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
         chgrho = rhopath(k-1);              % for increasing direction?
     end
     rhopath(k) = rhopath(k-1) - dirsgn*chgrho;
+%     if rhopath(k)==rhopath(k-1)
+%        break;
+%     end
     % this also doesn't make sense to me...but making the change breaks it
     betapath(setActive,k) = betapath(setActive,k-1) ...
          + chgrho*dir(1:nActive);
    % betapath(setActive,k) = betapath(setActive,k-1) ...
     %    - dirsgn*chgrho*dir(1:nActive);
+  
+    
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
-     subgrad(~setActive) = ...
+    subgrad(~setActive) = ...
          (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-   % subgrad(~setActive) = ...
+ 
+     % subgrad(~setActive) = ...
     %    (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
      %   /rhopath(k);
     residIneq = A*betapath(:,k) - b;
