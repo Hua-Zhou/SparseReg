@@ -216,8 +216,8 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
     
     % coefficient becoming positive 
     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-    %   t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-     %     (-dirSubgrad*dirsgn + dirsgn);
+%     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+%         (-dirSubgrad*dirsgn + dirsgn);
     %t1(t1<0) = inf; % hitting ceiling
     t1(t1<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
@@ -228,28 +228,9 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
       %   ./ (dirSubgrad + dirsgnb);
     % t2(t2<0) = inf; % hitting floor
     t2(t2<=0) = inf; % hitting floor
-    %nextrhoBeta(~setActive) = min(t1, t2);
     nextrhoBeta(~setActive) = min(t1, t2);
     nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
     
-   %# begin: original code for subgradient
-%    t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-%    %   t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-%     %      (-dirSubgrad*dirsgn + dirsgn);
-%     t1(t1<0) = inf; % hitting ceiling
-%     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-%         ./ (dirSubgrad - dirsgn);
-% %    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-% %             ./ (-dirSubgrad*dirsgn - dirsgn);
-% %    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-%  %      ./ (dirSubgrad + dirsgn);
-%     t2(t2<0) = inf; % hitting floor
-%     %nextrhoBeta(~setActive) = min(t1, t2);
-%     nextrhoBeta(~setActive) = min(t1, t2);
-%     nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
-   %# end: original code for subgradient 
-   
-   
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
     % left off here:
