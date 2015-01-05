@@ -175,10 +175,9 @@ elseif strcmpi(direction, 'decrease')
     k = 2;
 end
 
-%k = 8;
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
-for k = 2:maxiters  %7 for simultaneity issue (when increasing)
+for k = 2:maxiters 
 
     if rhopath(k-1) == 0
        break;
@@ -216,16 +215,16 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
     
     % coefficient becoming positive 
     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-%     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-%         (-dirSubgrad*dirsgn + dirsgn);
+%      t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+%          (-dirSubgrad*dirsgn + dirsgn);
     %t1(t1<0) = inf; % hitting ceiling
     t1(t1<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
         ./ (dirSubgrad - dirsgn);
-      %  t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-        %         ./ (-dirSubgrad*dirsgn - dirsgn);
-      %  t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-      %   ./ (dirSubgrad + dirsgnb);
+%    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+%        ./ (-dirSubgrad*dirsgn - dirsgn);
+%     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+%         ./ (dirSubgrad + dirsgnb);
     % t2(t2<0) = inf; % hitting floor
     t2(t2<=0) = inf; % hitting floor
     nextrhoBeta(~setActive) = min(t1, t2);
@@ -240,13 +239,17 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
         ./ dirResidIneq;
     nextrhoIneq(nextrhoIneq<0) = inf;
     
-    % determine next rho
-    [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
+    %## determine next rho ##%
+    %# original method:
+%     [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
     
-%     chgrho = min([nextrhoBeta; nextrhoIneq]);
-%     % find indices corresponding to this chgho
-%     idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-16); 
-%        
+    %# new method picking multiple rhos:
+    % find smallest rho
+    chgrho = min([nextrhoBeta; nextrhoIneq]);
+    % find all indices corresponding to this chgho
+    idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-14);
+        
+
     % terminate path following
     if isinf(chgrho)
         break;
@@ -279,46 +282,47 @@ for k = 2:maxiters  %7 for simultaneity issue (when increasing)
      %   /rhopath(k);
     residIneq = A*betapath(:,k) - b;
     
-    % update sets
+    %## update sets ##%
     % what about >=2 variables become zero/nonzero together ???
-    % old code:    
-    if idx<=p && setActive(idx)
-        % an active coefficient hits 0, or
-        setActive(idx) = false;
-    elseif idx<=p && ~setActive(idx)
-        % a zero coefficient becomes nonzero
-        setActive(idx) = true;
-    elseif idx>p
-        % an ineq on boundary becomes strict, or
-        % a strict ineq hits boundary
-        setIneqBorder(idx-p) = ~setIneqBorder(idx-p);
-    end
-    nActive = nnz(setActive);
-
-% 
-%         j=3;
-%     for j = 1:length(idx)
-%         curidx = idx(j);
-%         if curidx<=p && setActive(curidx)
-%             % an active coefficient hits 0, or
-%             setActive(curidx) = false;
-%         elseif curidx<=p && ~setActive(curidx)
-%             % a zero coefficient becomes nonzero
-%             setActive(curidx) = true;
-%         elseif curidx>p
-%             % an ineq on boundary becomes strict, or
-%             % a strict ineq hits boundary
-%             setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
-%         end
+    %# old code: #%  
+%     if idx<=p && setActive(idx)
+%         % an active coefficient hits 0, or
+%         setActive(idx) = false;
+%     elseif idx<=p && ~setActive(idx)
+%         % a zero coefficient becomes nonzero
+%         setActive(idx) = true;
+%     elseif idx>p
+%         % an ineq on boundary becomes strict, or
+%         % a strict ineq hits boundary
+%         setIneqBorder(idx-p) = ~setIneqBorder(idx-p);
 %     end
-%     
+%     nActive = nnz(setActive);
+
+    %# new code(to try to allow for multiple coefficients moving #%  
+    for j = 1:length(idx)
+        curidx = idx(j);
+        if curidx<=p && setActive(curidx)
+            % an active coefficient hits 0, or
+            setActive(curidx) = false;
+        elseif curidx<=p && ~setActive(curidx)
+            % a zero coefficient becomes nonzero
+            setActive(curidx) = true;
+        elseif curidx>p
+            % an ineq on boundary becomes strict, or
+            % a strict ineq hits boundary
+            setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
+        end
+    end
+    % determine new number of active coefficients
+    nActive = nnz(setActive);
+    
+    % not sure about this:
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
 %     
      
     
-    % determine new number of active coefficients
-    %nActive = nnz(setActive);
+
 end
 
 % clean up
