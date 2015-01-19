@@ -1,4 +1,4 @@
-function [rhopath, betapath, dualpathEq, dualpathIneq] ...
+function [rhopath, betapath, objValPath, dualpathEq, dualpathIneq] ...
     = lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %   BETAHAT = LSQ_SPARSEREG(X, y, lambda) fits penalized linear regression
@@ -26,6 +26,8 @@ function [rhopath, betapath, dualpathEq, dualpathIneq] ...
 %   'qp_solver' - 'matlab' (default), or 'GUROBI'
 %
 % OUTPUT:
+%
+%   objValPath - value of the objective function along the solution path
 %
 % See also LSQ_SPARSEPATH,GLM_SPARSEREG,GLM_SPARSEPATH.
 %
@@ -80,6 +82,7 @@ betapath = zeros(p, maxiters);
 dualpathEq = zeros(m1, maxiters);
 dualpathIneq = zeros(m2, maxiters);
 rhopath = zeros(1, maxiters);
+objValPath = zeros(1, maxiters);
 
 % intialization
 H = X'*X;
@@ -169,6 +172,10 @@ elseif strcmpi(direction, 'decrease')
     setActive(idx) = true;
     nActive = nnz(setActive);
     
+    % calculate value for objective function
+    objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
+                rhopath(1)*sum(abs(betapath(:,1)));  
+            
     % sign in path direction
     dirsgn = 1;
     % initialize k for manually looking at path following loop
@@ -315,17 +322,16 @@ for k = 2:maxiters
     % determine new number of active coefficients
     nActive = nnz(setActive);
             
-    % calculate value for objective function
-    obj_path = norm(y-X*bhat_path_rho)^2/2 + ...
-                rho*sum(abs(bhat_path_rho));  
-            
     % not sure about this:
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
     % force near-zero coefficients to be zero (helps with numerical issues)
     betapath(abs(betapath(:, k-1)) < 1e-12, k-1) = 0; 
      
-    
+    % calculate value of objective function
+    objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
+                rhopath(k)*sum(abs(betapath(:,k)));  
+            
 
 end
 
@@ -335,5 +341,6 @@ betapath(:, k:end) = [];
 dualpathEq(:, k:end) = [];
 dualpathIneq(:, k:end) = [];
 rhopath(k:end) = [];
+objValPath(k:end) = [];
 
 end
