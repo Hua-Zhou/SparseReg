@@ -207,7 +207,6 @@ for k = 2:maxiters
 %     if max(abs(dir)) < 1e-8
 %         break;
 %     end            
-    betapath(abs(betapath(:, k-1)) < 1e-12, k-1) = 0; 
     % next rho for beta
     nextrhoBeta = inf(p, 1);
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
@@ -315,11 +314,16 @@ for k = 2:maxiters
     end
     % determine new number of active coefficients
     nActive = nnz(setActive);
-    
+            
+    % calculate value for objective function
+    obj_path = norm(y-X*bhat_path_rho)^2/2 + ...
+                rho*sum(abs(bhat_path_rho));  
+            
     % not sure about this:
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
-%     
+    % force near-zero coefficients to be zero (helps with numerical issues)
+    betapath(abs(betapath(:, k-1)) < 1e-12, k-1) = 0; 
      
     
 
