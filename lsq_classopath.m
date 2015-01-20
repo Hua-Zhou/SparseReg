@@ -51,12 +51,15 @@ argin.addRequired('beq', @(x) isnumeric(x) || isempty(x));
 argin.addParamValue('direction', 'decrease', @ischar);
 argin.addParamValue('qp_solver', 'matlab', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
+% temp code for option of choosing method with multiple coefficients or not
+argin.addParamValue('multCoeff', 'false', @ischar);
 
 % parse inputs
-y = reshape(y,n,1);
-argin.parse(X,y,A,b,Aeq,beq,varargin{:});
+y = reshape(y, n, 1);
+argin.parse(X, y, A, b, Aeq, beq, varargin{:});
 direction = argin.Results.direction;
 qp_solver = argin.Results.qp_solver;
+multCoeff = argin.Results.multCoeff;
 penidx = reshape(argin.Results.penidx,p,1);
 
 % check validity of qp_solver
@@ -214,6 +217,7 @@ for k = 2:maxiters
 %     if max(abs(dir)) < 1e-8
 %         break;
 %     end            
+ %betapath(abs(betapath(:, k-1)) < 1e-12, k-1) = 0; 
     % next rho for beta
     nextrhoBeta = inf(p, 1);
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
@@ -247,15 +251,16 @@ for k = 2:maxiters
     
     %## determine next rho ##%
     %# original method:
-%     [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
+    if strcmpi(multCoeff, 'false')
+        [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
     
     %# new method picking multiple rhos:
-    % find smallest rho
-    chgrho = min([nextrhoBeta; nextrhoIneq]);
-    % find all indices corresponding to this chgho
-    idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-14);
-        
-
+    elseif strcmpi(multCoeff, 'true')
+        % find smallest rho
+        chgrho = min([nextrhoBeta; nextrhoIneq]);
+        % find all indices corresponding to this chgho
+        idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-14);
+    end
     % terminate path following
     if isinf(chgrho)
         break;
@@ -290,33 +295,35 @@ for k = 2:maxiters
     
     %## update sets ##%
     % what about >=2 variables become zero/nonzero together ???
-    %# old code: #%  
-%     if idx<=p && setActive(idx)
-%         % an active coefficient hits 0, or
-%         setActive(idx) = false;
-%     elseif idx<=p && ~setActive(idx)
-%         % a zero coefficient becomes nonzero
-%         setActive(idx) = true;
-%     elseif idx>p
-%         % an ineq on boundary becomes strict, or
-%         % a strict ineq hits boundary
-%         setIneqBorder(idx-p) = ~setIneqBorder(idx-p);
-%     end
-%     nActive = nnz(setActive);
-
-    %# new code(to try to allow for multiple coefficients moving #%  
-    for j = 1:length(idx)
-        curidx = idx(j);
-        if curidx<=p && setActive(curidx)
+    if strcmpi(multCoeff, 'false')
+        %# old code: #%
+        if idx<=p && setActive(idx)
             % an active coefficient hits 0, or
-            setActive(curidx) = false;
-        elseif curidx<=p && ~setActive(curidx)
+            setActive(idx) = false;
+        elseif idx<=p && ~setActive(idx)
             % a zero coefficient becomes nonzero
-            setActive(curidx) = true;
-        elseif curidx>p
+            setActive(idx) = true;
+        elseif idx>p
             % an ineq on boundary becomes strict, or
             % a strict ineq hits boundary
-            setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
+            setIneqBorder(idx-p) = ~setIneqBorder(idx-p);
+        end
+        
+    elseif strcmpi(multCoeff, 'true')
+        %# new code(to try to allow for multiple coefficients moving #%
+        for j = 1:length(idx)
+            curidx = idx(j);
+            if curidx<=p && setActive(curidx)
+                % an active coefficient hits 0, or
+                setActive(curidx) = false;
+            elseif curidx<=p && ~setActive(curidx)
+                % a zero coefficient becomes nonzero
+                setActive(curidx) = true;
+            elseif curidx>p
+                % an ineq on boundary becomes strict, or
+                % a strict ineq hits boundary
+                setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
+            end
         end
     end
     % determine new number of active coefficients
@@ -326,7 +333,7 @@ for k = 2:maxiters
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
     % force near-zero coefficients to be zero (helps with numerical issues)
-    betapath(abs(betapath(:, k-1)) < 1e-12, k-1) = 0; 
+    betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
      
     % calculate value of objective function
     objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
