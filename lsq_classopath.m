@@ -53,6 +53,8 @@ argin.addParamValue('qp_solver', 'matlab', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
 % temp code for option of choosing method with multiple coefficients or not
 argin.addParamValue('multCoeff', 'false', @ischar);
+% temp code for changing the tolerance level for picking delta rho (chgrho)
+argin.addParamValue('deltaRhoTol', 1e-10, @isnumeric);
 
 % parse inputs
 y = reshape(y, n, 1);
@@ -60,6 +62,7 @@ argin.parse(X, y, A, b, Aeq, beq, varargin{:});
 direction = argin.Results.direction;
 qp_solver = argin.Results.qp_solver;
 multCoeff = argin.Results.multCoeff;
+deltaRhoTol = argin.Results.deltaRhoTol;
 penidx = reshape(argin.Results.penidx,p,1);
 
 % check validity of qp_solver
@@ -260,7 +263,7 @@ for k = 2:maxiters
         % find smallest rho
         chgrho = min([nextrhoBeta; nextrhoIneq]);
         % find all indices corresponding to this chgho
-        idx = find(([nextrhoBeta; nextrhoIneq]-chgrho)<=1e-14);
+        idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= deltaRhoTol);
     end
     % terminate path following
     if isinf(chgrho)
