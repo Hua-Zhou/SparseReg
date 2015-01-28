@@ -1,5 +1,6 @@
-function [rhopath, betapath, objValPath, dfPath, dualpathEq, ...
-    dualpathIneq] = lsq_classopath(X, y, A, b, Aeq, beq, varargin)
+function [rhopath, betapath, objValPath, dfPath, constraintsSatisfied, ...
+    dualpathEq, dualpathIneq] = lsq_classopath(X, y, A, b, Aeq, beq, ...
+    varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %   BETAHAT = LSQ_SPARSEREG(X, y, lambda) fits penalized linear regression
 %   using the predictor matrix X, response Y, and tuning parameter value
@@ -90,6 +91,8 @@ dualpathIneq = zeros(m2, maxiters);
 rhopath = zeros(1, maxiters);
 objValPath = zeros(1, maxiters);
 dfPath = zeros(2, maxiters);
+constraintsSatisfied.eq = Inf(1, maxiters);
+constraintsSatisfied.ineq = Inf(1, maxiters);
 
 % intialization
 H = X'*X;
@@ -182,7 +185,22 @@ elseif strcmpi(direction, 'decrease')
     % calculate value for objective function
     objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
                 rhopath(1)*sum(abs(betapath(:,1)));  
-            
+    % check if constraints are violated or not
+    % equality
+    if m1==0
+        constraintsSatisfied.eq(1) = NaN;
+    else
+        constraintsSatisfied.eq(1) = ...
+            sum(abs(Aeq*betapath(:, 1) - beq) < 1e-10) == m1;
+    end
+    % inequality
+    if m2==0
+        constraintsSatisfied.ineq(1) = NaN;
+    else
+        constraintsSatisfied.ineq(1) = ...
+            sum(A*betapath(:, 1) - b < 1e-10) == m2;
+    end
+    
     % sign in path direction
     dirsgn = 1;
     % initialize k for manually looking at path following loop
@@ -341,13 +359,28 @@ for k = 2:maxiters
      
     % calculate value of objective function
     objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
-                rhopath(k)*sum(abs(betapath(:,k)));  
+        rhopath(k)*sum(abs(betapath(:,k)));
      
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
     dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
     dfPath(2, k) = max(nActive - rank(Aeq), 0);
 
+    % check if constraints are violated or not
+    % equality
+    if m1==0
+        constraintsSatisfied.eq(k) = NaN;
+    else
+        constraintsSatisfied.eq(k) = ...
+            sum(abs(Aeq*betapath(:, k) - beq) < 1e-10) == m1;
+    end
+    % inequality
+    if m2==0
+        constraintsSatisfied.ineq(k) = NaN;
+    else
+        constraintsSatisfied.ineq(k) = ...
+            sum(A*betapath(:, k) - b < 1e-10) == m2;
+    end
 end
 
 % clean up
@@ -358,5 +391,7 @@ dualpathIneq(:, k:end) = [];
 rhopath(k:end) = [];
 objValPath(k:end) = [];
 dfPath(:, k:end) = [];
+constraintsSatisfied.eq(k:end) = [];
+constraintsSatisfied.ineq(k:end) = [];
 
 end
