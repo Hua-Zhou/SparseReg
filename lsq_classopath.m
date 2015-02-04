@@ -1,6 +1,6 @@
-function [rhopath, betapath, objValPath, dfPath, constraintsSatisfied, ...
-    dualpathEq, dualpathIneq] = lsq_classopath(X, y, A, b, Aeq, beq, ...
-    varargin)
+function [rhopath, betapath, objValPath, stationarityConditionPath, dfPath, ...
+    constraintsSatisfied, dualpathEq, dualpathIneq] = ...
+    lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %   BETAHAT = LSQ_SPARSEREG(X, y, lambda) fits penalized linear regression
 %   using the predictor matrix X, response Y, and tuning parameter value
@@ -90,6 +90,7 @@ dualpathEq = zeros(m1, maxiters);
 dualpathIneq = zeros(m2, maxiters);
 rhopath = zeros(1, maxiters);
 objValPath = zeros(1, maxiters);
+stationarityConditionPath = zeros(p, maxiters);
 dfPath = zeros(2, maxiters);
 constraintsSatisfied.eq = Inf(1, maxiters);
 constraintsSatisfied.ineq = Inf(1, maxiters);
@@ -361,6 +362,10 @@ for k = 2:maxiters
     objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
         rhopath(k)*sum(abs(betapath(:,k)));
      
+    % check stationarity condition 
+    stationarityConditionPath(:, k) = -X'*(y - X*betapath(:,k)) + ...
+        rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
+    
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
     dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
@@ -390,8 +395,10 @@ dualpathEq(:, k:end) = [];
 dualpathIneq(:, k:end) = [];
 rhopath(k:end) = [];
 objValPath(k:end) = [];
+stationarityConditionPath(:, k:end) = [];
 dfPath(:, k:end) = [];
 constraintsSatisfied.eq(k:end) = [];
 constraintsSatisfied.ineq(k:end) = [];
+
 
 end
