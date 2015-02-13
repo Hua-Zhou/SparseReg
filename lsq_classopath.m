@@ -314,9 +314,8 @@ for k = 2:maxiters
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
     subgrad(~setActive) = ...
          (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-    subgrad(setActive) = ...
-         (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
-     
+     subgrad(setActive) = ...
+          (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
      
      % subgrad(~setActive) = ...
     %    (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
@@ -364,14 +363,14 @@ for k = 2:maxiters
 %     betapath(~setActive,k) = 0;
     % force near-zero coefficients to be zero (helps with numerical issues)
     betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
+  
+
      
     % calculate value of objective function
     objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
         rhopath(k)*sum(abs(betapath(:,k)));
      
-    % check stationarity condition 
-    stationarityConditionPath(:, k) = -X'*(y - X*betapath(:,k)) + ...
-        rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
+
     
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
@@ -393,6 +392,24 @@ for k = 2:maxiters
         constraintsSatisfied.ineq(k) = ...
             sum(A*betapath(:, k) - b < 1e-10) == m2;
     end
+    
+    
+        % manually check that the subgradient sign matches the coefficients
+    %find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12)
+    %       find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12 & ...
+       % sign(betapath(setActive,k)) ~= 0);
+    idxSubgradWrong = ...
+        find(abs(subgrad - sign(betapath(:,k))) > 1e-12 & ...
+        sign(betapath(:,k)) ~= 0);
+    
+    subgrad(idxSubgradWrong) = -subgrad(idxSubgradWrong);
+    
+    
+        % check stationarity condition 
+    stationarityConditionPath(:, k) = -X'*(y - X*betapath(:,k)) + ...
+        rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
+    
+    
 end
 
 % clean up
