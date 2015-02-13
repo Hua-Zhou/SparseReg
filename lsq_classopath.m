@@ -235,7 +235,11 @@ for k = 2:maxiters
          - [H(~setActive, setActive) Aeq(:,~setActive)' ...
          A(setIneqBorder,~setActive)'] * dir;
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
-
+    % calculate direction of subgradient for active coefficients
+    dirSubgradActive = ...
+         - [H(setActive, setActive) Aeq(:,setActive)' ...
+         A(setIneqBorder, setActive)'] * dir;
+     
 %     % terminate path following
 %     if max(abs(dir)) < 1e-8
 %         break;
@@ -310,7 +314,10 @@ for k = 2:maxiters
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
     subgrad(~setActive) = ...
          (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
- 
+    subgrad(setActive) = ...
+         (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
+     
+     
      % subgrad(~setActive) = ...
     %    (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
      %   /rhopath(k);
