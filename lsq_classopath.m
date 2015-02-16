@@ -55,7 +55,7 @@ argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
 % temp code for option of choosing method with multiple coefficients or not
 argin.addParamValue('multCoeff', 'false', @ischar);
 % temp code for changing the tolerance level for picking delta rho (chgrho)
-argin.addParamValue('deltaRhoTol', 1e-10, @isnumeric);
+argin.addParamValue('deltaRhoTol', 1e-8, @isnumeric);
 
 % parse inputs
 y = reshape(y, n, 1);
@@ -314,7 +314,7 @@ for k = 2:maxiters
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
     subgrad(~setActive) = ...
          (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-     subgrad(setActive) = ...
+    subgrad(setActive) = ...
           (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
      
      % subgrad(~setActive) = ...
@@ -355,14 +355,22 @@ for k = 2:maxiters
             end
         end
     end
+    
+    % force near-zero coefficients to be zero (helps with numerical issues)
+    betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
+    
+%     % check that setActive is defined correctly
+%     idxSetActiveWrong = find(abs(sign(betapath(:, k))) ~= setActive);
+%     
+%     
+    
     % determine new number of active coefficients
     nActive = nnz(setActive);
             
     % not sure about this:
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
-    % force near-zero coefficients to be zero (helps with numerical issues)
-    betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
+
   
 
      
@@ -398,13 +406,13 @@ for k = 2:maxiters
     %find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12)
     %       find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12 & ...
        % sign(betapath(setActive,k)) ~= 0);
-    idxSubgradWrong = ...
-        find(abs(subgrad - sign(betapath(:,k))) > 1e-12 & ...
-        sign(betapath(:,k)) ~= 0);
-    
-    subgrad(idxSubgradWrong) = -subgrad(idxSubgradWrong);
-    
-    
+%     idxSubgradWrong = ...
+%         find(abs(subgrad - sign(betapath(:,k))) > 1e-12 & ...
+%         sign(betapath(:,k)) ~= 0);
+%     
+%     subgrad(idxSubgradWrong) = -subgrad(idxSubgradWrong);
+%     
+%     
         % check stationarity condition 
     stationarityConditionPath(:, k) = -X'*(y - X*betapath(:,k)) + ...
         rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
