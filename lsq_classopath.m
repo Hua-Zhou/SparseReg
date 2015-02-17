@@ -1,5 +1,5 @@
-function [rhopath, betapath, objValPath, stationarityConditions, dfPath, ...
-    constraintsSatisfied, dualpathEq, dualpathIneq] = ...
+function [rhopath, betapath, dfPath, objValPath, stationarityConditionsPath, ...
+    constraintsSatisfied, subgradientPath, dualpathEq, dualpathIneq] = ...
     lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %   BETAHAT = LSQ_SPARSEREG(X, y, lambda) fits penalized linear regression
@@ -91,10 +91,12 @@ dualpathIneq = zeros(m2, maxiters);
 rhopath = zeros(1, maxiters);
 dfPath = zeros(2, maxiters);
 objValPath = zeros(1, maxiters);
-stationarityConditions.values = zeros(p, maxiters);
-%stationarityConditionPath = zeros(p, maxiters);
+stationarityConditionsPath.values = zeros(p, maxiters);
+stationarityConditionsPath.satisfied = Inf(1, maxiters);
 constraintsSatisfied.eq = Inf(1, maxiters);
 constraintsSatisfied.ineq = Inf(1, maxiters);
+subgradientPath.values = zeros(p, maxiters);
+subgradientPath.satisfied = Inf(1, maxiters);
 
 % intialization
 H = X'*X;
@@ -138,6 +140,24 @@ if strcmpi(direction, 'increase')
     subgrad(setActive) = sign(betapath(setActive,1));
     subgrad(~penidx) = 0;
 
+    % calculate value for objective function
+    objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
+        rhopath(1)*sum(abs(betapath(:,1)));
+    % calculate the stationarity condition value
+    stationarityConditionsPath.values(:, 1) = -X'*(y - X*betapath(:, 1)) + ...
+        rhopath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
+    % see if stationarity condition is satisified
+    stationarityConditionsPath.satisfied(1) = ...
+        sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
+    % store subgradient
+    subgradientPath.values(:, 1) = subgrad;
+    % store subgradient
+    subgradientPath.values(:, 1) = subgrad;
+    % check that subgradient condition is satisfied
+    subgradientPath.satisfied(1) = ...
+        nnz(subgradientPath.values(:, 1) <= 1 & ...
+        subgradientPath.values(:, 1) >= -1) == p;
+   
     % sign in path direction
     dirsgn = -1;
     % initialize k for manually looking at path following loop
@@ -186,7 +206,13 @@ elseif strcmpi(direction, 'decrease')
     
     % calculate value for objective function
     objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
-                rhopath(1)*sum(abs(betapath(:,1)));  
+        rhopath(1)*sum(abs(betapath(:,1)));
+    % calculate the stationarity condition value
+    stationarityConditionsPath.values(:, 1) = -X'*(y - X*betapath(:, 1)) + ...
+        rhopath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
+    % see if stationarity condition is satisified
+    stationarityConditionsPath.satisfied(1) = ...
+        sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
     % check if constraints are violated or not
     % equality
     if m1==0
@@ -202,7 +228,13 @@ elseif strcmpi(direction, 'decrease')
         constraintsSatisfied.ineq(1) = ...
             sum(A*betapath(:, 1) - b < 1e-10) == m2;
     end
-    
+    % store subgradient
+    subgradientPath.values(:, 1) = subgrad;
+    % check that subgradient condition is satisfied
+    subgradientPath.satisfied(1) = ...
+        nnz(subgradientPath.values(:, 1) <= 1 & ...
+        subgradientPath.values(:, 1) >= -1) == p;
+       
     % sign in path direction
     dirsgn = 1;
     % initialize k for manually looking at path following loop
@@ -312,19 +344,25 @@ for k = 2:maxiters
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
-        + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);  
+        + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
     subgrad(~setActive) = ...
-         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-   subgrad(setActive) = ...
+        (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+    subgrad(setActive) = ...
          (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
-     
-     % subgrad(~setActive) = ...
-    %    (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
-     %   /rhopath(k);
+%      subgrad(~setActive) = ...
+%          (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
+%          /rhopath(k);
     residIneq = A*betapath(:,k) - b;
+     
+
+    
+    
+    
+   %%% need to change this, b/c it can be in bounds but also have wrong
+   %%% signoo
+    
     
     %## update sets ##%
-    % what about >=2 variables become zero/nonzero together ???
     if strcmpi(multCoeff, 'false')
         %# old code: #%
         if idx<=p && setActive(idx)
@@ -372,8 +410,6 @@ for k = 2:maxiters
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
 
-  
-
      
     % calculate value of objective function
     objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
@@ -386,6 +422,15 @@ for k = 2:maxiters
     dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
     dfPath(2, k) = max(nActive - rank(Aeq), 0);
 
+    
+        % calculate the stationarity condition value
+    stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
+        rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
+    % see if stationarity condition is satisified
+    stationarityConditionsPath.satisfied(k) = ...
+        sum(abs(stationarityConditionsPath.values(:, k)) < 1e-8) == p;
+    
+    
     % check if constraints are violated or not
     % equality
     if m1==0
@@ -401,7 +446,18 @@ for k = 2:maxiters
         constraintsSatisfied.ineq(k) = ...
             sum(A*betapath(:, k) - b < 1e-10) == m2;
     end
+    k
     
+    % store subgradient
+    subgradientPath.values(:, k) = subgrad;
+    % check that subgradient condition is satisfied (both in [-1, 1] and
+        % matching the sign
+    subgradientPath.satisfied(k) = ...
+        nnz(subgradientPath.values(:, k) <= (1 + 1e-8) & ...
+        subgradientPath.values(:, k) >= (-1 - 1e-8) & ... 
+        betapath(:, k).*subgrad >= 0) == p;
+    
+    % [betapath(:, k) subgrad]
     
         % manually check that the subgradient sign matches the coefficients
     %find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12)
@@ -414,10 +470,8 @@ for k = 2:maxiters
 %     subgrad(idxSubgradWrong) = -subgrad(idxSubgradWrong);
 %     
 %     
-    % check stationarity condition 
-    stationarityConditions.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
-        rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
 
+    
     
 end
 
@@ -428,13 +482,12 @@ dualpathEq(:, k:end) = [];
 dualpathIneq(:, k:end) = [];
 rhopath(k:end) = [];
 objValPath(k:end) = [];
-stationarityConditions.values(:, k:end) = [];
+stationarityConditionsPath.values(:, k:end) = [];
+stationarityConditionsPath.satisfied(k:end) = [];
 dfPath(:, k:end) = [];
 constraintsSatisfied.eq(k:end) = [];
 constraintsSatisfied.ineq(k:end) = [];
-% see if stationarity condition is satisified along the path
-stationarityConditions.path = ...
-    sum(abs(stationarityConditions.values) < 1e-8) == p;
-
+subgradientPath.values(:, k:end) = [];
+subgradientPath.satisfied(k:end) = [];
 
 end
