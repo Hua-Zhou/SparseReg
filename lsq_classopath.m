@@ -285,7 +285,7 @@ for k = 2:maxiters
     
     % coefficient becoming positive 
      t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-%    t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad);
+%   t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad);
 % 	t1b = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirsgn - dirSubgrad);
 %     t1c = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
 %         (-dirSubgrad*dirsgn + dirsgn);
