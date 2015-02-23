@@ -255,8 +255,8 @@ for k = 2:maxiters
     M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
     try
-%          dir = dirsgn ... 
-%              * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%         dir = dirsgn ...
+%             * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
         dir = dirsgn ...
             * (pinv(M) * ...
             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
@@ -272,7 +272,7 @@ for k = 2:maxiters
     dirSubgradActive = ...
         - [H(setActive, setActive) Aeq(:,setActive)' ...
         A(setIneqBorder, setActive)'] * dir;
-     
+     %dir(abs(dir(:)) < 1e-8) = 0;  
 %     % terminate path following
 %     if max(abs(dir)) < 1e-8
 %         break;
@@ -284,17 +284,24 @@ for k = 2:maxiters
         ./ dir(1:nActive);
     
     % coefficient becoming positive 
-    t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-%      t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-%          (-dirSubgrad*dirsgn + dirsgn);
-    %t1(t1<0) = inf; % hitting ceiling
+     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+%    t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad);
+% 	t1b = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirsgn - dirSubgrad);
+%     t1c = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
+%         (-dirSubgrad*dirsgn + dirsgn);
+%     [t1 t1a t1b t1c]
+%     %t1(t1<0) = inf; % hitting ceiling
     t1(t1<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-        ./ (dirSubgrad - dirsgn);
-%    t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-%        ./ (-dirSubgrad*dirsgn - dirsgn);
-%     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-%         ./ (dirSubgrad + dirsgnb);
+         ./ (dirSubgrad - dirsgn);   
+    % according to my derivations:
+        % these all are the same, but differ from t2
+%    t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad);
+%     t2b = dirsgn*rhopath(k-1)*(1 + subgrad(~setActive)) ...
+%          ./ (dirSubgrad + 1);
+%     t2c = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
+%          ./ (-dirSubgrad*dirsgn - dirsgn);
+%     [t1 t1a t2 t2a t2b t2c]
     % t2(t2<0) = inf; % hitting floor
     t2(t2<=0) = inf; % hitting floor
     nextrhoBeta(~setActive) = min(t1, t2);
@@ -309,6 +316,7 @@ for k = 2:maxiters
         ./ dirResidIneq;
     nextrhoIneq(nextrhoIneq<0) = inf;
     
+    display(k)
     %## determine next rho ##%
     %# original method:
     if strcmpi(multCoeff, 'false')
@@ -318,7 +326,7 @@ for k = 2:maxiters
     elseif strcmpi(multCoeff, 'true')
         % find smallest rho
         chgrho = min([nextrhoBeta; nextrhoIneq]);
-        % find all indices corresponding to this chgho
+        % find all indices corresponding to this chgrho
         idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= deltaRhoTol);
     end
     % terminate path following
@@ -334,6 +342,7 @@ for k = 2:maxiters
 %     if rhopath(k)==rhopath(k-1)
 %        break;
 %     end
+    
     % this also doesn't make sense to me...but making the change breaks it
     betapath(setActive,k) = betapath(setActive,k-1) ...
          + chgrho*dir(1:nActive);
@@ -347,12 +356,12 @@ for k = 2:maxiters
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
     subgrad(~setActive) = ...
         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-    subgrad(setActive) = ...
-         (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
+%     subgrad(setActive) = ...
+%          (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
 %      subgrad(~setActive) = ...
 %          (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
 %          /rhopath(k);
-    residIneq = A*betapath(:,k) - b;
+    residIneq = A*betapath(:,k) - b; % may wanna move this to after thresholding
      
 
     
@@ -415,21 +424,17 @@ for k = 2:maxiters
     objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
         rhopath(k)*sum(abs(betapath(:,k)));
      
-
-    
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
     dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
     dfPath(2, k) = max(nActive - rank(Aeq), 0);
 
-    
-        % calculate the stationarity condition value
+    % calculate the stationarity condition value
     stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
         rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
     % see if stationarity condition is satisified
     stationarityConditionsPath.satisfied(k) = ...
         sum(abs(stationarityConditionsPath.values(:, k)) < 1e-8) == p;
-    
     
     % check if constraints are violated or not
     % equality
@@ -446,7 +451,7 @@ for k = 2:maxiters
         constraintsSatisfied.ineq(k) = ...
             sum(A*betapath(:, k) - b < 1e-10) == m2;
     end
-    k
+    
     
     % store subgradient
     subgradientPath.values(:, k) = subgrad;
