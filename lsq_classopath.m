@@ -249,6 +249,8 @@ for k = 2:maxiters
        break;
     end
 
+    display(k)
+    
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
         A(setIneqBorder,setActive)']; 
@@ -257,16 +259,29 @@ for k = 2:maxiters
     try
 %         dir = dirsgn ...
 %             * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+        % original code:
         dir = dirsgn ...
             * (pinv(M) * ...
             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+        % derivative sign defined in terms of rho increasing
+         dir2 = - (pinv(M) * ...
+            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);       
+        
         
     catch
         break;
     end
+    % original code
     dirSubgrad = ...
          - [H(~setActive, setActive) Aeq(:,~setActive)' ...
          A(setIneqBorder,~setActive)'] * dir;
+    % derivative sign defined in terms of rho increasing
+    dirSubgrad2 = ...
+        - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+        A(setIneqBorder,~setActive)'] * dir2;
+    
+    
+     
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
     % calculate direction of subgradient for active coefficients
     dirSubgradActive = ...
@@ -284,24 +299,26 @@ for k = 2:maxiters
         ./ dir(1:nActive);
     
     % coefficient becoming positive 
-     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-%   t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad);
+    t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+    t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad2);
 % 	t1b = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirsgn - dirSubgrad);
 %     t1c = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
 %         (-dirSubgrad*dirsgn + dirsgn);
 %     [t1 t1a t1b t1c]
 %     %t1(t1<0) = inf; % hitting ceiling
     t1(t1<=0) = inf; % hitting ceiling
+    t1a(t1a<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
          ./ (dirSubgrad - dirsgn);   
     % according to my derivations:
         % these all are the same, but differ from t2
-%    t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad);
+     t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad2);
 %     t2b = dirsgn*rhopath(k-1)*(1 + subgrad(~setActive)) ...
 %          ./ (dirSubgrad + 1);
 %     t2c = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
 %          ./ (-dirSubgrad*dirsgn - dirsgn);
 %     [t1 t1a t2 t2a t2b t2c]
+    %[t1 t2 dirSubgrad]
     % t2(t2<0) = inf; % hitting floor
     t2(t2<=0) = inf; % hitting floor
     nextrhoBeta(~setActive) = min(t1, t2);
@@ -316,7 +333,7 @@ for k = 2:maxiters
         ./ dirResidIneq;
     nextrhoIneq(nextrhoIneq<0) = inf;
     
-    display(k)
+    
     %## determine next rho ##%
     %# original method:
     if strcmpi(multCoeff, 'false')
