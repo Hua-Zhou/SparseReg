@@ -245,6 +245,9 @@ else    % with linear constraints
             betahat = gresult.x(1:p) - gresult.x(p+1:end);
             stats.qp_iters=gresult.baritercount; % store gurobi iters
             stats.qp_objval=gresult.objval; % store gurobi obj. value
+            stats.qp_dualEq = gresult.pi(1:size(Aeq,1));
+            %         dualpathEq(:,1) = gresult.pi(m2+1:end);
+%         dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
         elseif strcmpi(qp_solver, 'matlab')
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
