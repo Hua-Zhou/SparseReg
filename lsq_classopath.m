@@ -97,6 +97,9 @@ constraintsSatisfied.eq = Inf(1, maxiters);
 constraintsSatisfied.ineq = Inf(1, maxiters);
 subgradientPath.values = zeros(p, maxiters);
 subgradientPath.satisfied = Inf(1, maxiters);
+subgradientPath.dir = NaN(p, maxiters);
+subgradientPath.inactives = NaN(p, maxiters);
+
 
 % intialization
 H = X'*X;
@@ -140,23 +143,28 @@ if strcmpi(direction, 'increase')
     subgrad(setActive) = sign(betapath(setActive,1));
     subgrad(~penidx) = 0;
 
+    %%% store various things for debugging %%%
     % calculate value for objective function
     objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
         rhopath(1)*sum(abs(betapath(:,1)));
+    
     % calculate the stationarity condition value
     stationarityConditionsPath.values(:, 1) = -X'*(y - X*betapath(:, 1)) + ...
         rhopath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
     % see if stationarity condition is satisified
     stationarityConditionsPath.satisfied(1) = ...
         sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
-    % store subgradient
-    subgradientPath.values(:, 1) = subgrad;
+     
     % store subgradient
     subgradientPath.values(:, 1) = subgrad;
     % check that subgradient condition is satisfied
     subgradientPath.satisfied(1) = ...
         nnz(subgradientPath.values(:, 1) <= 1 & ...
         subgradientPath.values(:, 1) >= -1) == p;
+    % indices for inactive coefficients (dirSubgrad entries)
+    subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
+        find(setActive == 0);
+    
    
     % sign in path direction
     dirsgn = -1;
@@ -228,13 +236,17 @@ elseif strcmpi(direction, 'decrease')
         constraintsSatisfied.ineq(1) = ...
             sum(A*betapath(:, 1) - b < 1e-10) == m2;
     end
+    
     % store subgradient
     subgradientPath.values(:, 1) = subgrad;
     % check that subgradient condition is satisfied
     subgradientPath.satisfied(1) = ...
         nnz(subgradientPath.values(:, 1) <= 1 & ...
         subgradientPath.values(:, 1) >= -1) == p;
-       
+    % indices for inactive coefficients (dirSubgrad entries)
+    subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
+        find(setActive == 0);
+    
     % sign in path direction
     dirsgn = 1;
     % initialize k for manually looking at path following loop
@@ -346,6 +358,7 @@ for k = 2:maxiters
         % find all indices corresponding to this chgrho
         idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= deltaRhoTol);
     end
+    display(idx)
     % terminate path following
     if isinf(chgrho)
         break;
@@ -478,6 +491,15 @@ for k = 2:maxiters
         nnz(subgradientPath.values(:, k) <= (1 + 1e-8) & ...
         subgradientPath.values(:, k) >= (-1 - 1e-8) & ... 
         betapath(:, k).*subgrad >= 0) == p;
+    % derivative for subgradient
+    % k-1 since this is calculated at the beginning of the loop
+    subgradientPath.dir(1:size(dirSubgrad, 1), k-1) = dirSubgrad;
+    % indices for inactive coefficients (dirSubgrad entries)
+    % k since setActive has already been updated
+    subgradientPath.inactives(1:size(find(setActive == 0)), k) = ...
+        find(setActive == 0);
+    
+    
     
     % [betapath(:, k) subgrad]
     
