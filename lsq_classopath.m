@@ -99,7 +99,7 @@ subgradientPath.values = zeros(p, maxiters);
 subgradientPath.satisfied = Inf(1, maxiters);
 subgradientPath.dir = NaN(p, maxiters);
 subgradientPath.inactives = NaN(p, maxiters);
-
+subgradientPath.rhoSubgrad = NaN(p, maxiters);
 
 % intialization
 H = X'*X;
@@ -164,7 +164,8 @@ if strcmpi(direction, 'increase')
     % indices for inactive coefficients (dirSubgrad entries)
     subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
         find(setActive == 0);
-    
+    % calculate rho*subgrad
+    subgradientPath.rhoSubgrad(:, 1) = rhopath(1)*subgrad;
    
     % sign in path direction
     dirsgn = -1;
@@ -246,7 +247,9 @@ elseif strcmpi(direction, 'decrease')
     % indices for inactive coefficients (dirSubgrad entries)
     subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
         find(setActive == 0);
-    
+    % calculate rho*subgrad
+    subgradientPath.rhoSubgrad(:, 1) = rhopath(1)*subgrad;
+
     % sign in path direction
     dirsgn = 1;
     % initialize k for manually looking at path following loop
@@ -261,7 +264,10 @@ for k = 2:maxiters
        break;
     end
 
-    display(k)
+%     if k == 26
+%         setActive(10) = false;
+%         nActive = nnz(setActive);
+%     end
     
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
@@ -275,30 +281,289 @@ for k = 2:maxiters
         dir = dirsgn ...
             * (pinv(M) * ...
             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
-        % derivative sign defined in terms of rho increasing
-         dir2 = - (pinv(M) * ...
-            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);       
-        
-        
+%         % derivative sign defined in terms of rho increasing
+%          dir2 = - (pinv(M) * ...
+%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);       
     catch
         break;
     end
+    % fix numerical issues%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % thresholding dir did not work well 
+    %dir(abs(dir) < 1e-12) = 0;
+        
     % original code
     dirSubgrad = ...
          - [H(~setActive, setActive) Aeq(:,~setActive)' ...
          A(setIneqBorder,~setActive)'] * dir;
     % derivative sign defined in terms of rho increasing
-    dirSubgrad2 = ...
-        - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-        A(setIneqBorder,~setActive)'] * dir2;
+%     dirSubgrad2 = ...
+%         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+%         A(setIneqBorder,~setActive)'] * dir2;
+    
+    
+
+   
+    
+     % check if coefficient is moving too slowly with negative subgradient
+     vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+         dirSubgrad < 1);
+         
+     while ~isempty(vio1ate1_idx)
+   
+         % indices corresponding to inactive coefficients
+         inactiveCoeffs = find(setActive == 0);
+         % identify prblem coefficient 
+         viol_coeff = inactiveCoeffs(vio1ate1_idx); 
+         % put problem coefficient back into active set; 
+         setActive(viol_coeff) = true;
+         % determine new number of active coefficients
+         nActive = nnz(setActive);
+    
+    
+         % recalculate path following direction
+         % path following direction
+         M = [H(setActive, setActive) Aeq(:,setActive)' ...
+             A(setIneqBorder,setActive)'];
+         M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+             [Aeq(:,setActive); A(setIneqBorder,setActive)];
+         try
+             %         dir = dirsgn ...
+             %             * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             % original code:
+             dir = dirsgn ...
+                 * (pinv(M) * ...
+                 [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             %         % derivative sign defined in terms of rho increasing
+             %          dir2 = - (pinv(M) * ...
+             %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             
+             
+         catch
+             break;
+         end
+         
+         
+         % original code
+         dirSubgrad = ...
+             - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+             A(setIneqBorder,~setActive)'] * dir;
+         % derivative sign defined in terms of rho increasing
+         %     dirSubgrad2 = ...
+         %         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+         %         A(setIneqBorder,~setActive)'] * dir2;
+         
+         
+          % check for violations again 
+          vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+              dirSubgrad < 1);
+     end
+  
+
+    % check if coefficient equals zero, but is marked active and has a
+    % contradiction between its direction and subgradient sign
+%     vio1ate2_idx = find(betapath(setActive, k-1) == 0 & ...
+%         sign(subgrad(setActive)) ~= sign(dir(1:nActive)))
+        
+
+     % check if coefficient is moving too slowly with positive subgradient
+     vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+         dirSubgrad < 0);
+     
+     while ~isempty(vio1ate2_idx)
+         
+         % indices corresponding to inactive coefficients
+         inactiveCoeffs = find(setActive == 0);
+         % identify prblem coefficient
+         viol_coeff = inactiveCoeffs(vio1ate2_idx);
+         % put problem coefficient back into active set;
+         setActive(viol_coeff) = true;
+         % determine new number of active coefficients
+         nActive = nnz(setActive);
+         
+         
+         % recalculate path following direction
+         % path following direction
+         M = [H(setActive, setActive) Aeq(:,setActive)' ...
+             A(setIneqBorder,setActive)'];
+         M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+             [Aeq(:,setActive); A(setIneqBorder,setActive)];
+         try
+             %         dir = dirsgn ...
+             %             * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             % original code:
+             dir = dirsgn ...
+                 * (pinv(M) * ...
+                 [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             %         % derivative sign defined in terms of rho increasing
+             %          dir2 = - (pinv(M) * ...
+             %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             
+             
+         catch
+             break;
+         end
+         
+         
+         % original code
+         dirSubgrad = ...
+             - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+             A(setIneqBorder,~setActive)'] * dir;
+         % derivative sign defined in terms of rho increasing
+         %     dirSubgrad2 = ...
+         %         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+         %         A(setIneqBorder,~setActive)'] * dir2;
+         
+         
+         % check for violations again
+         vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+             dirSubgrad < 0);
+     end
+     
+
+
+     
+     
+     
+     
+     
+
+    
+    % coefficient in setActive with betapath = 0, and positive subgrad but
+    % negative dir (which would result in a negative coefficient but with a
+    % positive subgradient)
+    vio1ate3_idx = find((0 - 1e-8) <= subgrad(setActive) & ...
+        subgrad(setActive) <= (1 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
+        betapath(setActive, k-1) == 0);
+    
+    
+     while ~isempty(vio1ate3_idx)
+        
+        % indices corresponding to active coefficients
+        activeCoeffs = find(setActive == 1);
+        % identify prblem coefficient
+        viol_coeff = activeCoeffs(vio1ate3_idx);
+        % put problem coefficient back into inactive set;
+        setActive(viol_coeff) = false;
+        % determine new number of active coefficients
+        nActive = nnz(setActive);
+        
+        
+        % recalculate path following direction
+        % path following direction
+        M = [H(setActive, setActive) Aeq(:,setActive)' ...
+            A(setIneqBorder,setActive)'];
+        M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+            [Aeq(:,setActive); A(setIneqBorder,setActive)];
+        try
+            %   dir = dirsgn ...
+            %      * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            % original code:
+            dir = dirsgn ...
+                * (pinv(M) * ...
+                [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            %         % derivative sign defined in terms of rho increasing
+            %          dir2 = - (pinv(M) * ...
+            %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            
+            
+        catch
+            break;
+        end
+        
+        
+        % original code
+        dirSubgrad = ...
+            - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+            A(setIneqBorder,~setActive)'] * dir;
+        % derivative sign defined in terms of rho increasing
+        %     dirSubgrad2 = ...
+        %         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+        %         A(setIneqBorder,~setActive)'] * dir2;
+        
+        
+        % check for violations again
+        vio1ate3_idx = find((0 - 1e-8) <= subgrad(setActive) & ...
+            subgrad(setActive) <= (1 + 1e-8) & ...
+            dir(1:nActive) <= (0 - 1e-8) & ...
+            betapath(setActive, k-1) == 0);
+    end
+    
+    
+    % coefficient in setActive with betapath = 0, and negative subgradient but
+    % positive dir (which would result in a positive coefficient but with a
+    % negative subgradient)
+    vio1ate4_idx = find((-1 - 1e-8) <= subgrad(setActive) & ...
+        subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
+        betapath(setActive, k-1) == 0, 1);
+   
+    while ~isempty(vio1ate4_idx)
+        
+        % indices corresponding to active coefficients
+        activeCoeffs = find(setActive == 1);
+        % identify prblem coefficient
+        viol_coeff = activeCoeffs(vio1ate4_idx);
+        % put problem coefficient back into inactive set;
+        setActive(viol_coeff) = false;
+        % determine new number of active coefficients
+        nActive = nnz(setActive);
+        
+        
+        % recalculate path following direction
+        % path following direction
+        M = [H(setActive, setActive) Aeq(:,setActive)' ...
+            A(setIneqBorder,setActive)'];
+        M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+            [Aeq(:,setActive); A(setIneqBorder,setActive)];
+        try
+            %   dir = dirsgn ...
+            %      * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            % original code:
+            dir = dirsgn ...
+                * (pinv(M) * ...
+                [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            %         % derivative sign defined in terms of rho increasing
+            %          dir2 = - (pinv(M) * ...
+            %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            
+            
+        catch
+            break;
+        end
+        
+        
+        % original code
+        dirSubgrad = ...
+            - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+            A(setIneqBorder,~setActive)'] * dir;
+        % derivative sign defined in terms of rho increasing
+        %     dirSubgrad2 = ...
+        %         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+        %         A(setIneqBorder,~setActive)'] * dir2;
+        
+        
+        % check for violations again
+        vio1ate4_idx = find((-1 - 1e-8) <= subgrad(setActive) & ...
+            subgrad(setActive) <= (0 + 1e-8) & ...
+            (0 + 1e-8) <=  dir(1:nActive) & ...
+            betapath(setActive, k-1) == 0, 1);
+    end
+    
+ 
+          
+     
+    
+
+    dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
+
+
     
     
      
-    dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
+
     % calculate direction of subgradient for active coefficients
-    dirSubgradActive = ...
-        - [H(setActive, setActive) Aeq(:,setActive)' ...
-        A(setIneqBorder, setActive)'] * dir;
+%     dirSubgradActive = ...
+%         - [H(setActive, setActive) Aeq(:,setActive)' ...
+%         A(setIneqBorder, setActive)'] * dir;
      %dir(abs(dir(:)) < 1e-8) = 0;  
 %     % terminate path following
 %     if max(abs(dir)) < 1e-8
@@ -312,19 +577,19 @@ for k = 2:maxiters
     
     % coefficient becoming positive 
     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-    t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad2);
+   % t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad2);
 % 	t1b = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirsgn - dirSubgrad);
 %     t1c = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
 %         (-dirSubgrad*dirsgn + dirsgn);
 %     [t1 t1a t1b t1c]
 %     %t1(t1<0) = inf; % hitting ceiling
     t1(t1<=0) = inf; % hitting ceiling
-    t1a(t1a<=0) = inf; % hitting ceiling
+    %t1a(t1a<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
          ./ (dirSubgrad - dirsgn);   
     % according to my derivations:
         % these all are the same, but differ from t2
-     t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad2);
+     %t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad2);
 %     t2b = dirsgn*rhopath(k-1)*(1 + subgrad(~setActive)) ...
 %          ./ (dirSubgrad + 1);
 %     t2c = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
@@ -358,7 +623,7 @@ for k = 2:maxiters
         % find all indices corresponding to this chgrho
         idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= deltaRhoTol);
     end
-    display(idx)
+    
     % terminate path following
     if isinf(chgrho)
         break;
@@ -393,12 +658,12 @@ for k = 2:maxiters
 %          /rhopath(k);
     residIneq = A*betapath(:,k) - b; % may wanna move this to after thresholding
      
-
+    % calculate rho*subgrad
+    subgradientPath.rhoSubgrad(:, k) = rhopath(k)*subgrad;
+       
     
-    
-    
-   %%% need to change this, b/c it can be in bounds but also have wrong
-   %%% signoo
+    %%% need to change this, b/c it can be in bounds but also have wrong
+    %%% signoo
     
     
     %## update sets ##%
@@ -436,11 +701,6 @@ for k = 2:maxiters
     
     % force near-zero coefficients to be zero (helps with numerical issues)
     betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
-    
-%     % check that setActive is defined correctly
-%     idxSetActiveWrong = find(abs(sign(betapath(:, k))) ~= setActive);
-%     
-%     
     
     % determine new number of active coefficients
     nActive = nnz(setActive);
@@ -533,5 +793,6 @@ constraintsSatisfied.eq(k:end) = [];
 constraintsSatisfied.ineq(k:end) = [];
 subgradientPath.values(:, k:end) = [];
 subgradientPath.satisfied(k:end) = [];
+subgradientPath.rhoSubgrad(:, k:end) = [];
 
 end
