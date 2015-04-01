@@ -362,7 +362,9 @@ for k = 2:maxiters
 %     % derivative 
 %     dir(troubleIdxActive);
     
-    
+
+    % reset violation counter (to avoid infinite loops)
+    violateCounter = 0;
      
     % super while loop for checking all conditions together 
     while ~isempty(vio1ate1_idx) || ~isempty(vio1ate2_idx) || ...
@@ -374,7 +376,7 @@ for k = 2:maxiters
     % fix condition 1 violations
     while ~isempty(vio1ate1_idx)
          
-         % indices corresponding to inactive coefficients
+        % indices corresponding to inactive coefficients
          inactiveCoeffs = find(setActive == 0);
          % identify prblem coefficient
          viol_coeff = inactiveCoeffs(vio1ate1_idx);
@@ -420,6 +422,14 @@ for k = 2:maxiters
          % check for violations again
          vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
              dirSubgrad < 1);
+         
+         % update violation counter 
+         violateCounter = violateCounter + 1;
+         
+         % break loop if needed
+         if violateCounter >= maxiters
+             break;
+         end
     end
 
     % fix condition 2 violations
@@ -471,6 +481,14 @@ for k = 2:maxiters
          % check for violations again
          vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
              dirSubgrad < 0);
+         
+         % update violation counter
+         violateCounter = violateCounter + 1;
+         
+         % break loop if needed
+         if violateCounter >= maxiters
+             break;
+         end
     end
     
     % fix condition 3 violations
@@ -524,6 +542,14 @@ for k = 2:maxiters
             subgrad(setActive) <= (1 + 1e-8) & ...
             dir(1:nActive) <= (0 - 1e-8) & ...
             betapath(setActive, k-1) == 0);
+        
+        % update violation counter
+        violateCounter = violateCounter + 1;
+        
+        % break loop if needed
+        if violateCounter >= maxiters
+            break;
+        end
     end
      
     % fix condition 4 violations
@@ -577,6 +603,14 @@ for k = 2:maxiters
             subgrad(setActive) <= (0 + 1e-8) & ...
             (0 + 1e-8) <=  dir(1:nActive) & ...
             betapath(setActive, k-1) == 0, 1);
+        
+        % update violation counter
+        violateCounter = violateCounter + 1;
+        
+        % break loop if needed
+        if violateCounter >= maxiters
+            break;
+        end
     end
     
  
