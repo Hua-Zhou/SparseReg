@@ -652,7 +652,7 @@ for k = 2:maxiters
 %         (-dirSubgrad*dirsgn + dirsgn);
 %     [t1 t1a t1b t1c]
 %     %t1(t1<0) = inf; % hitting ceiling
-    t1(t1<=0) = inf; % hitting ceiling
+    t1(t1<=0+1e-8) = inf; % hitting ceiling
     %t1a(t1a<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
          ./ (dirSubgrad - dirsgn); 
@@ -667,7 +667,7 @@ for k = 2:maxiters
 %     [t1 t1a t2 t2a t2b t2c]
     %[t1 t2 dirSubgrad]
     % t2(t2<0) = inf; % hitting floor
-    t2(t2<=0) = inf; % hitting floor
+    t2(t2<=0+1e-8) = inf; % hitting floor
     nextrhoBeta(~setActive) = min(t1, t2);
     % nextrhoBeta(troubleIdxInactive);
     
