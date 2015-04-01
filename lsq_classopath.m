@@ -264,10 +264,7 @@ for k = 2:maxiters
        break;
     end
 
-%     if k == 26
-%         setActive(10) = false;
-%         nActive = nnz(setActive);
-%     end
+    % display(k)
     
     % path following direction
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
@@ -650,6 +647,10 @@ for k = 2:maxiters
         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
         betapath(setActive, k-1) == 0, 1);
     
+    % break loop if needed
+        if violateCounter >= maxiters
+            break;
+        end
     end
     
 
