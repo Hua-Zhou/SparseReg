@@ -306,13 +306,19 @@ for k = 2:maxiters
     %## check to see if any conditions are violated
 
     % check if coefficient is moving too slowly with negative subgradient
-    vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+%     vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+%         dirSubgrad < 1);
+    vio1ate1_idx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
         dirSubgrad < 1);
     
     % check if coefficient is moving too slowly with positive subgradient
-    vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+%     vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+%         dirSubgrad < 0);
+    vio1ate2_idx = find((1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
         dirSubgrad < 0);
- 
+    
     % coefficient in setActive with betapath = 0, and positive subgrad but
     % negative dir (which would result in a negative coefficient but with a
     % positive subgradient)
@@ -328,6 +334,36 @@ for k = 2:maxiters
         betapath(setActive, k-1) == 0, 1);
     
     
+%     % stuff for debugging 
+%     % specify trouble coefficient
+%     troubleCoeff = 46;
+%     % check active status of coefficient 
+%     setActive(troubleCoeff);
+%     
+%     % value of subgradient
+%     subgrad(troubleCoeff); % I don't understand this error
+%     % betahat_{troubleCoeff}
+%     betapath(troubleCoeff, k-1);
+%     
+%     % define which coefficients are inactive 
+%     inactives = find(setActive == 0);
+%     % define which coefficients are inactive 
+%     actives = find(setActive == 1);
+%     
+%     % find the index of the inactive set corresponding to the trouble
+%     % coefficient (if applicable) 
+%     troubleIdxInactive = find(inactives == troubleCoeff);
+%     % derivative of rho*subgrad for trouble coefficient 
+%     dirSubgrad(troubleIdxInactive); % I don't understand this error
+% 
+%     % find the index of the active set corresponding to the trouble
+%     % coefficient (if applicable)    
+%     troubleIdxActive = find(actives == troubleCoeff);
+%     % derivative 
+%     dir(troubleIdxActive);
+    
+    
+     
     % super while loop for checking all conditions together 
     while ~isempty(vio1ate1_idx) || ~isempty(vio1ate2_idx) || ...
             ~isempty(vio1ate3_idx) || ~isempty(vio1ate4_idx)
@@ -548,12 +584,23 @@ for k = 2:maxiters
     
     
       % check if coefficient is moving too slowly with negative subgradient
-    vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+%     vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+%         dirSubgrad < 1);
+     vio1ate1_idx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
         dirSubgrad < 1);
     
     % check if coefficient is moving too slowly with positive subgradient
-    vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+%     vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+%         dirSubgrad < 0);
+    vio1ate2_idx = find((1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
         dirSubgrad < 0);
+    
+    
+%     % check if coefficient is moving too slowly with positive subgradient
+%     vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+%         dirSubgrad < 0);
  
     % coefficient in setActive with betapath = 0, and positive subgrad but
     % negative dir (which would result in a negative coefficient but with a
@@ -569,10 +616,6 @@ for k = 2:maxiters
         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
         betapath(setActive, k-1) == 0, 1);
     
-    
-    
-    
-          
     end
     
 
@@ -598,8 +641,11 @@ for k = 2:maxiters
     nextrhoBeta(setActive) = - betapath(setActive,k-1) ...
         ./ dir(1:nActive);
     
+    
+    
     % coefficient becoming positive 
     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
+    % t1(troubleIdxInactive);
    % t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad2);
 % 	t1b = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirsgn - dirSubgrad);
 %     t1c = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
@@ -609,7 +655,8 @@ for k = 2:maxiters
     t1(t1<=0) = inf; % hitting ceiling
     %t1a(t1a<=0) = inf; % hitting ceiling
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-         ./ (dirSubgrad - dirsgn);   
+         ./ (dirSubgrad - dirsgn); 
+    %t2(troubleIdxInactive);
     % according to my derivations:
         % these all are the same, but differ from t2
      %t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad2);
@@ -622,7 +669,11 @@ for k = 2:maxiters
     % t2(t2<0) = inf; % hitting floor
     t2(t2<=0) = inf; % hitting floor
     nextrhoBeta(~setActive) = min(t1, t2);
+    % nextrhoBeta(troubleIdxInactive);
+    
     nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
+    
+    
     
     % next rho for inequality constraints
     nextrhoIneq = inf(m2, 1);
@@ -674,11 +725,77 @@ for k = 2:maxiters
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
     subgrad(~setActive) = ...
         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+    % for (n, p) = (75, 75) it's 46 at k=358
+    % for (n, p) = (56, 119) it's 189 at k=210
+    
+%     
+%     % specify trouble coefficient
+%     troubleCoeff = 46;
+%     % check active status of coefficient 
+%     setActive(troubleCoeff);
+%     
+%     % value of subgradient
+%     subgrad(troubleCoeff); % I don't understand this error
+%     % betahat_{troubleCoeff}
+%     betapath(troubleCoeff, k);
+%     
+%     % define which coefficients are inactive 
+%     inactives = find(setActive == 0);
+%     % define which coefficients are inactive 
+%     actives = find(setActive == 1);
+%     
+%     % find the index of the inactive set corresponding to the trouble
+%     % coefficient (if applicable) 
+%     troubleIdxInactive = find(inactives == troubleCoeff);
+%     % derivative of rho*subgrad for trouble coefficient 
+%     dirSubgrad(troubleIdxInactive); % I don't understand this error
+% 
+%     % find the index of the active set corresponding to the trouble
+%     % coefficient (if applicable)    
+%     troubleIdxActive = find(actives == troubleCoeff);
+%     % derivative 
+%     dir(troubleIdxActive);
+    
+    
+    
+%     % specify trouble coefficient
+%     troubleCoeff = 48;
+%     % define which coefficients are inactive 
+%     inactives = find(setActive == 0);
+%     % find the index of the inactive set corresponding to the trouble
+%     % coefficient
+%     troubleIdx = find(inactives == troubleCoeff);
+%     % derivative of rho*subgrad for trouble coefficient 
+%     dirSubgrad(troubleIdx); % I don't understand this error
+%     % value of subgradient
+%     subgrad(troubleCoeff); % I don't understand this error
+%     % active status 
+%     setActive(troubleCoeff)
+%     % betahat_{troubleCoeff}
+%     betapath(troubleCoeff, k-1);
+%     
+%     
+%    (rhopath(k-1)*subgrad(troubleCoeff) + chgrho*dirSubgrad(troubleIdx))/rhopath(k)
+%     
+%     tempSubgrad =  (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+%     
+%     tempSubgrad(troubleIdx)
+%     
+%     inactives = find(setActive == 0);
+%     troubleIdx = find(inactives == 189);
+%     dirSubgrad(troubleIdx)
+%     
+
+
+%     subgrad2 = (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+%     subgrad2(trou
 %     subgrad(setActive) = ...
 %          (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
 %      subgrad(~setActive) = ...
 %          (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
 %          /rhopath(k);
+
+
     residIneq = A*betapath(:,k) - b; % may wanna move this to after thresholding
      
     % calculate rho*subgrad
