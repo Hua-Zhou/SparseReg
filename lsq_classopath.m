@@ -260,10 +260,17 @@ end
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters 
 
-    if rhopath(k-1) == 0
-       break;
-    end
+%     if rhopath(k-1) == 0
+%        break;
+%     end
 
+    if rhopath(k-1) <= (0 + 1e-8)
+        rhopath(k-1) = 0;
+        break;
+    end
+    
+    
+    
     % display(k)
     
     % path following direction
@@ -333,7 +340,7 @@ for k = 2:maxiters
     
 %     % stuff for debugging 
 %     % specify trouble coefficient
-%     troubleCoeff = 46;
+%     troubleCoeff = 9;
 %     % check active status of coefficient 
 %     setActive(troubleCoeff);
 %     
@@ -608,6 +615,7 @@ for k = 2:maxiters
         if violateCounter >= maxiters
             break;
         end
+        
     end
     
  
@@ -647,11 +655,11 @@ for k = 2:maxiters
         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
         betapath(setActive, k-1) == 0, 1);
     
-    % break loop if needed
-        if violateCounter >= maxiters
-            break;
-        end
-    end
+     % break loop if needed
+         if violateCounter >= maxiters
+             break;
+         end
+     end
     
 
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
@@ -760,12 +768,11 @@ for k = 2:maxiters
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
     subgrad(~setActive) = ...
         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-    % for (n, p) = (75, 75) it's 46 at k=358
-    % for (n, p) = (56, 119) it's 189 at k=210
+
     
 %     
 %     % specify trouble coefficient
-%     troubleCoeff = 46;
+%     troubleCoeff = 9;
 %     % check active status of coefficient 
 %     setActive(troubleCoeff);
 %     
@@ -790,40 +797,10 @@ for k = 2:maxiters
 %     troubleIdxActive = find(actives == troubleCoeff);
 %     % derivative 
 %     dir(troubleIdxActive);
-    
-    
-    
-%     % specify trouble coefficient
-%     troubleCoeff = 48;
-%     % define which coefficients are inactive 
-%     inactives = find(setActive == 0);
-%     % find the index of the inactive set corresponding to the trouble
-%     % coefficient
-%     troubleIdx = find(inactives == troubleCoeff);
-%     % derivative of rho*subgrad for trouble coefficient 
-%     dirSubgrad(troubleIdx); % I don't understand this error
-%     % value of subgradient
-%     subgrad(troubleCoeff); % I don't understand this error
-%     % active status 
-%     setActive(troubleCoeff)
-%     % betahat_{troubleCoeff}
-%     betapath(troubleCoeff, k-1);
-%     
-%     
-%    (rhopath(k-1)*subgrad(troubleCoeff) + chgrho*dirSubgrad(troubleIdx))/rhopath(k)
-%     
-%     tempSubgrad =  (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-%     
-%     tempSubgrad(troubleIdx)
-%     
-%     inactives = find(setActive == 0);
-%     troubleIdx = find(inactives == 189);
-%     dirSubgrad(troubleIdx)
-%     
-
+   
 
 %     subgrad2 = (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-%     subgrad2(trou
+  
 %     subgrad(setActive) = ...
 %          (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
 %      subgrad(~setActive) = ...
