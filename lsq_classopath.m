@@ -1,6 +1,6 @@
 function [rhopath, betapath, dfPath, objValPath, stationarityConditionsPath, ...
-    constraintsSatisfied, subgradientPath, dualpathEq, dualpathIneq] = ...
-    lsq_classopath(X, y, A, b, Aeq, beq, varargin)
+    constraintsSatisfied, subgradientPath, violationsPath, dualpathEq, ...
+    dualpathIneq] = lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %   BETAHAT = LSQ_SPARSEREG(X, y, lambda) fits penalized linear regression
 %   using the predictor matrix X, response Y, and tuning parameter value
@@ -100,6 +100,8 @@ subgradientPath.satisfied = Inf(1, maxiters);
 subgradientPath.dir = NaN(p, maxiters);
 subgradientPath.inactives = NaN(p, maxiters);
 subgradientPath.rhoSubgrad = NaN(p, maxiters);
+violationsPath = Inf(1, maxiters);
+
 
 % intialization
 H = X'*X;
@@ -167,6 +169,9 @@ if strcmpi(direction, 'increase')
     % calculate rho*subgrad
     subgradientPath.rhoSubgrad(:, 1) = rhopath(1)*subgrad;
    
+    % set initial violations counter to 0
+    violationsPath(1) = 0;
+    
     % sign in path direction
     dirsgn = -1;
     % initialize k for manually looking at path following loop
@@ -250,6 +255,9 @@ elseif strcmpi(direction, 'decrease')
     % calculate rho*subgrad
     subgradientPath.rhoSubgrad(:, 1) = rhopath(1)*subgrad;
 
+    % set initial violations counter to 0
+    violationsPath(1) = 0;
+    
     % sign in path direction
     dirsgn = 1;
     % initialize k for manually looking at path following loop
@@ -659,14 +667,15 @@ for k = 2:maxiters
          if violateCounter >= maxiters
              break;
          end
-     end
+    end
     
-
+    % store number of violations
+    violationsPath(k) = violateCounter;
+    
+    
     dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
 
 
-    
-    
      
 
     % calculate direction of subgradient for active coefficients
@@ -946,5 +955,7 @@ constraintsSatisfied.ineq(k:end) = [];
 subgradientPath.values(:, k:end) = [];
 subgradientPath.satisfied(k:end) = [];
 subgradientPath.rhoSubgrad(:, k:end) = [];
-
+violationsPath(k:end) = [];
+    
+    
 end
