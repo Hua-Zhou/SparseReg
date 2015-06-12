@@ -763,7 +763,7 @@ for k = 2:maxiters
 %     if rhopath(k)==rhopath(k-1)
 %        break;
 %     end
-    
+    % display(rhopath(k))
     % this also doesn't make sense to me...but making the change breaks it
     betapath(setActive,k) = betapath(setActive,k-1) ...
          + chgrho*dir(1:nActive);
@@ -954,6 +954,8 @@ constraintsSatisfied.eq(k:end) = [];
 constraintsSatisfied.ineq(k:end) = [];
 subgradientPath.values(:, k:end) = [];
 subgradientPath.satisfied(k:end) = [];
+subgradientPath.dir(:, k:end) = [];
+subgradientPath.inactives(:, k:end) = [];
 subgradientPath.rhoSubgrad(:, k:end) = [];
 violationsPath(k:end) = [];
     
