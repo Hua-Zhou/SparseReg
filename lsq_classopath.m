@@ -267,7 +267,7 @@ end
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters 
-
+    tic;
 %     if rhopath(k-1) == 0
 %        break;
 %     end
@@ -763,7 +763,7 @@ for k = 2:maxiters
 %     if rhopath(k)==rhopath(k-1)
 %        break;
 %     end
-    % display(rhopath(k))
+    display(rhopath(k))
     % this also doesn't make sense to me...but making the change breaks it
     betapath(setActive,k) = betapath(setActive,k-1) ...
          + chgrho*dir(1:nActive);
@@ -877,8 +877,8 @@ for k = 2:maxiters
      
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
-    dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
-    dfPath(2, k) = max(nActive - rank(Aeq), 0);
+    %dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
+    %dfPath(2, k) = max(nActive - rank(Aeq), 0);
 
     % calculate the stationarity condition value
     stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
@@ -937,7 +937,7 @@ for k = 2:maxiters
 %     
 
     
-    
+    toc
 end
 
 % clean up
