@@ -89,7 +89,7 @@ betapath = zeros(p, maxiters);
 dualpathEq = zeros(m1, maxiters);
 dualpathIneq = zeros(m2, maxiters);
 rhopath = zeros(1, maxiters);
-dfPath = zeros(2, maxiters);
+dfPath = Inf(2, maxiters);
 objValPath = zeros(1, maxiters);
 stationarityConditionsPath.values = zeros(p, maxiters);
 stationarityConditionsPath.satisfied = Inf(1, maxiters);
@@ -149,6 +149,14 @@ if strcmpi(direction, 'increase')
     % calculate value for objective function
     objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
         rhopath(1)*sum(abs(betapath(:,1)));
+    
+    % calculate degrees of freedom (using two different methods, I believe
+    % method 1 is more correct).  %Also, df are thresholded at zero.  
+    rankAeq = rank(Aeq);
+    dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
+    dfPath(2, 1) = nActive - rankAeq;
+    %dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
+    %dfPath(2, 1) = max(nActive - rankAeq, 0);
     
     % calculate the stationarity condition value
     stationarityConditionsPath.values(:, 1) = -X'*(y - X*betapath(:, 1)) + ...
@@ -221,6 +229,14 @@ elseif strcmpi(direction, 'decrease')
     % calculate value for objective function
     objValPath(1) = norm(y-X*betapath(:,1))^2/2 + ...
         rhopath(1)*sum(abs(betapath(:,1)));
+    % calculate degrees of freedom (using two different methods, I believe
+    % method 1 is more correct).  %Also, df are thresholded at zero.  
+    rankAeq = rank(Aeq);
+    dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
+    dfPath(2, 1) = nActive - rankAeq;
+    %dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
+    %dfPath(2, 1) = max(nActive - rankAeq, 0);
+    
     % calculate the stationarity condition value
     stationarityConditionsPath.values(:, 1) = -X'*(y - X*betapath(:, 1)) + ...
         rhopath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
@@ -293,6 +309,10 @@ for k = 2:maxiters
         dir = dirsgn ...
             * (pinv(M) * ...
             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%         dir = dirsgn ...
+%             * (M \ ...
+%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             
 %         % derivative sign defined in terms of rho increasing
 %          dir2 = - (pinv(M) * ...
 %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);       
@@ -411,6 +431,11 @@ for k = 2:maxiters
              dir = dirsgn ...
                  * (pinv(M) * ...
                  [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%              dir = dirsgn ...
+%                  * (M \ ...
+%                  [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);             
+             
+             
              %         % derivative sign defined in terms of rho increasing
              %          dir2 = - (pinv(M) * ...
              %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
@@ -470,6 +495,10 @@ for k = 2:maxiters
              dir = dirsgn ...
                  * (pinv(M) * ...
                  [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%              dir = dirsgn ...
+%                  * (M \ ...
+%                  [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             
              %         % derivative sign defined in terms of rho increasing
              %          dir2 = - (pinv(M) * ...
              %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
@@ -529,6 +558,10 @@ for k = 2:maxiters
             dir = dirsgn ...
                 * (pinv(M) * ...
                 [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%             dir = dirsgn ...
+%                 * (M \ ...
+%                 [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             
             %         % derivative sign defined in terms of rho increasing
             %          dir2 = - (pinv(M) * ...
             %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
@@ -590,6 +623,10 @@ for k = 2:maxiters
             dir = dirsgn ...
                 * (pinv(M) * ...
                 [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%             dir = dirsgn ...
+%                 * (M \ ...
+%                 [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+             
             %         % derivative sign defined in terms of rho increasing
             %          dir2 = - (pinv(M) * ...
             %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
@@ -763,7 +800,7 @@ for k = 2:maxiters
 %     if rhopath(k)==rhopath(k-1)
 %        break;
 %     end
-    display(rhopath(k))
+    %display(rhopath(k))
     % this also doesn't make sense to me...but making the change breaks it
     betapath(setActive,k) = betapath(setActive,k-1) ...
          + chgrho*dir(1:nActive);
@@ -877,9 +914,16 @@ for k = 2:maxiters
      
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
-    %dfPath(1, k) = max(rank(X(:,  setActive)) - rank(Aeq), 0);
-    %dfPath(2, k) = max(nActive - rank(Aeq), 0);
+    dfPath(1, k) = rank(X(:,  setActive)) - rankAeq;
+    dfPath(2, k) = nActive - rankAeq;
+    %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
+    %dfPath(2, k) = max(nActive - rankAeq, 0);
 
+     if dfPath(2, k) > n
+         break;
+     end
+    
+    
     % calculate the stationarity condition value
     stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
         rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
@@ -937,7 +981,7 @@ for k = 2:maxiters
 %     
 
     
-    toc
+    %toc
 end
 
 % clean up
