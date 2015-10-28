@@ -283,90 +283,78 @@ end
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters 
-    tic;
-%     if rhopath(k-1) == 0
-%        break;
-%     end
+%    tic; % timing for speed issues
 
+    % threshold near-zero rhos to zero and stop algorithm
     if rhopath(k-1) <= (0 + 1e-8)
         rhopath(k-1) = 0;
         break;
     end
     
-    
-    
-    % display(k)
-    
-    % path following direction
+    %# Calculate derivative for coefficients and multipliers (Eq. 8) #%
+    % construct matrix
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
         A(setIneqBorder,setActive)']; 
     M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
+    % calculate derivative 
     try
+%         % original code (regular inverse of M):
 %         dir = dirsgn ...
-%             * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
-        % original code:
+%               * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+       
+        % second code (pinv of M):
         dir = dirsgn ...
             * (pinv(M) * ...
             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
-%         dir = dirsgn ...
-%             * (M \ ...
-%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
              
-%         % derivative sign defined in terms of rho increasing
-%          dir2 = - (pinv(M) * ...
-%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);       
+%         % third code (derivative sign defined in terms of rho increasing)
+        dir2 = -(pinv(M) * ...
+            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
     catch
         break;
     end
-    % fix numerical issues%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % thresholding dir did not work well 
-    %dir(abs(dir) < 1e-12) = 0;
-        
+%     % possible fix for numerical issues (thresholding small derivatives to
+%     % zero.  This did not work well.  
+%     dir(abs(dir) < 1e-12) = 0;
+       
+    %# calculate derivative for rho*subgradient (Eq. 10) #%
     % original code
     dirSubgrad = ...
          - [H(~setActive, setActive) Aeq(:,~setActive)' ...
          A(setIneqBorder,~setActive)'] * dir;
-    % derivative sign defined in terms of rho increasing
-%     dirSubgrad2 = ...
-%         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-%         A(setIneqBorder,~setActive)'] * dir2;
+    % second code (derivative sign defined in terms of rho increasing)
+    dirSubgrad2 = ...
+        - [H(~setActive, setActive) Aeq(:,~setActive)' ...
+        A(setIneqBorder,~setActive)'] * dir2;
     
     
+    %## check to see if any conditions are violated ##%
 
-
-    %## check to see if any conditions are violated
-
-    % check if coefficient is moving too slowly with negative subgradient
-%     vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
-%         dirSubgrad < 1);
-    vio1ate1_idx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+    %# Inactive coefficients moving too slowly #%
+    % Negative subgradient
+    inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
         dirSubgrad < 1);
-    
-    % check if coefficient is moving too slowly with positive subgradient
-%     vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
-%         dirSubgrad < 0);
-    vio1ate2_idx = find((1 - 1e-8) <= subgrad(~setActive) & ...
+    % Positive subgradient
+    inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
         dirSubgrad < 0);
     
-    % coefficient in setActive with betapath = 0, and positive subgrad but
-    % negative dir (which would result in a negative coefficient but with a
-    % positive subgradient)
-    vio1ate3_idx = find((0 - 1e-8) <= subgrad(setActive) & ...
+    %# "Active" coeficients estimated as 0 with potential sign mismatch #%
+    
+    % Positive subgrad but negative derivative 
+    signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (1 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
         betapath(setActive, k-1) == 0);   
      
-    % coefficient in setActive with betapath = 0, and negative subgradient but
-    % positive dir (which would result in a positive coefficient but with a
-    % negative subgradient)
-    vio1ate4_idx = find((-1 - 1e-8) <= subgrad(setActive) & ...
+    % Negative subgradient but positive derivative
+    signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
         betapath(setActive, k-1) == 0, 1);
     
     
-%     % stuff for debugging 
+%     %# temp stuff for debugging #%
 %     % specify trouble coefficient
 %     troubleCoeff = 9;
 %     % check active status of coefficient 
@@ -399,19 +387,19 @@ for k = 2:maxiters
     violateCounter = 0;
      
     % super while loop for checking all conditions together 
-    while ~isempty(vio1ate1_idx) || ~isempty(vio1ate2_idx) || ...
-            ~isempty(vio1ate3_idx) || ~isempty(vio1ate4_idx)
+    while ~isempty(inactSlowNegIdx) || ~isempty(inactSlowPosIdx) || ...
+            ~isempty(signMismatchPosIdx) || ~isempty(signMismatchNegIdx)
     
         
         % Check and fix each violated condition
         
     % fix condition 1 violations
-    while ~isempty(vio1ate1_idx)
+    while ~isempty(inactSlowNegIdx)
          
         % indices corresponding to inactive coefficients
          inactiveCoeffs = find(setActive == 0);
          % identify prblem coefficient
-         viol_coeff = inactiveCoeffs(vio1ate1_idx);
+         viol_coeff = inactiveCoeffs(inactSlowNegIdx);
          % put problem coefficient back into active set;
          setActive(viol_coeff) = true;
          % determine new number of active coefficients
@@ -457,7 +445,7 @@ for k = 2:maxiters
          
          
          % check for violations again
-         vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
+         inactSlowNegIdx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
              dirSubgrad < 1);
          
          % update violation counter 
@@ -470,12 +458,12 @@ for k = 2:maxiters
     end
 
     % fix condition 2 violations
-    while ~isempty(vio1ate2_idx)
+    while ~isempty(inactSlowPosIdx)
          
          % indices corresponding to inactive coefficients
          inactiveCoeffs = find(setActive == 0);
          % identify prblem coefficient
-         viol_coeff = inactiveCoeffs(vio1ate2_idx);
+         viol_coeff = inactiveCoeffs(inactSlowPosIdx);
          % put problem coefficient back into active set;
          setActive(viol_coeff) = true;
          % determine new number of active coefficients
@@ -520,7 +508,7 @@ for k = 2:maxiters
          
          
          % check for violations again
-         vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
+         inactSlowPosIdx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
              dirSubgrad < 0);
          
          % update violation counter
@@ -533,12 +521,12 @@ for k = 2:maxiters
     end
     
     % fix condition 3 violations
-    while ~isempty(vio1ate3_idx)
+    while ~isempty(signMismatchPosIdx)
         
         % indices corresponding to active coefficients
         activeCoeffs = find(setActive == 1);
         % identify prblem coefficient
-        viol_coeff = activeCoeffs(vio1ate3_idx);
+        viol_coeff = activeCoeffs(signMismatchPosIdx);
         % put problem coefficient back into inactive set;
         setActive(viol_coeff) = false;
         % determine new number of active coefficients
@@ -583,7 +571,7 @@ for k = 2:maxiters
         
         
         % check for violations again
-        vio1ate3_idx = find((0 - 1e-8) <= subgrad(setActive) & ...
+        signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
             subgrad(setActive) <= (1 + 1e-8) & ...
             dir(1:nActive) <= (0 - 1e-8) & ...
             betapath(setActive, k-1) == 0);
@@ -598,12 +586,12 @@ for k = 2:maxiters
     end
      
     % fix condition 4 violations
-    while ~isempty(vio1ate4_idx)
+    while ~isempty(signMismatchNegIdx)
         
         % indices corresponding to active coefficients
         activeCoeffs = find(setActive == 1);
         % identify prblem coefficient
-        viol_coeff = activeCoeffs(vio1ate4_idx);
+        viol_coeff = activeCoeffs(signMismatchNegIdx);
         % put problem coefficient back into inactive set;
         setActive(viol_coeff) = false;
         % determine new number of active coefficients
@@ -648,7 +636,7 @@ for k = 2:maxiters
         
         
         % check for violations again
-        vio1ate4_idx = find((-1 - 1e-8) <= subgrad(setActive) & ...
+        signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
             subgrad(setActive) <= (0 + 1e-8) & ...
             (0 + 1e-8) <=  dir(1:nActive) & ...
             betapath(setActive, k-1) == 0, 1);
@@ -670,14 +658,14 @@ for k = 2:maxiters
       % check if coefficient is moving too slowly with negative subgradient
 %     vio1ate1_idx = find(subgrad(~setActive) == -1 & 0 < dirSubgrad & ...
 %         dirSubgrad < 1);
-     vio1ate1_idx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
         dirSubgrad < 1);
     
     % check if coefficient is moving too slowly with positive subgradient
 %     vio1ate2_idx = find(subgrad(~setActive) == 1 & -1 < dirSubgrad & ...
 %         dirSubgrad < 0);
-    vio1ate2_idx = find((1 - 1e-8) <= subgrad(~setActive) & ...
+    inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
         dirSubgrad < 0);
     
@@ -689,14 +677,14 @@ for k = 2:maxiters
     % coefficient in setActive with betapath = 0, and positive subgrad but
     % negative dir (which would result in a negative coefficient but with a
     % positive subgradient)
-    vio1ate3_idx = find((0 - 1e-8) <= subgrad(setActive) & ...
+    signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (1 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
         betapath(setActive, k-1) == 0);   
      
     % coefficient in setActive with betapath = 0, and negative subgradient but
     % positive dir (which would result in a positive coefficient but with a
     % negative subgradient)
-    vio1ate4_idx = find((-1 - 1e-8) <= subgrad(setActive) & ...
+    signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
         betapath(setActive, k-1) == 0, 1);
     
