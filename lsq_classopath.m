@@ -836,23 +836,42 @@ for k = 2:maxiters
     % new code
     betapath(setActive, k) = betapath(setActive, k-1) ...
         + dirsgn2*chgrho*dir2(1:nActive);
+    % force near-zero coefficients to be zero (helps with numerical issues)
+    betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
     
     % new subgradient estimates
+    % create subgrad vector for new code
+    subgrad2 = subgrad;
+    % original code
     subgrad(~setActive) = ...
         (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);   
-    
-   %betapath(setActive,k) = 
-   
-  
-    
+    % new code
+    subgrad2(~setActive) = ...
+        (rhopath(k-1)*subgrad2(~setActive) + dirsgn2*chgrho*dirSubgrad2)/rhopath(k);
+    % make sure new code matches old
+    if sum(subgrad(~setActive) ~= subgrad2(~setActive)) ~= 0
+        warning('subgradients dont match')
+        display(k)
+        break
+    end     
+ 
+    %###### left off here ############%
+    % update lambda (lagrange multipliers for equality constraints)
+    % original code
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
+    
+    % update mu (lagrange multipliers for inequality constraints)
+    % new code
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
 
-
+    % update residual inequality
+    residIneq = A*betapath(:, k) - b;
     
-%     
+    
+    
+%     %## Stuff for Debugging ##%
 %     % specify trouble coefficient
 %     troubleCoeff = 9;
 %     % check active status of coefficient 
@@ -879,21 +898,10 @@ for k = 2:maxiters
 %     troubleIdxActive = find(actives == troubleCoeff);
 %     % derivative 
 %     dir(troubleIdxActive);
-   
+ 
 
-%     subgrad2 = (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
-  
-%     subgrad(setActive) = ...
-%          (rhopath(k-1)*subgrad(setActive) + chgrho*dirSubgradActive)/rhopath(k);
-%      subgrad(~setActive) = ...
-%          (rhopath(k-1)*subgrad(~setActive) - dirsgn*chgrho*dirSubgrad)...
-%          /rhopath(k);
-
-
-     % may wanna move this to after thresholding
      
-    % calculate rho*subgrad
-    subgradientPath.rhoSubgrad(:, k) = rhopath(k)*subgrad;
+
        
     
     %%% need to change this, b/c it can be in bounds but also have wrong
@@ -933,11 +941,9 @@ for k = 2:maxiters
         end
     end
     
-    % force near-zero coefficients to be zero (helps with numerical issues)
-    betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
+
     
-    % update residual inequality
-    residIneq = A*betapath(:, k) - b;
+
     
     % determine new number of active coefficients
     nActive = nnz(setActive);
@@ -958,11 +964,14 @@ for k = 2:maxiters
     %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, k) = max(nActive - rankAeq, 0);
 
-     if dfPath(2, k) > n
-         break;
-     end
+    if dfPath(2, k) > n
+        break;
+    end
     
     
+     
+    %## Calculate & store stuff for debuggin ##%
+    %# Stationarity conditions #%
     % calculate the stationarity condition value
     stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
         rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
@@ -970,6 +979,7 @@ for k = 2:maxiters
     stationarityConditionsPath.satisfied(k) = ...
         sum(abs(stationarityConditionsPath.values(:, k)) < 1e-8) == p;
     
+    %# Constraints #%
     % check if constraints are violated or not
     % equality
     if m1==0
@@ -986,7 +996,7 @@ for k = 2:maxiters
             sum(A*betapath(:, k) - b < 1e-10) == m2;
     end
     
-    
+    %# Subgradient #%
     % store subgradient
     subgradientPath.values(:, k) = subgrad;
     % check that subgradient condition is satisfied (both in [-1, 1] and
@@ -996,16 +1006,16 @@ for k = 2:maxiters
         subgradientPath.values(:, k) >= (-1 - 1e-8) & ... 
         betapath(:, k).*subgrad >= 0) == p;
     % derivative for subgradient
-    % k-1 since this is calculated at the beginning of the loop
+    % uses k-1 since this is calculated at the beginning of the loop
     subgradientPath.dir(1:size(dirSubgrad, 1), k-1) = dirSubgrad;
     % indices for inactive coefficients (dirSubgrad entries)
-    % k since setActive has already been updated
+    % uses k since setActive has already been updated
     subgradientPath.inactives(1:size(find(setActive == 0)), k) = ...
         find(setActive == 0);
+    % calculate & store rho*subgrad  
+    subgradientPath.rhoSubgrad(:, k) = rhopath(k)*subgrad;
     
-    
-    
-    % [betapath(:, k) subgrad]
+   
     
         % manually check that the subgradient sign matches the coefficients
     %find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12)
