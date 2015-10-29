@@ -686,10 +686,14 @@ for k = 2:maxiters
     
     
     % calculate derivative for residual inequality (Eq. 11)
-    dirResidIneq = A(~setIneqBorder,setActive)*dir(1:nActive);
-
+    % original code
+    dirResidIneq = A(~setIneqBorder, setActive)*dir(1:nActive);
+    % new code
+    dirResidIneq2 = A(~setIneqBorder, setActive)*dir2(1:nActive);
  
-    %## Determine rho for next event (via delta rho) ##%
+    %### Determine rho for next event (via delta rho) ###%
+    %## Events based on coefficients changing activation status ##%
+    
     % clear previous values for delta rho
     nextrhoBeta = inf(p, 1);
     nextrhoBeta2 = inf(p, 1);
@@ -700,61 +704,94 @@ for k = 2:maxiters
         ./ dir(1:nActive);
     % new code
     nextrhoBeta2(setActive) = -dirsgn2*betapath(setActive, k-1) ...
-        ./ dir2(1:nActive);    
-    [nextrhoBeta nextrhoBeta2]
+        ./ dir2(1:nActive); 
+    % make sure values from both methods match
+    if sum(nextrhoBeta ~= nextrhoBeta2) ~= 0
+        warning('delta rho values for beta dont match')
+        display(k)
+        break
+    end
+    
     %# Inactive coefficient becoming positive #%
     % original code
     t1 = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-    t1(t1<=0+1e-8) = inf; % hitting ceiling
     % new code
     t1New = dirsgn2*rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad2 - 1);
+    % make sure values from both methods match
+    if sum(t1~=t1New) ~= 0
+        warning('t1 values dont match')
+        display(k)
+        break
+    end
+    % threshold values hitting ceiling
+    t1(t1 <= (0 + 1e-8)) = inf;
+    t1New(t1New <= (0 + 1e-8)) = inf;
 
-    % t1(troubleIdxInactive);
-   % t1a = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (1 - dirSubgrad2);
-% 	t1b = rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirsgn - dirSubgrad);
-%     t1c = rhopath(k-1)*(1 - subgrad(~setActive)) ./ ...
-%         (-dirSubgrad*dirsgn + dirsgn);
-%     [t1 t1a t1b t1c]
-
-
-    %t1a(t1a<=0) = inf; % hitting ceiling
+    %# Inactive coefficient becoming negative #%
+    % original code
     t2 = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-         ./ (dirSubgrad - dirsgn); 
-    %t2(troubleIdxInactive);
-    % according to my derivations:
-        % these all are the same, but differ from t2
-     %t2a = rhopath(k-1)*(subgrad(~setActive) + 1) ./ (dirsgn + dirSubgrad2);
-%     t2b = dirsgn*rhopath(k-1)*(1 + subgrad(~setActive)) ...
-%          ./ (dirSubgrad + 1);
-%     t2c = rhopath(k-1)*(- 1 - subgrad(~setActive)) ...
-%          ./ (-dirSubgrad*dirsgn - dirsgn);
-%     [t1 t1a t2 t2a t2b t2c]
-    %[t1 t2 dirSubgrad]
-    % t2(t2<0) = inf; % hitting floor
-    t2(t2<=0+1e-8) = inf; % hitting floor
+        ./ (dirSubgrad - dirsgn);
+    % new code
+    t2New = -dirsgn2*rhopath(k-1)*(1 + subgrad(~setActive)) ...
+        ./ (dirSubgrad2 + 1);
+    % make sure values from both methods match
+    if sum(t2 ~= t2New) ~= 0
+        warning('t2 values dont match')
+        display(k)
+        break
+    end
+    % threshold values hitting ceiling
+    t2(t2 <= (0 + 1e-8)) = inf;
+    t2New(t2New <= (0 + 1e-8)) = inf;        
+        
+    % choose smaller delta rho out of t1 and t2
     nextrhoBeta(~setActive) = min(t1, t2);
+    nextrhoBeta2(~setActive) = min(t1New, t2New);
     % nextrhoBeta(troubleIdxInactive);
     
-    nextrhoBeta(nextrhoBeta<=1e-8 | ~penidx) = inf;
+    % ignore delta rhos equal to zero
+    nextrhoBeta(nextrhoBeta <= 1e-8 | ~penidx) = inf;
+    nextrhoBeta2(nextrhoBeta2 <= 1e-8 | ~penidx) = inf;
     
     
-    
-    % next rho for inequality constraints
+    %## Events based inequality constraints ##%
+	% clear previous values
     nextrhoIneq = inf(m2, 1);
-    % left off here:
-    nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder,k-1) ...
-        ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
+    nextrhoIneq2 = inf(m2, 1);
+    
+    %# Inactive inequality constraint becoming active #%
+    % original code
     nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
         ./ dirResidIneq;
-    nextrhoIneq(nextrhoIneq<0) = inf;
+    % new code 
+    nextrhoIneq2(~setIneqBorder) = -dirsgn2*residIneq(~setIneqBorder) ...
+        ./ dirResidIneq2;    
+    
+    %# Active inequality constraint becoming deactive #%
+    % original code   
+    nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder, k-1) ...
+        ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
+    % new code
+    nextrhoIneq2(setIneqBorder) = - dualpathIneq(setIneqBorder, k-1) ...
+        ./ reshape(dir2(nActive+m1+1:end), nnz(setIneqBorder),1);     
+    % make sure values from both methods match
+    if sum(nextrhoIneq ~= nextrhoIneq2) ~= 0
+        warning('Inequality delta rho values dont match')
+        display(k)
+        break
+    end   
+    
+    % ignore delta rhos equal to zero
+    nextrhoIneq(nextrhoIneq <= 1e-8) = inf;
+    nextrhoIneq2(nextrhoIneq2 <= 1e-8) = inf;
     
     
-    %## determine next rho ##%
-    %# original method:
+    %# determine next rho ##
+    % original method:
     if strcmpi(multCoeff, 'false')
-        [chgrho,idx] = min([nextrhoBeta; nextrhoIneq]);
+        [chgrho, idx] = min([nextrhoBeta; nextrhoIneq]);
     
-    %# new method picking multiple rhos:
+    % new method picking multiple rhos:
     elseif strcmpi(multCoeff, 'true')
         % find smallest rho
         chgrho = min([nextrhoBeta; nextrhoIneq]);
@@ -762,23 +799,34 @@ for k = 2:maxiters
         idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= deltaRhoTol);
     end
     
-    % terminate path following
+    % terminate path following if no new event found
     if isinf(chgrho)
         break;
     end
     
-    % move to next rho
+    
+    %## Update values at new rho ##%
+    %# move to next rho #%
+    % make sure next rho isn't negative
+    % original code
     if rhopath(k-1) - dirsgn*chgrho < 0 % may wanna change to maxrho
         chgrho = rhopath(k-1);              % for increasing direction?
     end
     rhopath(k) = rhopath(k-1) - dirsgn*chgrho;
-%     if rhopath(k)==rhopath(k-1)
-%        break;
-%     end
-    %display(rhopath(k))
-    % this also doesn't make sense to me...but making the change breaks it
-    betapath(setActive,k) = betapath(setActive,k-1) ...
+    % new code
+    if rhopath(k-1) + dirsgn2*chgrho < 0 % may wanna change to maxrho
+        chgrho = rhopath(k-1);              % for increasing direction?
+    end
+    rhopath(k) = rhopath(k-1) + dirsgn2*chgrho;
+    
+    
+    %# Update parameter and subgradient values #%
+    % new coefficient estimates
+    % original code
+    betapath(setActive, k) = betapath(setActive, k-1) ...
          + chgrho*dir(1:nActive);
+    % new code
+    
    % betapath(setActive,k) = betapath(setActive,k-1) ...
     %    - dirsgn*chgrho*dir(1:nActive);
   
@@ -829,14 +877,14 @@ for k = 2:maxiters
 %          /rhopath(k);
 
 
-    residIneq = A*betapath(:,k) - b; % may wanna move this to after thresholding
+     % may wanna move this to after thresholding
      
     % calculate rho*subgrad
     subgradientPath.rhoSubgrad(:, k) = rhopath(k)*subgrad;
        
     
     %%% need to change this, b/c it can be in bounds but also have wrong
-    %%% signoo
+    %%% sign
     
     
     %## update sets ##%
@@ -874,6 +922,9 @@ for k = 2:maxiters
     
     % force near-zero coefficients to be zero (helps with numerical issues)
     betapath(abs(betapath(:, k)) < 1e-12, k) = 0; 
+    
+    % update residual inequality
+    residIneq = A*betapath(:, k) - b;
     
     % determine new number of active coefficients
     nActive = nnz(setActive);
