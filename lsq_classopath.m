@@ -718,11 +718,12 @@ for k = 2:maxiters
     % new code
     t1New = dirsgn2*rhopath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad2 - 1);
     % make sure values from both methods match
-    if sum(t1~=t1New) ~= 0
+    if sum(t1(~isinf(t1)) ~= t1New(~isinf(t1New))) ~= 0
         warning('t1 values dont match')
         display(k)
         break
     end
+    % t1(5)==t1New(5)
     % threshold values hitting ceiling
     t1(t1 <= (0 + 1e-8)) = inf;
     t1New(t1New <= (0 + 1e-8)) = inf;
@@ -825,18 +826,30 @@ for k = 2:maxiters
     % original code
     betapath(setActive, k) = betapath(setActive, k-1) ...
          + chgrho*dir(1:nActive);
+    % make sure values from both methods match
+    if sum(betapath(setActive, k) ~= (betapath(setActive, k-1) ...
+       + dirsgn2*chgrho*dir2(1:nActive))) ~= 0
+        warning('beta estimates dont match')
+        display(k)
+        break
+    end    
     % new code
+    betapath(setActive, k) = betapath(setActive, k-1) ...
+        + dirsgn2*chgrho*dir2(1:nActive);
     
-   % betapath(setActive,k) = betapath(setActive,k-1) ...
-    %    - dirsgn*chgrho*dir(1:nActive);
+    % new subgradient estimates
+    subgrad(~setActive) = ...
+        (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);   
+    
+   %betapath(setActive,k) = 
+   
   
     
     dualpathEq(:,k) = dualpathEq(:,k-1) ...
         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
     dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
-    subgrad(~setActive) = ...
-        (rhopath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhopath(k);
+
 
     
 %     
