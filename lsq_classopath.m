@@ -858,17 +858,35 @@ for k = 2:maxiters
     %###### left off here ############%
     % update lambda (lagrange multipliers for equality constraints)
     % original code
-    dualpathEq(:,k) = dualpathEq(:,k-1) ...
+    dualpathEq(:, k) = dualpathEq(:,k-1) ...
         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
+    % new code
+    dualpathEq2(:, k) = dualpathEq(:, k-1) ...
+        + dirsgn2*chgrho*reshape(dir2(nActive+1:nActive+m1), m1, 1);
+    % make sure new code matches old
+    if sum(dualpathEq(:, k) ~= dualpathEq2(:, k)) ~= 0
+        warning('lambda values dont match')
+        display(k)
+        break
+    end   
     
     % update mu (lagrange multipliers for inequality constraints)
-    % new code
-    dualpathIneq(setIneqBorder,k) = dualpathIneq(setIneqBorder,k-1) ...
+    % original code
+    dualpathIneq(setIneqBorder, k) = dualpathIneq(setIneqBorder, k-1) ...
         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
-
+    % new code
+    dualpathIneq2(setIneqBorder, k) = dualpathIneq(setIneqBorder, k-1) ...
+        + dirsgn2*chgrho*reshape(dir2(nActive+m1+1:end), nnz(setIneqBorder), 1);   
+    % make sure new code matches old
+    if sum(dualpathIneq(setIneqBorder, k) ~= ...
+        dualpathIneq2(setIneqBorder, k)) ~= 0
+            warning('lambda values dont match')
+            display(k)
+            break
+    end   
+    
     % update residual inequality
     residIneq = A*betapath(:, k) - b;
-    
     
     
 %     %## Stuff for Debugging ##%
@@ -899,25 +917,17 @@ for k = 2:maxiters
 %     % derivative 
 %     dir(troubleIdxActive);
  
-
-     
-
-       
-    
-    %%% need to change this, b/c it can be in bounds but also have wrong
-    %%% sign
-    
     
     %## update sets ##%
     if strcmpi(multCoeff, 'false')
         %# old code: #%
-        if idx<=p && setActive(idx)
+        if idx <= p && setActive(idx)
             % an active coefficient hits 0, or
             setActive(idx) = false;
-        elseif idx<=p && ~setActive(idx)
+        elseif idx <= p && ~setActive(idx)
             % a zero coefficient becomes nonzero
             setActive(idx) = true;
-        elseif idx>p
+        elseif idx > p
             % an ineq on boundary becomes strict, or
             % a strict ineq hits boundary
             setIneqBorder(idx-p) = ~setIneqBorder(idx-p);
@@ -927,13 +937,13 @@ for k = 2:maxiters
         %# new code(to try to allow for multiple coefficients moving #%
         for j = 1:length(idx)
             curidx = idx(j);
-            if curidx<=p && setActive(curidx)
+            if curidx <= p && setActive(curidx)
                 % an active coefficient hits 0, or
                 setActive(curidx) = false;
-            elseif curidx<=p && ~setActive(curidx)
+            elseif curidx <= p && ~setActive(curidx)
                 % a zero coefficient becomes nonzero
                 setActive(curidx) = true;
-            elseif curidx>p
+            elseif curidx > p
                 % an ineq on boundary becomes strict, or
                 % a strict ineq hits boundary
                 setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
@@ -941,21 +951,16 @@ for k = 2:maxiters
         end
     end
     
-
-    
-
-    
     % determine new number of active coefficients
     nActive = nnz(setActive);
             
-    % not sure about this:
+    % old code
 %     setActive = abs(betapath(:,k))>1e-16 | ~penidx;
 %     betapath(~setActive,k) = 0;
 
-     
     % calculate value of objective function
-    objValPath(k) = norm(y-X*betapath(:,k))^2/2 + ...
-        rhopath(k)*sum(abs(betapath(:,k)));
+    objValPath(k) = norm(y - X*betapath(:, k))^2/2 + ...
+        rhopath(k)*sum(abs(betapath(:, k)));
      
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
@@ -963,18 +968,17 @@ for k = 2:maxiters
     dfPath(2, k) = nActive - rankAeq;
     %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, k) = max(nActive - rankAeq, 0);
-
+    % break algorithm when df are exhausted
     if dfPath(2, k) > n
         break;
     end
     
-    
-     
+
     %## Calculate & store stuff for debuggin ##%
     %# Stationarity conditions #%
     % calculate the stationarity condition value
-    stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:,k)) + ...
-        rhopath(k)*subgrad + Aeq'*dualpathEq(:,k) + A'*dualpathIneq(:,k);
+    stationarityConditionsPath.values(:, k) = -X'*(y - X*betapath(:, k)) + ...
+        rhopath(k)*subgrad + Aeq'*dualpathEq(:, k) + A'*dualpathIneq(:, k);
     % see if stationarity condition is satisified
     stationarityConditionsPath.satisfied(k) = ...
         sum(abs(stationarityConditionsPath.values(:, k)) < 1e-8) == p;
@@ -1016,20 +1020,18 @@ for k = 2:maxiters
     subgradientPath.rhoSubgrad(:, k) = rhopath(k)*subgrad;
     
    
-    
-        % manually check that the subgradient sign matches the coefficients
+    % # old debugging code #%
+    % manually check that the subgradient sign matches the coefficients
     %find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12)
     %       find(abs(subgrad(setActive) - sign(betapath(setActive,k))) > 1e-12 & ...
        % sign(betapath(setActive,k)) ~= 0);
 %     idxSubgradWrong = ...
 %         find(abs(subgrad - sign(betapath(:,k))) > 1e-12 & ...
 %         sign(betapath(:,k)) ~= 0);
-%     
 %     subgrad(idxSubgradWrong) = -subgrad(idxSubgradWrong);
 %     
 %     
-
-    
+   
     %toc
 end
 
