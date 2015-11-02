@@ -316,6 +316,12 @@ for k = 2:maxiters
         % third code (derivative sign defined in terms of rho increasing)
         dir2 = -(pinv(M) * ...
             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+        % make sure values from both methods match
+        if sum(abs(dir) ~= abs(dir2)) ~= 0
+            warning('dir values dont match')
+            display(k)
+            break
+        end
     catch
         break;
     end
@@ -332,7 +338,12 @@ for k = 2:maxiters
     dirSubgrad2 = ...
         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
         A(setIneqBorder,~setActive)'] * dir2;
-    
+    % make sure values from both methods match
+    if sum(abs(dirSubgrad) ~= abs(dirSubgrad2)) ~= 0
+        warning('dirSubgrad values dont match')
+        display(k)
+        break
+    end
     
     %## check to see if any conditions are violated ##%
 
@@ -427,6 +438,12 @@ for k = 2:maxiters
                 % 3rd code (derivative sign defined in terms of rho increasing)
                 dir2 = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % make sure values from both methods match
+                if sum(abs(dir) ~= abs(dir2)) ~= 0
+                    warning('dir values dont match')
+                    display(k)
+                    break
+                end
             catch
                 break;
             end
@@ -443,6 +460,12 @@ for k = 2:maxiters
             dirSubgrad2 = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir2;
+            % make sure values from both methods match
+            if sum(abs(dirSubgrad) ~= abs(dirSubgrad2)) ~= 0
+                warning('dirSubgrad values dont match')
+                display(k)
+                break
+            end
             
             %# Misc. housekeeping #%
             % check for violations again
@@ -490,6 +513,12 @@ for k = 2:maxiters
                 % 3rd code (derivative sign defined in terms of rho increasing)
                 dir2 = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % make sure values from both methods match
+                if sum(abs(dir) ~= abs(dir2)) ~= 0
+                    warning('dir values dont match')
+                    display(k)
+                    break
+                end
             catch
                 break;
             end
@@ -506,7 +535,13 @@ for k = 2:maxiters
             dirSubgrad2 = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir2;
-
+            % make sure values from both methods match
+            if sum(abs(dirSubgrad) ~= abs(dirSubgrad2)) ~= 0
+                warning('dirSubgrad values dont match')
+                display(k)
+                break
+            end
+            
             %# Misc. housekeeping #%
             % check for violations again
             inactSlowPosIdx = find(subgrad(~setActive) == 1 & ...
@@ -554,6 +589,12 @@ for k = 2:maxiters
                 % 3rd code (derivative sign defined in terms of rho increasing)
                 dir2 = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % make sure values from both methods match
+                if sum(abs(dir) ~= abs(dir2)) ~= 0
+                    warning('dir values dont match')
+                    display(k)
+                    break
+                end
             catch
                 break;
             end
@@ -570,7 +611,13 @@ for k = 2:maxiters
             dirSubgrad2 = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir2;
-
+            % make sure values from both methods match
+            if sum(abs(dirSubgrad) ~= abs(dirSubgrad2)) ~= 0
+                warning('dirSubgrad values dont match')
+                display(k)
+                break
+            end
+            
             %# Misc. housekeeping #%
             % check for violations again
             signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
@@ -620,6 +667,12 @@ for k = 2:maxiters
                 % 3rd code (derivative sign defined in terms of rho increasing)
                 dir2 = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % make sure values from both methods match
+                if sum(abs(dir) ~= abs(dir2)) ~= 0
+                    warning('dir values dont match')
+                    display(k)
+                    break
+                end
             catch
                 break;
             end
@@ -636,7 +689,13 @@ for k = 2:maxiters
             dirSubgrad2 = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir2;
-        
+            % make sure values from both methods match
+            if sum(abs(dirSubgrad) ~= abs(dirSubgrad2)) ~= 0
+                warning('dirSubgrad values dont match')
+                display(k)
+                break
+            end
+            
             %# Misc. housekeeping #%
             % check for violations again
             signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
