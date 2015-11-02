@@ -749,11 +749,22 @@ for k = 2:maxiters
     nextrhoBeta(~setActive) = min(t1, t2);
     nextrhoBeta2(~setActive) = min(t1New, t2New);
     % nextrhoBeta(troubleIdxInactive);
+    % make sure values from both methods match
+    if sum(nextrhoBeta ~= nextrhoBeta2) ~= 0
+        warning('nextrhoBeta values dont match')
+        display(k)
+        break
+    end
     
     % ignore delta rhos equal to zero
     nextrhoBeta(nextrhoBeta <= 1e-8 | ~penidx) = inf;
     nextrhoBeta2(nextrhoBeta2 <= 1e-8 | ~penidx) = inf;
-    
+    % make sure values from both methods match
+    if sum(nextrhoBeta ~= nextrhoBeta2) ~= 0
+        warning('nextrhoBeta values dont match')
+        display(k)
+        break
+    end
     
     %## Events based inequality constraints ##%
 	% clear previous values
@@ -786,6 +797,12 @@ for k = 2:maxiters
     nextrhoIneq(nextrhoIneq <= 1e-8) = inf;
     nextrhoIneq2(nextrhoIneq2 <= 1e-8) = inf;
     
+    % make sure values from both methods match
+    if sum(nextrhoIneq ~= nextrhoIneq2) ~= 0
+        warning('Inequality delta rho values dont match')
+        display(k)
+        break
+    end   
     
     %# determine next rho ##
     % original method:
@@ -818,8 +835,13 @@ for k = 2:maxiters
     if rhopath(k-1) + dirsgn2*chgrho < 0 % may wanna change to maxrho
         chgrho = rhopath(k-1);              % for increasing direction?
     end
+    % make sure values from both methods match
+    if sum(rhopath(k) ~= rhopath(k-1) + dirsgn2*chgrho) ~= 0
+        warning('nextrhoBeta values dont match')
+        display(k)
+        break
+    end
     rhopath(k) = rhopath(k-1) + dirsgn2*chgrho;
-    
     
     %# Update parameter and subgradient values #%
     % new coefficient estimates
