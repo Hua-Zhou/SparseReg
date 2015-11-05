@@ -348,26 +348,68 @@ for k = 2:maxiters
     %## check to see if any conditions are violated ##%
 
     %# Inactive coefficients moving too slowly #%
-    % Negative subgradient
+    % Negative subgradient (original code)
     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
         dirSubgrad < 1);
+    % Negative subgradient (new code)
+    inactSlowNegIdx2 = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad2 & ...
+        dirSubgrad2 < 0);
+    % make sure values from both methods match
+    if sum(inactSlowNegIdx ~= inactSlowNegIdx2) ~= 0
+        warning('inactSlowNegIdx values dont match')
+        display(k)
+        break
+    end
+    %%%%%%%%%%%%%%%%%% Possibly change ALL bounds to account for numerical
+    %%%%%%%%%%%%%%%%%% error
+    
     % Positive subgradient
     inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
         dirSubgrad < 0);
+    % Positive subgradient (new code)
+    inactSlowPosIdx2 = find((1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad2 & ...
+        dirSubgrad2 < 1);
+    % make sure values from both methods match
+    if sum(inactSlowPosIdx ~= inactSlowPosIdx2) ~= 0
+        warning('inactSlowPosIdx values dont match')
+        display(k)
+        break
+    end
     
     %# "Active" coeficients estimated as 0 with potential sign mismatch #%
     % Positive subgrad but negative derivative 
     signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (1 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
         betapath(setActive, k-1) == 0);   
-     
+    % Positive subgrad but positive derivative (new code)
+    signMismatchPosIdx2 = find((0 - 1e-8) <= subgrad(setActive) & ...
+        subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir2(1:nActive) & ...
+        betapath(setActive, k-1) == 0);
+    % make sure values from both methods match
+    if sum(signMismatchPosIdx ~= signMismatchPosIdx2) ~= 0
+        warning('signMismatchPosIdx values dont match')
+        display(k)
+        break
+    end    
+    
     % Negative subgradient but positive derivative
     signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
-        betapath(setActive, k-1) == 0, 1);
-    
+        betapath(setActive, k-1) == 0);
+    % Negative subgradient but negative derivative (new code)
+    signMismatchNegIdx2 = find((-1 - 1e-8) <= subgrad(setActive) & ...
+        subgrad(setActive) <= (0 + 1e-8) & dir2(1:nActive) <= (0 - 1e-8) & ...
+        betapath(setActive, k-1) == 0);
+    % make sure values from both methods match
+    if sum(signMismatchNegIdx ~= signMismatchNegIdx2) ~= 0
+        warning('signMismatchNegIdx values dont match')
+        display(k)
+        break
+    end
     
 %     %# temp stuff for debugging #%
 %     % specify trouble coefficient
@@ -469,8 +511,14 @@ for k = 2:maxiters
             
             %# Misc. housekeeping #%
             % check for violations again
-            inactSlowNegIdx = find(subgrad(~setActive) == -1 & ...
+            inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+                subgrad(~setActive) <= (-1 + 1e-8) & ...
                 0 < dirSubgrad & dirSubgrad < 1);
+            % Negative subgradient (new code)
+            inactSlowNegIdx2 = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+                subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad2 & ...
+                dirSubgrad2 < 0);
+    
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -546,6 +594,11 @@ for k = 2:maxiters
             % check for violations again
             inactSlowPosIdx = find(subgrad(~setActive) == 1 & ...
                 -1 < dirSubgrad & dirSubgrad < 0);
+            % Positive subgradient (new code)
+            inactSlowPosIdx2 = find((1 - 1e-8) <= subgrad(~setActive) & ...
+                subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad2 & ...
+                dirSubgrad2 < 1);
+    
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -624,6 +677,11 @@ for k = 2:maxiters
                 subgrad(setActive) <= (1 + 1e-8) & ...
                 dir(1:nActive) <= (0 - 1e-8) & ...
                 betapath(setActive, k-1) == 0);
+            % Positive subgrad but positive derivative (new code)
+            signMismatchPosIdx2 = find((0 - 1e-8) <= subgrad(setActive) & ...
+                subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir2(1:nActive) & ...
+                betapath(setActive, k-1) == 0);
+    
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -689,7 +747,7 @@ for k = 2:maxiters
             dirSubgrad2 = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir2;
-            % make sure values from both methods match
+                    % make sure values from both methods match
             if sum(abs(dirSubgrad) ~= abs(dirSubgrad2)) ~= 0
                 warning('dirSubgrad values dont match')
                 display(k)
@@ -702,6 +760,10 @@ for k = 2:maxiters
                 subgrad(setActive) <= (0 + 1e-8) & ...
                 (0 + 1e-8) <=  dir(1:nActive) & ...
                 betapath(setActive, k-1) == 0, 1);
+            % Negative subgradient but negative derivative (new code)
+            signMismatchNegIdx2 = find((-1 - 1e-8) <= subgrad(setActive) & ...
+                subgrad(setActive) <= (0 + 1e-8) & ...
+                dir2(1:nActive) <= (0 - 1e-8) & betapath(setActive, k-1) == 0);
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -719,21 +781,40 @@ for k = 2:maxiters
          inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
             subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
             dirSubgrad < 1);
+        % Negative subgradient (new code)
+        inactSlowNegIdx2 = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+            subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad2 & ...
+            dirSubgrad2 < 0);
+       
         % Positive subgradient
         inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
             subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
             dirSubgrad < 0);
-        
+        % Positive subgradient (new code)
+        inactSlowPosIdx2 = find((1 - 1e-8) <= subgrad(~setActive) & ...
+            subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad2 & ...
+            dirSubgrad2 < 1);
+            
+            
         %# "Active" coeficients estimated as 0 with potential sign mismatch #%
         % Positive subgrad but negative derivative
         signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
             subgrad(setActive) <= (1 + 1e-8) & ...
             dir(1:nActive) <= (0 - 1e-8) & betapath(setActive, k-1) == 0);
+        % Positive subgrad but positive derivative (new code)
+        signMismatchPosIdx2 = find((0 - 1e-8) <= subgrad(setActive) & ...
+            subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir2(1:nActive) & ...
+            betapath(setActive, k-1) == 0);
+    
         % Negative subgradient but positive derivative
         signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
             subgrad(setActive) <= (0 + 1e-8) & ...
             (0 + 1e-8) <=  dir(1:nActive) & betapath(setActive, k-1) == 0, 1);
-        
+        % Negative subgradient but negative derivative (new code)
+        signMismatchNegIdx2 = find((-1 - 1e-8) <= subgrad(setActive) & ...
+            subgrad(setActive) <= (0 + 1e-8) & dir2(1:nActive) <= (0 - 1e-8) & ...
+            betapath(setActive, k-1) == 0);
+    
         % break loop if needed
         if violateCounter >= maxiters
             break;
