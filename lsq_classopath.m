@@ -72,6 +72,12 @@ if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
         'qp_solver not recognized');
 end
 
+% switch to decreasing direction if n < p
+if n < p && strcmpi(direction, 'increase')
+    warning('n < p, so switching direction to "decrease"')
+    direction = 'decrease';
+end
+
 %%% start here for (manual) debugging %%%
 % allocate space for path solution
 m1 = size(Aeq, 1);  % # equality constraints
