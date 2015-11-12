@@ -353,16 +353,19 @@ for k = 2:maxiters
 %     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
 %         subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
 %         dirSubgrad < 1);
-    % Negative subgradient (new code)
+    % Negative subgradient (new code - original bounds)
     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad & ...
         dirSubgrad < 0);
-%     % make sure values from both methods match
-%     if sum(inactSlowNegIdx ~= inactSlowNegIdx2) ~= 0
-%         warning('inactSlowNegIdx values dont match')
-%         display(k)
-%         break
-%     end
+    % Negative subgradient (new code - new bounds)
+    inactSlowNegIdx2 = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad);
+    % make sure values from both methods match
+    if sum(inactSlowNegIdx ~= inactSlowNegIdx2) ~= 0
+        warning('inactSlowNegIdx values dont match')
+        display(k)
+        break
+    end
     %%%%%%%%%%%%%%%%%% Possibly change ALL bounds to account for numerical
     %%%%%%%%%%%%%%%%%% error
     
@@ -370,16 +373,19 @@ for k = 2:maxiters
 %     inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
 %         subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
 %         dirSubgrad < 0);
-    % Positive subgradient (new code)
+    % Positive subgradient (new code - original bounds)
     inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad & ...
         dirSubgrad < 1);
-%     % make sure values from both methods match
-%     if sum(inactSlowPosIdx ~= inactSlowPosIdx2) ~= 0
-%         warning('inactSlowPosIdx values dont match')
-%         display(k)
-%         break
-%     end
+    % Positive subgradient (new code - new bounds)
+    inactSlowPosIdx2 = find((1 - 1e-8) <= subgrad(~setActive) & ...
+        subgrad(~setActive) <= (1 + 1e-8) & dirSubgrad < 1);
+    % make sure values from both methods match
+    if sum(inactSlowPosIdx ~= inactSlowPosIdx2) ~= 0
+        warning('inactSlowPosIdx values dont match')
+        display(k)
+        break
+    end
     
     %# "Active" coeficients estimated as 0 with potential sign mismatch #%
 %     % Positive subgrad but negative derivative 
@@ -519,12 +525,15 @@ for k = 2:maxiters
             inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
                 subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad & ...
                 dirSubgrad < 0);
-%             % make sure values from both methods match
-%             if sum(inactSlowNegIdx ~= inactSlowNegIdx) ~= 0
-%                 warning('inactSlowNegIdx values dont match')
-%                 display(k)
-%                 break
-%             end
+            % Negative subgradient (new code - new bounds)
+            inactSlowNegIdx2 = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+                subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad);
+            % make sure values from both methods match
+            if sum(inactSlowNegIdx ~= inactSlowNegIdx2) ~= 0
+                warning('inactSlowNegIdx values dont match')
+                display(k)
+                break
+            end
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -604,12 +613,15 @@ for k = 2:maxiters
             inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
                 subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad & ...
                 dirSubgrad < 1);
-%             % make sure values from both methods match
-%             if sum(inactSlowPosIdx ~= inactSlowPosIdx) ~= 0
-%                 warning('inactSlowPosIdx values dont match')
-%                 display(k)
-%                 break
-%             end
+            % Positive subgradient (new code - new bounds)
+            inactSlowPosIdx2 = find((1 - 1e-8) <= subgrad(~setActive) & ...
+                subgrad(~setActive) <= (1 + 1e-8) & dirSubgrad < 1);
+            % make sure values from both methods match
+            if sum(inactSlowPosIdx ~= inactSlowPosIdx2) ~= 0
+                warning('inactSlowPosIdx values dont match')
+                display(k)
+                break
+            end
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -808,12 +820,15 @@ for k = 2:maxiters
         inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
             subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad & ...
             dirSubgrad < 0);
-%         % make sure values from both methods match
-%         if sum(inactSlowNegIdx ~= inactSlowNegIdx) ~= 0
-%             warning('inactSlowNegIdx values dont match')
-%             display(k)
-%             break
-%         end
+        % Negative subgradient (new code - new bounds)
+        inactSlowNegIdx2 = find((-1 - 1e-8) <= subgrad(~setActive) & ...
+            subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad);
+        % make sure values from both methods match
+        if sum(inactSlowNegIdx ~= inactSlowNegIdx2) ~= 0
+            warning('inactSlowNegIdx values dont match')
+            display(k)
+            break
+        end
 
 %         % Positive subgradient
 %         inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
@@ -823,12 +838,15 @@ for k = 2:maxiters
         inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
             subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad & ...
             dirSubgrad < 1);
-%         % make sure values from both methods match
-%         if sum(inactSlowPosIdx ~= inactSlowPosIdx) ~= 0
-%             warning('inactSlowPosIdx values dont match')
-%             display(k)
-%             break
-%         end
+        % Positive subgradient (new code - new bounds)
+        inactSlowPosIdx2 = find((1 - 1e-8) <= subgrad(~setActive) & ...
+            subgrad(~setActive) <= (1 + 1e-8) & dirSubgrad < 1);
+        % make sure values from both methods match
+        if sum(inactSlowPosIdx ~= inactSlowPosIdx2) ~= 0
+            warning('inactSlowPosIdx values dont match')
+            display(k)
+            break
+        end
             
         %# "Active" coeficients estimated as 0 with potential sign mismatch #%
 %         % Positive subgrad but negative derivative
