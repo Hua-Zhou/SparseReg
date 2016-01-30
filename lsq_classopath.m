@@ -139,9 +139,12 @@ if strcmpi(direction, 'increase')
         dualpathEq(:,1) = gresult.pi(1:m1);
         dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end), m2, 1);
     end
-    setActive = abs(betapath(:,1))>1e-16 | ~penidx;
+    setActive = abs(betapath(:,1))>1e-5 | ~penidx;
     nActive = nnz(setActive);
     betapath(~setActive,1) = 0;
+    % fix sign of Gurobi's dual path ineq variables
+    dualpathIneq(dualpathIneq(:,1) < 0,1) = ...
+        dualpathIneq(dualpathIneq(:,1) < 0,1)*-1;
     setIneqBorder = dualpathIneq(:,1)>0;
     residIneq = A*betapath(:,1) - b;
     
@@ -218,6 +221,7 @@ elseif strcmpi(direction, 'decrease')
     end
     
     % initialize sets
+    dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
     setActive = abs(betapath(:,1))>1e-16 | ~penidx;
     betapath(~setActive,1) = 0;
     setIneqBorder = dualpathIneq(:,1)>0;
