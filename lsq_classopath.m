@@ -52,6 +52,8 @@ argin.addRequired('beq', @(x) isnumeric(x) || isempty(x));
 argin.addParamValue('direction', 'decrease', @ischar);
 argin.addParamValue('qp_solver', 'matlab', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
+argin.addParamValue('epsilon', 1e-4, @isnumeric);
+
 % temp code for option of choosing method with multiple coefficients or not
 argin.addParamValue('multCoeff', 'false', @ischar);
 % temp code for changing the tolerance level for picking delta rho (chgrho)
@@ -62,9 +64,11 @@ y = reshape(y, n, 1);
 argin.parse(X, y, A, b, Aeq, beq, varargin{:});
 direction = argin.Results.direction;
 qp_solver = argin.Results.qp_solver;
+penidx = reshape(argin.Results.penidx,p,1);
+epsilon = argin.Results.epsilon;
 multCoeff = argin.Results.multCoeff;
 deltaRhoTol = argin.Results.deltaRhoTol;
-penidx = reshape(argin.Results.penidx,p,1);
+
 
 % check validity of qp_solver
 if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
@@ -77,6 +81,21 @@ if n < p && strcmpi(direction, 'increase')
     warning('n < p, so switching direction to "decrease"')
     direction = 'decrease';
 end
+
+% see if ridge penalty needs to be included
+if n < p
+    if epsilon <= 0
+        warning('epsilon must be positive, switching to default value (1e-4)')
+        epsilon = 1e-4;
+    end
+    y = [y; zeros(p, 1)];
+    X = [X; sqrt(epsilon)*eye(p)];
+    warning('n < p, so adding a small ridge penalty')
+end
+    
+
+
+
 
 %%% start here for (manual) debugging %%%
 % allocate space for path solution
@@ -108,6 +127,7 @@ subgradientPath.inactives = NaN(p, maxiters);
 subgradientPath.rhoSubgrad = NaN(p, maxiters);
 violationsPath = Inf(1, maxiters);
 
+% eyeEps = eye(p)*1e-4;
 
 % intialization
 H = X'*X;
@@ -306,6 +326,8 @@ for k = 2:maxiters
         end
     end
     
+    %k
+    
     %# Calculate derivative for coefficients and multipliers (Eq. 8) #%
     % construct matrix
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
@@ -315,9 +337,9 @@ for k = 2:maxiters
     % calculate derivative 
     try
 %         % original code (regular inverse of M):
-%         dir = dirsgn ...
-%               * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
-       
+%          dir = dirsgn ...
+%                * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%         [rank(M) == size(M, 2),      k]
 %         % second code (pinv of M):
 %         dir = dirsgn ...
 %             * (pinv(M) * ...
@@ -1249,7 +1271,7 @@ for k = 2:maxiters
      
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
-    dfPath(1, k) = rank(X(:,  setActive)) - rankAeq;
+    dfPath(1, k) = 1;%;rank(X(:,  setActive)) - rankAeq;
     dfPath(2, k) = nActive - rankAeq;
     %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, k) = max(nActive - rankAeq, 0);
