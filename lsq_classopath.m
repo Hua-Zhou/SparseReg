@@ -110,9 +110,6 @@ else
 end
     
 
-
-
-
 %%% start here for (manual) debugging %%%
 % allocate space for path solution
 m1 = size(Aeq, 1);  % # equality constraints
@@ -351,17 +348,16 @@ for k = 2:maxiters
     % calculate derivative 
     try
 %         % original code (regular inverse of M):
-%          dir = dirsgn ...
-%                * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
-%         [rank(M) == size(M, 2),      k]
+         dir = dirsgn ...
+               * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %         % second code (pinv of M):
 %         dir = dirsgn ...
 %             * (pinv(M) * ...
 %             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
              
-        % third code (derivative sign defined in terms of rho increasing)
-        dir = -(pinv(M) * ...
-            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%         % third code (derivative sign defined in terms of rho increasing)
+%         dir = -(pinv(M) * ...
+%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %         % make sure values from both methods match
 %         if sum(abs(dir) ~= abs(dir)) ~= 0
 %             warning('dir values dont match')
@@ -369,7 +365,8 @@ for k = 2:maxiters
 %             break
 %        end
     catch
-        break;
+        dir = -(pinv(M) * ...
+            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
     end
 %     % possible fix for numerical issues (thresholding small derivatives to
 %     % zero.  This did not work well.  
@@ -536,19 +533,19 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-%                 % original code (regular inverse of M):
-%                 dir = dirsgn ...
-%                     * (M \ ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % original code (regular inverse of M):
+                dir = dirsgn ...
+                    * (M \ ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
 %                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
                 
-                % 3rd code (derivative sign defined in terms of rho increasing)
-                dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                 % 3rd code (derivative sign defined in terms of rho increasing)
+%                 dir = -(pinv(M) * ...
+%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -556,7 +553,8 @@ for k = 2:maxiters
 %                     break
 %                 end
             catch
-                break;
+                dir = -(pinv(M) * ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -630,19 +628,19 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-%                 % original code (regular inverse of M):
-%                 dir = dirsgn ...
-%                     * (M \ ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % original code (regular inverse of M):
+                dir = dirsgn ...
+                    * (M \ ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
 %                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
                 
-                % 3rd code (derivative sign defined in terms of rho increasing)
-                dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                 % 3rd code (derivative sign defined in terms of rho increasing)
+%                 dir = -(pinv(M) * ...
+%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -650,7 +648,8 @@ for k = 2:maxiters
 %                     break
 %                 end
             catch
-                break;
+                dir = -(pinv(M) * ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -722,19 +721,19 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-%                 % original code (regular inverse of M):
-%                 dir = dirsgn ...
-%                     * (M \ ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % original code (regular inverse of M):
+                dir = dirsgn ...
+                    * (M \ ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
 %                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 
-                % 3rd code (derivative sign defined in terms of rho increasing)
-                dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                 % 3rd code (derivative sign defined in terms of rho increasing)
+%                 dir = -(pinv(M) * ...
+%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -742,7 +741,8 @@ for k = 2:maxiters
 %                     break
 %                 end
             catch
-                break;
+                dir = -(pinv(M) * ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -814,19 +814,19 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-%                 % original code (regular inverse of M):
-%                 dir = dirsgn ...
-%                     * (M \ ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                % original code (regular inverse of M):
+                dir = dirsgn ...
+                    * (M \ ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
 %                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 
-                % 3rd code (derivative sign defined in terms of rho increasing)
-                dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                 % 3rd code (derivative sign defined in terms of rho increasing)
+%                 dir = -(pinv(M) * ...
+%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -834,7 +834,8 @@ for k = 2:maxiters
 %                     break
 %                 end
             catch
-                break;
+                dir = -(pinv(M) * ...
+                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
