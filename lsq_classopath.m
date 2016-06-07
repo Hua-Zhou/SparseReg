@@ -325,6 +325,8 @@ end
 
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
+s2 = warning('error', 'MATLAB:singularMatrix');
+
 for k = 2:maxiters 
 %    tic; % timing for speed issues
 
@@ -1359,6 +1361,7 @@ end
 
 % clean up
 warning(s);
+warning(s2);
 betapath(:, k:end) = [];
 dualpathEq(:, k:end) = [];
 dualpathIneq(:, k:end) = [];
