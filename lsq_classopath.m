@@ -41,7 +41,7 @@ function [rhopath, betapath, dfPath, objValPath, stationarityConditionsPath, ...
 % Hua Zhou (hua_zhou@ncsu.edu) and Brian Gaines
 
 % input parsing rule
-[n,p] = size(X);
+[n, p] = size(X);
 argin = inputParser;
 argin.addRequired('X', @isnumeric);
 argin.addRequired('y', @(x) length(y)==n);
@@ -78,19 +78,35 @@ end
 
 % switch to decreasing direction if n < p
 if n < p && strcmpi(direction, 'increase')
-    warning('n < p, so switching direction to "decrease"')
+    warning('Switching direction to "decrease" since n < p')
     direction = 'decrease';
 end
 
 % see if ridge penalty needs to be included
 if n < p
+    warning('Adding a small ridge penalty (default is 1e-4) since n < p')
     if epsilon <= 0
         warning('epsilon must be positive, switching to default value (1e-4)')
         epsilon = 1e-4;
     end
+    % create augmented data
     y = [y; zeros(p, 1)];
     X = [X; sqrt(epsilon)*eye(p)];
-    warning('n < p, so adding a small ridge penalty')
+    
+else
+    % make sure X is full column rank
+    [~, R] = qr(X, 0);
+    rankX = sum(abs(diag(R)) > abs(R(1))*max(n, p)*eps(class(R)));
+    if (rankX ~= p)
+        warning('Adding a small ridge penalty (default is 1e-4) since X is rank deficient');
+        if epsilon <= 0
+            warning('epsilon must be positive, switching to default value (1e-4)')
+            epsilon = 1e-4;
+        end
+        % create augmented data
+        y = [y; zeros(p, 1)];
+        X = [X; sqrt(epsilon)*eye(p)];
+    end
 end
     
 
@@ -126,8 +142,6 @@ subgradientPath.dir = NaN(p, maxiters);
 subgradientPath.inactives = NaN(p, maxiters);
 subgradientPath.rhoSubgrad = NaN(p, maxiters);
 violationsPath = Inf(1, maxiters);
-
-% eyeEps = eye(p)*1e-4;
 
 % intialization
 H = X'*X;
