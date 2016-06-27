@@ -87,7 +87,7 @@ if n < p
     warning('Adding a small ridge penalty (default is 1e-4) since n < p')
     if epsilon <= 0
         warning('epsilon must be positive, switching to default value (1e-4)')
-        epsilon = 1e-4;
+        epsilon = 1e-8;
     end
     % create augmented data
     y = [y; zeros(p, 1)];
@@ -253,10 +253,12 @@ elseif strcmpi(direction, 'decrease')
     
     % initialize sets
     dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
-    setActive = abs(betapath(:,1))>1e-16 | ~penidx;
+    setActive = abs(betapath(:,1))>1e-8 | ~penidx;
     betapath(~setActive,1) = 0;
-    setIneqBorder = dualpathIneq(:,1)>0;
+%     setIneqBorder = dualpathIneq(:,1)>0;
     residIneq = A*betapath(:,1) - b;
+    setIneqBorder = residIneq == 0;
+    
 
     % find the maximum rho and initialize subgradient vector
     resid = y - X*betapath(:,1);
@@ -1086,7 +1088,7 @@ for k = 2:maxiters
 %     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder, k-1) ...
 %         ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
     % new code
-    nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder, k-1) ...
+    nextrhoIneq(setIneqBorder) = - dirsgn*dualpathIneq(setIneqBorder, k-1) ...
         ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
 %     % make sure values from both methods match
 %     if sum(nextrhoIneq ~= nextrhoIneq) ~= 0
@@ -1121,7 +1123,8 @@ for k = 2:maxiters
     
     % terminate path following if no new event found
     if isinf(chgrho)
-        break;
+        chgrho = rhopath(k-1);
+        % break;
     end
     
     
@@ -1134,8 +1137,8 @@ for k = 2:maxiters
 %     end
 %     rhopath(k) = rhopath(k-1) - dirsgn*chgrho;
     % new code
-    if rhopath(k-1) + dirsgn*chgrho < 0 % may wanna change to maxrho
-        chgrho = rhopath(k-1);              % for increasing direction?
+    if rhopath(k-1) + dirsgn*chgrho < 0 
+        chgrho = rhopath(k-1);               
     end
 %     % make sure values from both methods match
 %     if sum(rhopath(k) ~= rhopath(k-1) + dirsgn*chgrho) ~= 0
@@ -1293,9 +1296,9 @@ for k = 2:maxiters
     %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, k) = max(nActive - rankAeq, 0);
     % break algorithm when df are exhausted
-    if dfPath(2, k) > n
-        break;
-    end
+%     if dfPath(2, k) > n
+%         break;
+%     end
     
 
     %## Calculate & store stuff for debuggin ##%
