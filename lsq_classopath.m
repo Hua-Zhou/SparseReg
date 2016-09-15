@@ -99,7 +99,8 @@ if n < p
     % create augmented data
     y = [y; zeros(p, 1)];
     X = [X; sqrt(epsilon)*eye(p)];
-    
+    % record original number of observations
+    n_orig = n;
 else
     % make sure X is full column rank
     [~, R] = qr(X, 0);
@@ -113,6 +114,8 @@ else
         % create augmented data
         y = [y; zeros(p, 1)];
         X = [X; sqrt(epsilon)*eye(p)];
+        % record original number of observations
+        n_orig = n;
     end
 end
     
@@ -247,9 +250,31 @@ elseif strcmpi(direction, 'decrease')
             dualpathEq(:,1) = lambda.eqlin;
             dualpathIneq(:,1) = lambda.ineqlin;
         elseif strcmpi(init_method, 'qp')
+            %# use LP to find rho_max
+            % solve LP problem
+            [x,~,~,~,lambda] = ...
+                linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
+                zeros(2*p,1), inf(2*p,1));
+            betapath(:,1) = x(1:p) - x(p+1:end);
+            dualpathEq(:,1) = lambda.eqlin;
+            dualpathIneq(:,1) = lambda.ineqlin;
+            % initialize sets
+            dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
+            setActive = abs(betapath(:,1))>1e-4 | ~penidx;
+            betapath(~setActive,1) = 0;
+            setIneqBorder = dualpathIneq(:,1)>0;
+            residIneq = A*betapath(:,1) - b;
+            setIneqBorder = residIneq == 0;
+            
+            % find the maximum rho and initialize subgradient vector
+            resid = y - X*betapath(:, 1);
+            subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
+            %     subgrad(setActive) = 0;
+            [rho_max, idx] = max(abs(subgrad));
+%               rho_max = 1000;%1.74583016275794;
             % use quadratic programming
             [betapath(:,1), stats] = lsq_constrsparsereg(X, y, ...
-                1000,...
+                (rho_max*1),...
                 'method','qp','qp_solver','matlab','Aeq', Aeq,...
                 'beq', beq, 'A',A,'b',b);
             dualpathEq(:,1) = stats.qp_dualEq;
@@ -288,10 +313,11 @@ elseif strcmpi(direction, 'decrease')
         
         
     end
-    
+
+    % may wanna switch this so the first rho isn't re-calculated?
     % initialize sets
     dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
-    setActive = abs(betapath(:,1))>1e-7 | ~penidx;
+    setActive = abs(betapath(:,1))>1e-4 | ~penidx;
     betapath(~setActive,1) = 0;
     setIneqBorder = dualpathIneq(:,1)>0;
     residIneq = A*betapath(:,1) - b;
@@ -373,7 +399,7 @@ for k = 2:maxiters
 
     if strcmpi(direction, 'decrease')
         % threshold near-zero rhos to zero and stop algorithm
-        if rhopath(k-1) <= (0 + 1e-8)
+        if rhopath(k-1) <= (0 + 1e-3)
             rhopath(k-1) = 0;
             break;
         end
@@ -1334,9 +1360,9 @@ for k = 2:maxiters
     %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, k) = max(nActive - rankAeq, 0);
     % break algorithm when df are exhausted
-%     if dfPath(2, k) > n
-%         break;
-%     end
+    if dfPath(2, k) > n_orig
+        break;
+    end
     
 
     %## Calculate & store stuff for debuggin ##%
