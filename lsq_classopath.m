@@ -25,6 +25,7 @@ function [rhopath, betapath, dfPath, objValPath, stationarityConditionsPath, ...
 %      lasso)
 %   'penidx' - a logical vector indicating penalized coefficients
 %   'qp_solver' - 'matlab' (default), or 'GUROBI'
+%   'init_method' - 'lp' (deffault) or 'qp' method to initialize
 %
 % OUTPUT:
 %
@@ -51,11 +52,12 @@ argin.addRequired('Aeq', @(x) size(x,2)==p || isempty(x));
 argin.addRequired('beq', @(x) isnumeric(x) || isempty(x));
 argin.addParamValue('direction', 'decrease', @ischar);
 argin.addParamValue('qp_solver', 'matlab', @ischar);
+argin.addParamValue('init_method', 'qp', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
 argin.addParamValue('epsilon', 1e-4, @isnumeric);
 
 % temp code for option of choosing method with multiple coefficients or not
-argin.addParamValue('multCoeff', 'false', @ischar);
+argin.addParamValue('multCoeff', 'true', @ischar);
 % temp code for changing the tolerance level for picking delta rho (chgrho)
 argin.addParamValue('deltaRhoTol', 1e-8, @isnumeric);
 
@@ -64,6 +66,7 @@ y = reshape(y, n, 1);
 argin.parse(X, y, A, b, Aeq, beq, varargin{:});
 direction = argin.Results.direction;
 qp_solver = argin.Results.qp_solver;
+init_method = argin.Results.init_method;
 penidx = reshape(argin.Results.penidx,p,1);
 epsilon = argin.Results.epsilon;
 multCoeff = argin.Results.multCoeff;
@@ -75,6 +78,10 @@ if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
     error('sparsereg:lsq_classopath:qp_solver', ...
         'qp_solver not recognized');
 end
+
+% check validity of initialization method
+
+
 
 % switch to decreasing direction if n < p
 if n < p && strcmpi(direction, 'increase')
@@ -228,42 +235,73 @@ if strcmpi(direction, 'increase')
     
 elseif strcmpi(direction, 'decrease')
     
-    % initialize beta by linear programming
+    % initialize beta
     if strcmpi(qp_solver, 'matlab')
-        % use Matlab lsqlin
-        [x,~,~,~,lambda] = ...
-            linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
-            zeros(2*p,1), inf(2*p,1));
-        betapath(:,1) = x(1:p) - x(p+1:end);
-        dualpathEq(:,1) = lambda.eqlin;
-        dualpathIneq(:,1) = lambda.ineqlin;
+        
+        if strcmpi(init_method, 'lp')
+            % use Matlab lsqlin
+            [x,~,~,~,lambda] = ...
+                linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
+                zeros(2*p,1), inf(2*p,1));
+            betapath(:,1) = x(1:p) - x(p+1:end);
+            dualpathEq(:,1) = lambda.eqlin;
+            dualpathIneq(:,1) = lambda.ineqlin;
+        elseif strcmpi(init_method, 'qp')
+            % use quadratic programming
+            [betapath(:,1), stats] = lsq_constrsparsereg(X, y, ...
+                1000,...
+                'method','qp','qp_solver','matlab','Aeq', Aeq,...
+                'beq', beq, 'A',A,'b',b);
+            dualpathEq(:,1) = stats.qp_dualEq;
+            dualpathIneq(:,1) = stats.qp_dualIneq;
+        end
+    
+        
+        
     elseif strcmpi(qp_solver, 'GUROBI')
         % use GUROBI solver if possible
-        gmodel.obj = ones(2*p,1);
-        gmodel.A = sparse([A -A; Aeq -Aeq]);
-        gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
-        gmodel.rhs = [b; beq];
-        gmodel.lb = zeros(2*p,1);
-        gparam.OutputFlag = 0;
-        gresult = gurobi(gmodel, gparam);
-        betapath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
-        dualpathEq(:,1) = gresult.pi(m2+1:end);
-        dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
+        
+        % linear programming
+        if strcmpi(init_method, 'lp')
+            gmodel.obj = ones(2*p,1);
+            gmodel.A = sparse([A -A; Aeq -Aeq]);
+            gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
+            gmodel.rhs = [b; beq];
+            gmodel.lb = zeros(2*p,1);
+            gparam.OutputFlag = 0;
+            gresult = gurobi(gmodel, gparam);
+            betapath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
+            dualpathEq(:,1) = reshape(gresult.pi(m2+1:end), m1, 1);
+            dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
+        elseif strcmpi(init_method, 'qp')
+            
+            % quadratic programming
+            [betapath(:,1), stats] = lsq_constrsparsereg(X, y, ...
+                5000,...
+                'method','qp','qp_solver','gurobi','Aeq', Aeq,...
+                'beq', beq, 'A',A,'b',b);
+            dualpathEq(:,1) = stats.qp_dualEq;
+            dualpathIneq(:,1) = stats.qp_dualIneq;
+
+        end
+        
+        
+        
     end
     
     % initialize sets
     dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
-    setActive = abs(betapath(:,1))>1e-8 | ~penidx;
+    setActive = abs(betapath(:,1))>1e-7 | ~penidx;
     betapath(~setActive,1) = 0;
-%     setIneqBorder = dualpathIneq(:,1)>0;
+    setIneqBorder = dualpathIneq(:,1)>0;
     residIneq = A*betapath(:,1) - b;
     setIneqBorder = residIneq == 0;
     
 
     % find the maximum rho and initialize subgradient vector
-    resid = y - X*betapath(:,1);
+    resid = y - X*betapath(:, 1);
     subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
-    subgrad(setActive) = 0;
+%     subgrad(setActive) = 0;
     [rhopath(1), idx] = max(abs(subgrad));
     subgrad(setActive) = sign(betapath(setActive,1));
     subgrad(~setActive) = subgrad(~setActive)/rhopath(1);
@@ -293,14 +331,14 @@ elseif strcmpi(direction, 'decrease')
         constraintsSatisfied.eq(1) = NaN;
     else
         constraintsSatisfied.eq(1) = ...
-            sum(abs(Aeq*betapath(:, 1) - beq) < 1e-10) == m1;
+            sum(abs(Aeq*betapath(:, 1) - beq) < 1e-7) == m1;
     end
     % inequality
     if m2==0
         constraintsSatisfied.ineq(1) = NaN;
     else
         constraintsSatisfied.ineq(1) = ...
-            sum(A*betapath(:, 1) - b < 1e-10) == m2;
+            sum(A*betapath(:, 1) - b < 1e-7) == m2;
     end
     
     % store subgradient
@@ -1080,8 +1118,8 @@ for k = 2:maxiters
 %     nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
 %         ./ dirResidIneq;
     % new code 
-    nextrhoIneq(~setIneqBorder) = -dirsgn*residIneq(~setIneqBorder) ...
-        ./ dirResidIneq;    
+    nextrhoIneq(~setIneqBorder) = reshape(-dirsgn*residIneq(~setIneqBorder), nnz(~setIneqBorder), 1) ...
+        ./ reshape(dirResidIneq, nnz(~setIneqBorder), 1);    
     
     %# Active inequality constraint becoming deactive #%
 %     % original code   
