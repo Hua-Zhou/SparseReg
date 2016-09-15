@@ -82,6 +82,7 @@ end
 % check validity of initialization method
 
 
+n_orig = n; % for when ridge penalty isn't used
 
 % switch to decreasing direction if n < p
 if n < p && strcmpi(direction, 'increase')
