@@ -189,7 +189,9 @@ if strcmpi(direction, 'increase')
         dualpathIneq(dualpathIneq(:,1) < 0,1)*-1;
     setIneqBorder = dualpathIneq(:,1)>0;
     residIneq = A*betapath(:,1) - b;
-    
+    % determine number of active/binding inequality constraints
+    nIneqBorder = nnz(setIneqBorder);
+            
     % intialize subgradient vector
     rhopath(1) = 0;
     subgrad = zeros(p,1);
@@ -205,7 +207,7 @@ if strcmpi(direction, 'increase')
     % method 1 is more correct).  %Also, df are thresholded at zero.  
     rankAeq = rank(Aeq);
     dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
-    dfPath(2, 1) = nActive - rankAeq;
+    dfPath(2, 1) = nActive - rankAeq - nIneqBorder;
     %dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, 1) = max(nActive - rankAeq, 0);
     
@@ -263,9 +265,10 @@ elseif strcmpi(direction, 'decrease')
             dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
             setActive = abs(betapath(:,1))>1e-4 | ~penidx;
             betapath(~setActive,1) = 0;
-            setIneqBorder = dualpathIneq(:,1)>0;
+%             setIneqBorder = dualpathIneq(:,1)>0;
             residIneq = A*betapath(:,1) - b;
             setIneqBorder = residIneq == 0;
+  
             
             % find the maximum rho and initialize subgradient vector
             resid = y - X*betapath(:, 1);
@@ -320,10 +323,10 @@ elseif strcmpi(direction, 'decrease')
     dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
     setActive = abs(betapath(:,1))>1e-4 | ~penidx;
     betapath(~setActive,1) = 0;
-    setIneqBorder = dualpathIneq(:,1)>0;
+%     setIneqBorder = dualpathIneq(:,1)>0;
     residIneq = A*betapath(:,1) - b;
     setIneqBorder = residIneq == 0;
-    
+    nIneqBorder = nnz(setIneqBorder);
 
     % find the maximum rho and initialize subgradient vector
     resid = y - X*betapath(:, 1);
@@ -342,7 +345,7 @@ elseif strcmpi(direction, 'decrease')
     % method 1 is more correct).  %Also, df are thresholded at zero.  
     rankAeq = rank(Aeq);
     dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
-    dfPath(2, 1) = nActive - rankAeq;
+    dfPath(2, 1) = nActive - rankAeq - nIneqBorder;
     %dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, 1) = max(nActive - rankAeq, 0);
     
@@ -412,21 +415,21 @@ for k = 2:maxiters
     % construct matrix
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
         A(setIneqBorder,setActive)']; 
-    M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ... 
+    M(end+1:end+m1+nIneqBorder, 1:nActive) = ... 
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
     % calculate derivative 
     try
 %         % original code (regular inverse of M):
          dir = dirsgn ...
-               * (M \ [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+               * (M \ [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %         % second code (pinv of M):
 %         dir = dirsgn ...
 %             * (pinv(M) * ...
-%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
              
 %         % third code (derivative sign defined in terms of rho increasing)
 %         dir = -(pinv(M) * ...
-%             [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %         % make sure values from both methods match
 %         if sum(abs(dir) ~= abs(dir)) ~= 0
 %             warning('dir values dont match')
@@ -435,7 +438,7 @@ for k = 2:maxiters
 %        end
     catch
         dir = -(pinv(M) * ...
-            [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+            [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
     end
 %     % possible fix for numerical issues (thresholding small derivatives to
 %     % zero.  This did not work well.  
@@ -593,28 +596,30 @@ for k = 2:maxiters
             setActive(viol_coeff) = true;
             % determine new number of active coefficients
             nActive = nnz(setActive);
+            % determine number of active/binding inequality constraints
+            nIneqBorder = nnz(setIneqBorder);
             
             %# Recalculate derivative for coefficients & multipliers (Eq. 8) #%
             % construct matrix
             M = [H(setActive, setActive) Aeq(:,setActive)' ...
                 A(setIneqBorder,setActive)'];
-            M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+            M(end+1:end+m1+nIneqBorder, 1:nActive) = ...
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
                 % original code (regular inverse of M):
                 dir = dirsgn ...
                     * (M \ ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
                 
 %                 % 3rd code (derivative sign defined in terms of rho increasing)
 %                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -623,7 +628,7 @@ for k = 2:maxiters
 %                 end
             catch
                 dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -688,28 +693,30 @@ for k = 2:maxiters
             setActive(viol_coeff) = true;
             % determine new number of active coefficients
             nActive = nnz(setActive);
-                        
+            % determine number of active/binding inequality constraints
+            nIneqBorder = nnz(setIneqBorder);
+            
             %# Recalculate derivative for coefficients & multipliers (Eq. 8) #%
             % construct matrix
             M = [H(setActive, setActive) Aeq(:,setActive)' ...
                 A(setIneqBorder,setActive)'];
-            M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+            M(end+1:end+m1+nIneqBorder, 1:nActive) = ...
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
                 % original code (regular inverse of M):
                 dir = dirsgn ...
                     * (M \ ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
                 
 %                 % 3rd code (derivative sign defined in terms of rho increasing)
 %                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -718,7 +725,7 @@ for k = 2:maxiters
 %                 end
             catch
                 dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -780,29 +787,30 @@ for k = 2:maxiters
             setActive(viol_coeff) = false;
             % determine new number of active coefficients
             nActive = nnz(setActive);
-            
+            % determine number of active/binding inequality constraints
+            nIneqBorder = nnz(setIneqBorder);
             
             %# Recalculate derivative for coefficients & multipliers (Eq. 8) #%
             % construct matrix
             M = [H(setActive, setActive) Aeq(:,setActive)' ...
                 A(setIneqBorder,setActive)'];
-            M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+            M(end+1:end+m1+nIneqBorder, 1:nActive) = ...
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
                 % original code (regular inverse of M):
                 dir = dirsgn ...
                     * (M \ ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 
 %                 % 3rd code (derivative sign defined in terms of rho increasing)
 %                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -811,7 +819,7 @@ for k = 2:maxiters
 %                 end
             catch
                 dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -873,29 +881,30 @@ for k = 2:maxiters
             setActive(viol_coeff) = false;
             % determine new number of active coefficients
             nActive = nnz(setActive);
-            
+            % determine number of active/binding inequality constraints
+            nIneqBorder = nnz(setIneqBorder);
             
             %# Recalculate derivative for coefficients & multipliers (Eq. 8) #%
             % construct matrix
             M = [H(setActive, setActive) Aeq(:,setActive)' ...
                 A(setIneqBorder,setActive)'];
-            M(end+1:end+m1+nnz(setIneqBorder), 1:nActive) = ...
+            M(end+1:end+m1+nIneqBorder, 1:nActive) = ...
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
                 % original code (regular inverse of M):
                 dir = dirsgn ...
                     * (M \ ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
                 
 %                 % second code (pinv of M):
 %                 dir = dirsgn ...
 %                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 
 %                 % 3rd code (derivative sign defined in terms of rho increasing)
 %                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
 %                 % make sure values from both methods match
 %                 if sum(abs(dir) ~= abs(dir)) ~= 0
 %                     warning('dir values dont match')
@@ -904,7 +913,7 @@ for k = 2:maxiters
 %                 end
             catch
                 dir = -(pinv(M) * ...
-                    [subgrad(setActive); zeros(m1+nnz(setIneqBorder),1)]);
+                    [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
 %             % possible fix for numerical issues (thresholding small 
 %             % derivatives to zero.  This did not work well.
@@ -1151,10 +1160,10 @@ for k = 2:maxiters
     %# Active inequality constraint becoming deactive #%
 %     % original code   
 %     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder, k-1) ...
-%         ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
+%         ./ reshape(dir(nActive+m1+1:end), nIneqBorder,1);     
     % new code
     nextrhoIneq(setIneqBorder) = - dirsgn*dualpathIneq(setIneqBorder, k-1) ...
-        ./ reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);     
+        ./ reshape(dir(nActive+m1+1:end), nIneqBorder,1);     
 %     % make sure values from both methods match
 %     if sum(nextrhoIneq ~= nextrhoIneq) ~= 0
 %         warning('Inequality delta rho values dont match')
@@ -1265,10 +1274,10 @@ for k = 2:maxiters
     % update mu (lagrange multipliers for inequality constraints)
 %     % original code
 %     dualpathIneq(setIneqBorder, k) = dualpathIneq(setIneqBorder, k-1) ...
-%         + chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder),1);
+%         + chgrho*reshape(dir(nActive+m1+1:end), nIneqBorder,1);
     % new code
     dualpathIneq(setIneqBorder, k) = dualpathIneq(setIneqBorder, k-1) ...
-        + dirsgn*chgrho*reshape(dir(nActive+m1+1:end), nnz(setIneqBorder), 1);   
+        + dirsgn*chgrho*reshape(dir(nActive+m1+1:end), nIneqBorder, 1);   
 %     % make sure new code matches old
 %     if sum(dualpathIneq(setIneqBorder, k) ~= ...
 %         dualpathIneq(setIneqBorder, k)) ~= 0
@@ -1357,7 +1366,7 @@ for k = 2:maxiters
     % calculate degrees of freedom (using two different methods, I believe
     % method 1 is more correct).  Also, df are thresholded at zero.  
     dfPath(1, k) = 1;%;rank(X(:,  setActive)) - rankAeq;
-    dfPath(2, k) = nActive - rankAeq;
+    dfPath(2, k) = nActive - rankAeq - nIneqBorder;
     %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
     %dfPath(2, k) = max(nActive - rankAeq, 0);
     % break algorithm when df are exhausted
