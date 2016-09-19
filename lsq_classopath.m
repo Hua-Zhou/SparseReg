@@ -64,7 +64,6 @@ argin.addRequired('A', @(x) size(x,2)==p || isempty(x));
 argin.addRequired('b', @(x) isnumeric(x) || isempty(x));
 argin.addRequired('Aeq', @(x) size(x,2)==p || isempty(x));
 argin.addRequired('beq', @(x) isnumeric(x) || isempty(x));
-argin.addParamValue('direction', 'decrease', @ischar);
 argin.addParamValue('qp_solver', 'matlab', @ischar);
 argin.addParamValue('init_method', 'qp', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
@@ -73,7 +72,6 @@ argin.addParamValue('epsilon', 1e-4, @isnumeric);
 % parse inputs
 y = reshape(y, n, 1);
 argin.parse(X, y, A, b, Aeq, beq, varargin{:});
-direction = argin.Results.direction;
 qp_solver = argin.Results.qp_solver;
 init_method = argin.Results.init_method;
 penidx = reshape(argin.Results.penidx,p,1);
@@ -179,8 +177,7 @@ if strcmpi(qp_solver, 'matlab')
         % find the maximum rho and initialize subgradient vector
         resid = y - X*betaPath(:, 1);
         subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
-        %     subgrad(setActive) = 0;
-        [rho_max, idx] = max(abs(subgrad));
+        rho_max = max(abs(subgrad));
         
         % use quadratic programming
         [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
@@ -257,8 +254,8 @@ dirsgn = -1;
 %####################################%
 %### main loop for path following ###%
 %####################################%
-s = warning('error', 'MATLAB:nearlySingularMatrix'); 
-s2 = warning('error', 'MATLAB:singularMatrix');
+s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
+s2 = warning('error', 'MATLAB:singularMatrix'); %#ok<CTPCT>
 
 for k = 2:maxiters 
 
