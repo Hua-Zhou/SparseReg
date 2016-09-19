@@ -1,5 +1,5 @@
-function [rhoPath, betaPath, dfPath, objValPath, stationarityConditionsPath, ...
-    constraintsSatisfied, subgradientPath, violationsPath, dualpathEq, ...
+function [rhoPath, betaPath, dfPath, objValPath, ...
+    violationsPath, dualpathEq, ...
     dualpathIneq] = lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %
@@ -70,11 +70,6 @@ argin.addParamValue('init_method', 'qp', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
 argin.addParamValue('epsilon', 1e-4, @isnumeric);
 
-% temp code for option of choosing method with multiple coefficients or not
-argin.addParamValue('multCoeff', 'true', @ischar);
-% temp code for changing the tolerance level for picking delta rho (chgrho)
-argin.addParamValue('deltaRhoTol', 1e-8, @isnumeric);
-
 % parse inputs
 y = reshape(y, n, 1);
 argin.parse(X, y, A, b, Aeq, beq, varargin{:});
@@ -83,8 +78,6 @@ qp_solver = argin.Results.qp_solver;
 init_method = argin.Results.init_method;
 penidx = reshape(argin.Results.penidx,p,1);
 epsilon = argin.Results.epsilon;
-multCoeff = argin.Results.multCoeff;
-deltaRhoTol = argin.Results.deltaRhoTol;
 
 % check validity of qp_solver
 if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
@@ -96,12 +89,6 @@ end
 
 % save original number of observations (for when ridge penalty is used)
 n_orig = n;
-
-% switch to decreasing direction if n < p
-if n < p && strcmpi(direction, 'increase')
-    warning('Switching direction to "decrease" since n < p')
-    direction = 'decrease';
-end
 
 % see if ridge penalty needs to be included
 if n < p
@@ -152,17 +139,8 @@ betaPath = zeros(p, maxiters);
 dualpathEq = zeros(m1, maxiters);
 dualpathIneq = zeros(m2, maxiters);
 rhoPath = zeros(1, maxiters);
-dfPath = Inf(2, maxiters);
+dfPath = Inf(1, maxiters);
 objValPath = zeros(1, maxiters);
-stationarityConditionsPath.values = zeros(p, maxiters);
-stationarityConditionsPath.satisfied = Inf(1, maxiters);
-constraintsSatisfied.eq = Inf(1, maxiters);
-constraintsSatisfied.ineq = Inf(1, maxiters);
-subgradientPath.values = zeros(p, maxiters);
-subgradientPath.satisfied = Inf(1, maxiters);
-subgradientPath.dir = NaN(p, maxiters);
-subgradientPath.inactives = NaN(p, maxiters);
-subgradientPath.rhoSubgrad = NaN(p, maxiters);
 violationsPath = Inf(1, maxiters);
 
 % intialization
@@ -213,8 +191,6 @@ if strcmpi(qp_solver, 'matlab')
         dualpathIneq(:,1) = stats.qp_dualIneq;
     end
     
- 
-    
 elseif strcmpi(qp_solver, 'GUROBI')
     % use GUROBI solver if possible
     
@@ -239,11 +215,7 @@ elseif strcmpi(qp_solver, 'GUROBI')
             'beq', beq, 'A',A,'b',b);
         dualpathEq(:,1) = stats.qp_dualEq;
         dualpathIneq(:,1) = stats.qp_dualIneq;
-        
     end
-    
-    
-    
 end
 
 % may wanna switch this so the first rho isn't re-calculated?
@@ -269,47 +241,10 @@ nActive = nnz(setActive);
 % calculate value for objective function
 objValPath(1) = norm(y-X*betaPath(:,1))^2/2 + ...
     rhoPath(1)*sum(abs(betaPath(:,1)));
-% calculate degrees of freedom (using two different methods, I believe
-% method 1 is more correct).  %Also, df are thresholded at zero.
-rankAeq = rank(Aeq);
-dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
-dfPath(2, 1) = nActive - rankAeq - nIneqBorder;
-%dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
-%dfPath(2, 1) = max(nActive - rankAeq, 0);
+% calculate degrees of freedom 
+rankAeq = rank(Aeq);                           % should do this more efficiently
+dfPath(1) = nActive - rankAeq - nIneqBorder;
 
-% calculate the stationarity condition value
-stationarityConditionsPath.values(:, 1) = -X'*(y - X*betaPath(:, 1)) + ...
-    rhoPath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
-% see if stationarity condition is satisified
-stationarityConditionsPath.satisfied(1) = ...
-    sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
-% check if constraints are violated or not
-% equality
-if m1==0
-    constraintsSatisfied.eq(1) = NaN;
-else
-    constraintsSatisfied.eq(1) = ...
-        sum(abs(Aeq*betaPath(:, 1) - beq) < 1e-7) == m1;
-end
-% inequality
-if m2==0
-    constraintsSatisfied.ineq(1) = NaN;
-else
-    constraintsSatisfied.ineq(1) = ...
-        sum(A*betaPath(:, 1) - b < 1e-7) == m2;
-end
-
-% store subgradient
-subgradientPath.values(:, 1) = subgrad;
-% check that subgradient condition is satisfied
-subgradientPath.satisfied(1) = ...
-    nnz(subgradientPath.values(:, 1) <= 1 & ...
-    subgradientPath.values(:, 1) >= -1) == p;
-% indices for inactive coefficients (dirSubgrad entries)
-subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
-    find(setActive == 0);
-% calculate rho*subgrad
-subgradientPath.rhoSubgrad(:, 1) = rhoPath(1)*subgrad;
 
 % set initial violations counter to 0
 violationsPath(1) = 0;
@@ -319,8 +254,10 @@ violationsPath(1) = 0;
 dirsgn = -1;
 
 
-% main loop for path following
-s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
+%####################################%
+%### main loop for path following ###%
+%####################################%
+s = warning('error', 'MATLAB:nearlySingularMatrix'); 
 s2 = warning('error', 'MATLAB:singularMatrix');
 
 for k = 2:maxiters 
@@ -330,7 +267,6 @@ for k = 2:maxiters
         rhoPath(k-1) = 0;
         break;
     end
-    
     
     %# Calculate derivative for coefficients and multipliers #%
     % construct matrix
@@ -343,28 +279,16 @@ for k = 2:maxiters
         % try using a regular inverse first
         dir = dirsgn ...
             * (M \ [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-
     catch
         % otherwise use the moore-penrose inverse
         dir = -(pinv(M) * ...
             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
     end
        
-    %# calculate derivative for rho*subgradient (Eq. 10) #%
-%     % original code
-%     dirSubgrad = ...
-%          - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-%          A(setIneqBorder,~setActive)'] * dir;
-    % second code (derivative sign defined in terms of rho increasing)
+    %# calculate derivative for rho*subgradient #%
     dirSubgrad = ...
         - [H(~setActive, setActive) Aeq(:,~setActive)' ...
         A(setIneqBorder,~setActive)'] * dir;
-%     % make sure values from both methods match
-%     if sum(abs(dirSubgrad) ~= abs(dirSubgrad)) ~= 0
-%         warning('dirSubgrad values dont match')
-%         display(k)
-%         break
-%     end
     
     
     %## check additional events related to potential subgradient violations ##%
@@ -373,35 +297,10 @@ for k = 2:maxiters
     % Negative subgradient
     inactSlowNegIdx = find((1*dirsgn - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (1*dirsgn + 1e-8) & 1*dirsgn < dirSubgrad);   
-%      % make sure values from both methods match
-%     if sum(inactSlowNegIdx ~= inactSlowNegIdx) ~= 0
-%         warning('inactSlowNegIdx values dont match')
-%         display(k)
-%         break
-%     end
-    %%%%%%%%%%%%%%%%%% Possibly change ALL bounds to account for numerical
-    %%%%%%%%%%%%%%%%%% error
     
-%     % Positive subgradient
-%     inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
-%         subgrad(~setActive) <= (1 + 1e-8) & -1 < dirSubgrad & ...
-%         dirSubgrad < 0);
-%     % Positive subgradient (new code - original bounds)
-%     inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
-%         subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad & ...
-%         dirSubgrad < 1);
-%     % Positive subgradient (new code - new bounds)
-%     inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
-%         subgrad(~setActive) <= (1 + 1e-8) & dirSubgrad < 1);
-    % Positive subgradient (new code - new bounds)
+    % Positive subgradient
     inactSlowPosIdx = find((-1*dirsgn - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (-1*dirsgn + 1e-8) & dirSubgrad < -1*dirsgn);
-%     % make sure values from both methods match
-%     if sum(inactSlowPosIdx ~= inactSlowPosIdx2) ~= 0
-%         warning('inactSlowPosIdx values dont match')
-%         display(k)
-%         break
-%     end
     
     %# "Active" coeficients estimated as 0 with potential sign mismatch #%
     % Positive subgrad but negative derivative 
@@ -437,7 +336,7 @@ for k = 2:maxiters
             % determine number of active/binding inequality constraints
             nIneqBorder = nnz(setIneqBorder);
             
-            %# Recalculate derivative for coefficients & multipliers (Eq. 8) #%
+            %# Recalculate derivative for coefficients & multipliers #%
             % construct matrix
             M = [H(setActive, setActive) Aeq(:,setActive)' ...
                 A(setIneqBorder,setActive)'];
@@ -445,48 +344,21 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-                % original code (regular inverse of M):
+                % try using a regular inverse first
                 dir = dirsgn ...
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-                
-%                 % second code (pinv of M):
-%                 dir = dirsgn ...
-%                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-                
-%                 % 3rd code (derivative sign defined in terms of rho increasing)
-%                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 % make sure values from both methods match
-%                 if sum(abs(dir) ~= abs(dir)) ~= 0
-%                     warning('dir values dont match')
-%                     display(k)
-%                     break
-%                 end
             catch
+                % otherwise use moore-penrose inverse 
                 dir = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
-%             % possible fix for numerical issues (thresholding small 
-%             % derivatives to zero.  This did not work well.
-%             dir(abs(dir) < 1e-12) = 0;
             
-            %# calculate derivative for rho*subgradient (Eq. 10) #%
-%             % original code
-%             dirSubgrad = ...
-%                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-%                 A(setIneqBorder,~setActive)'] * dir;
-            % second code (derivative sign defined in terms of rho increasing)
+            %# calculate derivative for rho*subgradient #%
             dirSubgrad = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir;
-%             % make sure values from both methods match
-%             if sum(abs(dirSubgrad) ~= abs(dirSubgrad)) ~= 0
-%                 warning('dirSubgrad values dont match')
-%                 display(k)
-%                 break
-%             end
+            
             
             %# Misc. housekeeping #%
 %             % check for violations again
@@ -519,7 +391,7 @@ for k = 2:maxiters
             end
         end
 
-        % Monitor & fix condition 2 violations
+        % Monitor & fix subgradient condition 2 violations
         while ~isempty(inactSlowPosIdx)
             
             %# Identify & move problem coefficient #%
@@ -534,7 +406,7 @@ for k = 2:maxiters
             % determine number of active/binding inequality constraints
             nIneqBorder = nnz(setIneqBorder);
             
-            %# Recalculate derivative for coefficients & multipliers (Eq. 8) #%
+            %# Recalculate derivative for coefficients & multiplier #%
             % construct matrix
             M = [H(setActive, setActive) Aeq(:,setActive)' ...
                 A(setIneqBorder,setActive)'];
@@ -542,25 +414,10 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-                % original code (regular inverse of M):
+                % try using a regular inverse first
                 dir = dirsgn ...
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-                
-%                 % second code (pinv of M):
-%                 dir = dirsgn ...
-%                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-                
-%                 % 3rd code (derivative sign defined in terms of rho increasing)
-%                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 % make sure values from both methods match
-%                 if sum(abs(dir) ~= abs(dir)) ~= 0
-%                     warning('dir values dont match')
-%                     display(k)
-%                     break
-%                 end
             catch
                 dir = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
@@ -578,33 +435,12 @@ for k = 2:maxiters
             dirSubgrad = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir;
-%             % make sure values from both methods match
-%             if sum(abs(dirSubgrad) ~= abs(dirSubgrad)) ~= 0
-%                 warning('dirSubgrad values dont match')
-%                 display(k)
-%                 break
-%             end
             
             %# Misc. housekeeping #%
-%             % check for violations again
-%             inactSlowPosIdx = find(subgrad(~setActive) == 1 & ...
-%                 -1 < dirSubgrad & dirSubgrad < 0);
-%             % Positive subgradient (new code)
-%             inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
-%                 subgrad(~setActive) <= (1 + 1e-8) & 0 < dirSubgrad & ...
-%                 dirSubgrad < 1);
-%             % Positive subgradient (new code - new bounds)
-%             inactSlowPosIdx = find((1 - 1e-8) <= subgrad(~setActive) & ...
-%                 subgrad(~setActive) <= (1 + 1e-8) & dirSubgrad < 1);
-            % Positive subgradient (new code - new bounds)
-            inactSlowPosIdx = find((-1*dirsgn - 1e-8) <= subgrad(~setActive) & ...
-                subgrad(~setActive) <= (-1*dirsgn + 1e-8) & dirSubgrad < -1*dirsgn);
-%             % make sure values from both methods match
-%             if sum(inactSlowPosIdx ~= inactSlowPosIdx) ~= 0
-%                 warning('inactSlowPosIdx values dont match')
-%                 display(k)
-%                 break
-%             end
+            inactSlowPosIdx = find((-1*dirsgn - 1e-8) <= ...
+                subgrad(~setActive) & ...
+                subgrad(~setActive) <= (-1*dirsgn + 1e-8) & ...
+                dirSubgrad < -1*dirsgn);
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -636,38 +472,15 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-                % original code (regular inverse of M):
+                % try using a regular inverse first
                 dir = dirsgn ...
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 
-%                 % second code (pinv of M):
-%                 dir = dirsgn ...
-%                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 
-%                 % 3rd code (derivative sign defined in terms of rho increasing)
-%                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 % make sure values from both methods match
-%                 if sum(abs(dir) ~= abs(dir)) ~= 0
-%                     warning('dir values dont match')
-%                     display(k)
-%                     break
-%                 end
             catch
                 dir = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
-%             % possible fix for numerical issues (thresholding small 
-%             % derivatives to zero.  This did not work well.
-%             dir(abs(dir) < 1e-12) = 0;
-            
             %# calculate derivative for rho*subgradient (Eq. 10) #%
-%             % original code
-%             dirSubgrad = ...
-%                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-%                 A(setIneqBorder,~setActive)'] * dir;
             % second code (derivative sign defined in terms of rho increasing)
             dirSubgrad = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
@@ -689,7 +502,7 @@ for k = 2:maxiters
 %             signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
 %                 subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir(1:nActive) & ...
 %                 betaPath(setActive, k-1) == 0);
-            % Positive subgrad but derivative mismatch (new code, both directions)
+            % Positive subgrad but derivative mismatch
             signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
                 subgrad(setActive) <= (1 + 1e-8) & dirsgn*dir(1:nActive) <= (0 - 1e-8)  & ...
                 betaPath(setActive, k-1) == 0);
@@ -730,70 +543,25 @@ for k = 2:maxiters
                 [Aeq(:,setActive); A(setIneqBorder,setActive)];
             % calculate derivative
             try
-                % original code (regular inverse of M):
+                % try using a regular inverse first
                 dir = dirsgn ...
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-                
-%                 % second code (pinv of M):
-%                 dir = dirsgn ...
-%                     * (pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 
-%                 % 3rd code (derivative sign defined in terms of rho increasing)
-%                 dir = -(pinv(M) * ...
-%                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%                 % make sure values from both methods match
-%                 if sum(abs(dir) ~= abs(dir)) ~= 0
-%                     warning('dir values dont match')
-%                     display(k)
-%                     break
-%                 end
             catch
                 dir = -(pinv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
-%             % possible fix for numerical issues (thresholding small 
-%             % derivatives to zero.  This did not work well.
-%             dir(abs(dir) < 1e-12) = 0;
             
-            %# calculate derivative for rho*subgradient (Eq. 10) #%
-%             % original code
-%             dirSubgrad = ...
-%                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
-%                 A(setIneqBorder,~setActive)'] * dir;
-            % second code (derivative sign defined in terms of rho increasing)
+            %# calculate derivative for rho*subgradient #%
             dirSubgrad = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir;
-%                     % make sure values from both methods match
-%             if sum(abs(dirSubgrad) ~= abs(dirSubgrad)) ~= 0
-%                 warning('dirSubgrad values dont match')
-%                 display(k)
-%                 break
-%             end
             
-            %# Misc. housekeeping #%
-%             % check for violations again
-%             signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
-%                 subgrad(setActive) <= (0 + 1e-8) & ...
-%                 (0 + 1e-8) <=  dir(1:nActive) & ...
-%                 betaPath(setActive, k-1) == 0, 1);
-%             % Negative subgradient but negative derivative (new code)
-%             signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
-%                 subgrad(setActive) <= (0 + 1e-8) & ...
-%                 dir(1:nActive) <= (0 - 1e-8) & betaPath(setActive, k-1) == 0);
-            % Negative subgradient but derivative mismatch (new code, both directions)
+            %# Recheck for violations #%
             signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
                 subgrad(setActive) <= (0 + 1e-8) & ...
                 (0 + 1e-8) <= dirsgn*dir(1:nActive) & ...
                 betaPath(setActive, k-1) == 0);
-%             % make sure values from both methods match
-%             if sum(signMismatchNegIdx ~= signMismatchNegIdx) ~= 0
-%                 warning('signMismatchNegIdx values dont match')
-%                 display(k)
-%                 break
-%             end
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
@@ -852,44 +620,17 @@ for k = 2:maxiters
 %         end
             
         %# "Active" coeficients estimated as 0 with potential sign mismatch #%
-%         % Positive subgrad but negative derivative
-%         signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-%             subgrad(setActive) <= (1 + 1e-8) & ...
-%             dir(1:nActive) <= (0 - 1e-8) & betaPath(setActive, k-1) == 0);
-%         % Positive subgrad but positive derivative (new code)
-%         signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-%             subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir(1:nActive) & ...
-%             betaPath(setActive, k-1) == 0);
-        % Positive subgrad but derivative mismatch (new code, both directions)
+        % Positive subgrad but negative derivative
         signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-            subgrad(setActive) <= (1 + 1e-8) & dirsgn*dir(1:nActive) <= (0 - 1e-8)  & ...
+            subgrad(setActive) <= (1 + 1e-8) & ...
+            dirsgn*dir(1:nActive) <= (0 - 1e-8) & ...
             betaPath(setActive, k-1) == 0);
-%         % make sure values from both methods match
-%         if sum(signMismatchPosIdx ~= signMismatchPosIdx) ~= 0
-%             warning('signMismatchPosIdx values dont match')
-%             display(k)
-%             break
-%         end
 
-%         % Negative subgradient but positive derivative
-%         signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
-%             subgrad(setActive) <= (0 + 1e-8) & ...
-%             (0 + 1e-8) <=  dir(1:nActive) & betaPath(setActive, k-1) == 0, 1);
-%         % Negative subgradient but negative derivative (new code)
-%         signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
-%             subgrad(setActive) <= (0 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
-%             betaPath(setActive, k-1) == 0);
-        % Negative subgradient but derivative mismatch (new code, both directions)
+        % Negative subgradient but positive derivative
         signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
             subgrad(setActive) <= (0 + 1e-8) & ...
             (0 + 1e-8) <= dirsgn*dir(1:nActive) & ...
             betaPath(setActive, k-1) == 0);
-%         % make sure values from both methods match
-%         if sum(signMismatchNegIdx ~= signMismatchNegIdx) ~= 0
-%             warning('signMismatchNegIdx values dont match')
-%             display(k)
-%             break
-%         end
         
         % break loop if needed
         if violateCounter >= maxiters
@@ -897,11 +638,11 @@ for k = 2:maxiters
         end
     end % end of outer while loop
     
-    % store number of violations (for debugging(
+    % store number of violations
     violationsPath(k) = violateCounter;
     
     
-    % calculate derivative for residual inequality (Eq. 11)
+    % calculate derivative for residual inequality  
 %     % original code
 %     dirResidIneq = A(~setIneqBorder, setActive)*dir(1:nActive);
     % new code
@@ -909,369 +650,122 @@ for k = 2:maxiters
  
     %### Determine rho for next event (via delta rho) ###%
     %## Events based on coefficients changing activation status ##%
-%     
-%     % clear previous values for delta rho
-%     nextrhoBeta = inf(p, 1);
+    
+    % clear previous values for delta rho
     nextrhoBeta = inf(p, 1);
     
     %# Active coefficient going inactive #%
-%     % original code
-%     nextrhoBeta(setActive) = -betaPath(setActive, k-1) ...
-%         ./ dir(1:nActive);
-    % new code
     nextrhoBeta(setActive) = -dirsgn*betaPath(setActive, k-1) ...
         ./ dir(1:nActive); 
-%     % make sure values from both methods match
-%     if sum(nextrhoBeta ~= nextrhoBeta) ~= 0
-%         warning('delta rho values for beta dont match')
-%         display(k)
-%         break
-%     end
     
     %# Inactive coefficient becoming positive #%
-%     % original code
-%     t1 = rhoPath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad + dirsgn);
-    % new code
     t1 = dirsgn*rhoPath(k-1)*(1 - subgrad(~setActive)) ./ (dirSubgrad - 1);
-%     % make sure values from both methods match
-%     if sum(t1(~isinf(t1)) ~= t1New(~isinf(t1New))) ~= 0
-%         warning('t1 values dont match')
-%         display(k)
-%         break
-%     end
-    % t1(5)==t1New(5)
     % threshold values hitting ceiling
-%     t1(t1 <= (0 + 1e-8)) = inf;
     t1(t1 <= (0 + 1e-8)) = inf;
 
     %# Inactive coefficient becoming negative #%
-%     % original code
-%     t2 = rhoPath(k-1)*(- 1 - subgrad(~setActive)) ...
-%         ./ (dirSubgrad - dirsgn);
-    % new code
     t2 = -dirsgn*rhoPath(k-1)*(1 + subgrad(~setActive)) ...
         ./ (dirSubgrad + 1);
-%     % make sure values from both methods match
-%     if sum(t2 ~= t2) ~= 0
-%         warning('t2 values dont match')
-%         display(k)
-%         break
-%     end
     % threshold values hitting ceiling
-%     t2(t2 <= (0 + 1e-8)) = inf;
     t2(t2 <= (0 + 1e-8)) = inf;        
         
     % choose smaller delta rho out of t1 and t2
-%     nextrhoBeta(~setActive) = min(t1, t2);
     nextrhoBeta(~setActive) = min(t1, t2);
-    % nextrhoBeta(troubleIdxInactive);
-%     % make sure values from both methods match
-%     if sum(nextrhoBeta ~= nextrhoBeta) ~= 0
-%         warning('nextrhoBeta values dont match')
-%         display(k)
-%         break
-%     end
-    
-    % ignore delta rhos equal to zero
-%     nextrhoBeta(nextrhoBeta <= 1e-8 | ~penidx) = inf;
+    % ignore delta rhos numerically equal to zero
     nextrhoBeta(nextrhoBeta <= 1e-8 | ~penidx) = inf;
-%     % make sure values from both methods match
-%     if sum(nextrhoBeta ~= nextrhoBeta) ~= 0
-%         warning('nextrhoBeta values dont match')
-%         display(k)
-%         break
-%     end
+
     
     %## Events based inequality constraints ##%
 	% clear previous values
-%     nextrhoIneq = inf(m2, 1);
     nextrhoIneq = inf(m2, 1);
     
     %# Inactive inequality constraint becoming active #%
-%     % original code
-%     nextrhoIneq(~setIneqBorder) = - residIneq(~setIneqBorder) ...
-%         ./ dirResidIneq;
-    % new code 
-    nextrhoIneq(~setIneqBorder) = reshape(-dirsgn*residIneq(~setIneqBorder), nnz(~setIneqBorder), 1) ...
-        ./ reshape(dirResidIneq, nnz(~setIneqBorder), 1);    
+    nextrhoIneq(~setIneqBorder) = reshape(-dirsgn*residIneq(~setIneqBorder), ...
+        nnz(~setIneqBorder), 1)./ reshape(dirResidIneq, nnz(~setIneqBorder), 1);    
     
     %# Active inequality constraint becoming deactive #%
-%     % original code   
-%     nextrhoIneq(setIneqBorder) = - dualpathIneq(setIneqBorder, k-1) ...
-%         ./ reshape(dir(nActive+m1+1:end), nIneqBorder,1);     
-    % new code
     nextrhoIneq(setIneqBorder) = - dirsgn*dualpathIneq(setIneqBorder, k-1) ...
         ./ reshape(dir(nActive+m1+1:end), nIneqBorder,1);     
-%     % make sure values from both methods match
-%     if sum(nextrhoIneq ~= nextrhoIneq) ~= 0
-%         warning('Inequality delta rho values dont match')
-%         display(k)
-%         break
-%     end   
-    
     % ignore delta rhos equal to zero
-%     nextrhoIneq(nextrhoIneq <= 1e-8) = inf;
     nextrhoIneq(nextrhoIneq <= 1e-8) = inf;
-%     
-%     % make sure values from both methods match
-%     if sum(nextrhoIneq ~= nextrhoIneq) ~= 0
-%         warning('Inequality delta rho values dont match')
-%         display(k)
-%         break
-%     end   
+   
     
     %# determine next rho ##
-    % original method:
-    if strcmpi(multCoeff, 'false')
-        [chgrho, idx] = min([nextrhoBeta; nextrhoIneq]);
-    
-    % new method picking multiple rhos:
-    elseif strcmpi(multCoeff, 'true')
-        % find smallest rho
-        chgrho = min([nextrhoBeta; nextrhoIneq]);
-        % find all indices corresponding to this chgrho
-        idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= deltaRhoTol);
-    end
+    % find smallest rho
+    chgrho = min([nextrhoBeta; nextrhoIneq]);
+    % find all indices corresponding to this chgrho
+    idx = find(([nextrhoBeta; nextrhoIneq] - chgrho) <= 1e-8);
     
     % terminate path following if no new event found
     if isinf(chgrho)
         chgrho = rhoPath(k-1);
-        % break;
+%         break;
     end
     
     
     %## Update values at new rho ##%
     %# move to next rho #%
     % make sure next rho isn't negative
-%     % original code
-%     if rhoPath(k-1) - dirsgn*chgrho < 0 % may wanna change to maxrho
-%         chgrho = rhoPath(k-1);              % for increasing direction?
-%     end
-%     rhoPath(k) = rhoPath(k-1) - dirsgn*chgrho;
-    % new code
     if rhoPath(k-1) + dirsgn*chgrho < 0 
         chgrho = rhoPath(k-1);               
     end
-%     % make sure values from both methods match
-%     if sum(rhoPath(k) ~= rhoPath(k-1) + dirsgn*chgrho) ~= 0
-%         warning('nextrhoBeta values dont match')
-%         display(k)
-%         break
-%     end
+    % calculate new value of rho
     rhoPath(k) = rhoPath(k-1) + dirsgn*chgrho;
     
     %# Update parameter and subgradient values #%
     % new coefficient estimates
-%     % original code
-%     betaPath(setActive, k) = betaPath(setActive, k-1) ...
-%          + chgrho*dir(1:nActive);
-%     % make sure values from both methods match
-%     if sum(betaPath(setActive, k) ~= (betaPath(setActive, k-1) ...
-%        + dirsgn*chgrho*dir(1:nActive))) ~= 0
-%         warning('beta estimates dont match')
-%         display(k)
-%         break
-%     end    
-    % new code
     betaPath(setActive, k) = betaPath(setActive, k-1) ...
         + dirsgn*chgrho*dir(1:nActive);
     % force near-zero coefficients to be zero (helps with numerical issues)
     betaPath(abs(betaPath(:, k)) < 1e-12, k) = 0; 
     
     % new subgradient estimates
-%     % create subgrad vector for new code
-%     subgrad2 = subgrad;
-%     % original code
-%     subgrad(~setActive) = ...
-%         (rhoPath(k-1)*subgrad(~setActive) + chgrho*dirSubgrad)/rhoPath(k);   
-    % new code
     subgrad(~setActive) = ...
-        (rhoPath(k-1)*subgrad(~setActive) + dirsgn*chgrho*dirSubgrad)/rhoPath(k);
-%     % make sure new code matches old
-%     if sum(subgrad(~setActive) ~= subgrad(~setActive)) ~= 0
-%         warning('subgradients dont match')
-%         display(k)
-%         break
-%     end     
- 
-    %###### left off here ############%
+        (rhoPath(k-1)*subgrad(~setActive) + ...
+        dirsgn*chgrho*dirSubgrad)/rhoPath(k);
+   
+    %# Update dual variables #%
     % update lambda (lagrange multipliers for equality constraints)
-%     % original code
-%     dualpathEq(:, k) = dualpathEq(:,k-1) ...
-%         + chgrho*reshape(dir(nActive+1:nActive+m1),m1,1);
-    % new code
     dualpathEq(:, k) = dualpathEq(:, k-1) ...
         + dirsgn*chgrho*reshape(dir(nActive+1:nActive+m1), m1, 1);
-%     % make sure new code matches old
-%     if sum(dualpathEq(:, k) ~= dualpathEq(:, k)) ~= 0
-%         warning('lambda values dont match')
-%         display(k)
-%         break
-%     end   
-    
     % update mu (lagrange multipliers for inequality constraints)
-%     % original code
-%     dualpathIneq(setIneqBorder, k) = dualpathIneq(setIneqBorder, k-1) ...
-%         + chgrho*reshape(dir(nActive+m1+1:end), nIneqBorder,1);
-    % new code
     dualpathIneq(setIneqBorder, k) = dualpathIneq(setIneqBorder, k-1) ...
         + dirsgn*chgrho*reshape(dir(nActive+m1+1:end), nIneqBorder, 1);   
-%     % make sure new code matches old
-%     if sum(dualpathIneq(setIneqBorder, k) ~= ...
-%         dualpathIneq(setIneqBorder, k)) ~= 0
-%             warning('lambda values dont match')
-%             display(k)
-%             break
-%     end   
     
     % update residual inequality
     residIneq = A*betaPath(:, k) - b;
     
     
-%     %## Stuff for Debugging ##%
-%     % specify trouble coefficient
-%     troubleCoeff = 9;
-%     % check active status of coefficient 
-%     setActive(troubleCoeff);
-%     
-%     % value of subgradient
-%     subgrad(troubleCoeff); % I don't understand this error
-%     % betahat_{troubleCoeff}
-%     betaPath(troubleCoeff, k);
-%     
-%     % define which coefficients are inactive 
-%     inactives = find(setActive == 0);
-%     % define which coefficients are inactive 
-%     actives = find(setActive == 1);
-%     
-%     % find the index of the inactive set corresponding to the trouble
-%     % coefficient (if applicable) 
-%     troubleIdxInactive = find(inactives == troubleCoeff);
-%     % derivative of rho*subgrad for trouble coefficient 
-%     dirSubgrad(troubleIdxInactive); % I don't understand this error
-% 
-%     % find the index of the active set corresponding to the trouble
-%     % coefficient (if applicable)    
-%     troubleIdxActive = find(actives == troubleCoeff);
-%     % derivative 
-%     dir(troubleIdxActive);
- 
-    
     %## update sets ##%
-    if strcmpi(multCoeff, 'false')
-        %# old code: #%
-        if idx <= p && setActive(idx)
+    for j = 1:length(idx)
+        curidx = idx(j);
+        if curidx <= p && setActive(curidx)
             % an active coefficient hits 0, or
-            setActive(idx) = false;
-        elseif idx <= p && ~setActive(idx)
+            setActive(curidx) = false;
+        elseif curidx <= p && ~setActive(curidx)
             % a zero coefficient becomes nonzero
-            setActive(idx) = true;
-        elseif idx > p
+            setActive(curidx) = true;
+        elseif curidx > p
             % an ineq on boundary becomes strict, or
             % a strict ineq hits boundary
-            setIneqBorder(idx-p) = ~setIneqBorder(idx-p);
-        end
-        
-    elseif strcmpi(multCoeff, 'true')
-        %# new code(to try to allow for multiple coefficients moving #%
-        for j = 1:length(idx)
-            curidx = idx(j);
-            if curidx <= p && setActive(curidx)
-                % an active coefficient hits 0, or
-                setActive(curidx) = false;
-            elseif curidx <= p && ~setActive(curidx)
-                % a zero coefficient becomes nonzero
-                setActive(curidx) = true;
-            elseif curidx > p
-                % an ineq on boundary becomes strict, or
-                % a strict ineq hits boundary
-                setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
-            end
+            setIneqBorder(curidx-p) = ~setIneqBorder(curidx-p);
         end
     end
     
     % determine new number of active coefficients
     nActive = nnz(setActive);
             
-    % old code
-%     setActive = abs(betaPath(:,k))>1e-16 | ~penidx;
-%     betaPath(~setActive,k) = 0;
-
+    %# Calcuate and store values of interest along the path #%
     % calculate value of objective function
     objValPath(k) = norm(y - X*betaPath(:, k))^2/2 + ...
         rhoPath(k)*sum(abs(betaPath(:, k)));
      
-    % calculate degrees of freedom (using two different methods, I believe
-    % method 1 is more correct).  Also, df are thresholded at zero.  
-    dfPath(1, k) = 1;%;rank(X(:,  setActive)) - rankAeq;
-    dfPath(2, k) = nActive - rankAeq - nIneqBorder;
-    %dfPath(1, k) = max(rank(X(:,  setActive)) - rankAeq, 0);
-    %dfPath(2, k) = max(nActive - rankAeq, 0);
+    % calculate degrees of freedom
+    dfPath(k) = nActive - rankAeq - nIneqBorder;
     % break algorithm when df are exhausted
-    if dfPath(2, k) > n_orig
+    if dfPath(k) > n_orig
         break;
     end
-    
-
-    %## Calculate & store stuff for debuggin ##%
-    %# Stationarity conditions #%
-    % calculate the stationarity condition value
-    stationarityConditionsPath.values(:, k) = -X'*(y - X*betaPath(:, k)) + ...
-        rhoPath(k)*subgrad + Aeq'*dualpathEq(:, k) + A'*dualpathIneq(:, k);
-    % see if stationarity condition is satisified
-    stationarityConditionsPath.satisfied(k) = ...
-        sum(abs(stationarityConditionsPath.values(:, k)) < 1e-8) == p;
-    
-    %# Constraints #%
-    % check if constraints are violated or not
-    % equality
-    if m1==0
-        constraintsSatisfied.eq(k) = NaN;
-    else
-        constraintsSatisfied.eq(k) = ...
-            sum(abs(Aeq*betaPath(:, k) - beq) < 1e-10) == m1;
-    end
-    % inequality
-    if m2==0
-        constraintsSatisfied.ineq(k) = NaN;
-    else
-        constraintsSatisfied.ineq(k) = ...
-            sum(A*betaPath(:, k) - b < 1e-10) == m2;
-    end
-    
-    %# Subgradient #%
-    % store subgradient
-    subgradientPath.values(:, k) = subgrad;
-    % check that subgradient condition is satisfied (both in [-1, 1] and
-        % matching the sign
-    subgradientPath.satisfied(k) = ...
-        nnz(subgradientPath.values(:, k) <= (1 + 1e-8) & ...
-        subgradientPath.values(:, k) >= (-1 - 1e-8) & ... 
-        betaPath(:, k).*subgrad >= 0) == p;
-    % derivative for subgradient
-    % uses k-1 since this is calculated at the beginning of the loop
-    subgradientPath.dir(1:size(dirSubgrad, 1), k-1) = dirSubgrad;
-    % indices for inactive coefficients (dirSubgrad entries)
-    % uses k since setActive has already been updated
-    subgradientPath.inactives(1:size(find(setActive == 0)), k) = ...
-        find(setActive == 0);
-    % calculate & store rho*subgrad  
-    subgradientPath.rhoSubgrad(:, k) = rhoPath(k)*subgrad;
-    
-   
-    % # old debugging code #%
-    % manually check that the subgradient sign matches the coefficients
-    %find(abs(subgrad(setActive) - sign(betaPath(setActive,k))) > 1e-12)
-    %       find(abs(subgrad(setActive) - sign(betaPath(setActive,k))) > 1e-12 & ...
-       % sign(betaPath(setActive,k)) ~= 0);
-%     idxSubgradWrong = ...
-%         find(abs(subgrad - sign(betaPath(:,k))) > 1e-12 & ...
-%         sign(betaPath(:,k)) ~= 0);
-%     subgrad(idxSubgradWrong) = -subgrad(idxSubgradWrong);
-%     
-%     
-   
-    %toc
 end
 
 % clean up
@@ -1282,16 +776,7 @@ dualpathEq(:, k:end) = [];
 dualpathIneq(:, k:end) = [];
 rhoPath(k:end) = [];
 objValPath(k:end) = [];
-stationarityConditionsPath.values(:, k:end) = [];
-stationarityConditionsPath.satisfied(k:end) = [];
-dfPath(:, k:end) = [];
-constraintsSatisfied.eq(k:end) = [];
-constraintsSatisfied.ineq(k:end) = [];
-subgradientPath.values(:, k:end) = [];
-subgradientPath.satisfied(k:end) = [];
-subgradientPath.dir(:, k:end) = [];
-subgradientPath.inactives(:, k:end) = [];
-subgradientPath.rhoSubgrad(:, k:end) = [];
+dfPath(k:end) = [];
 violationsPath(k:end) = [];
     
     
