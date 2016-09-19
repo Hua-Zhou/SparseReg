@@ -10,7 +10,8 @@ function [rhoPath, betaPath, dfPath, objValPath, stationarityConditionsPath, ...
 %   Aeq*beta = beq and linear inequality constraints A*beta = b.  The
 %   result RHO_PATH contains the values of the tuning parameter rho along
 %   the solution path.  The result BETA_PATH has a vector of the estimated
-%   regression coefficients for each value of rho.
+%   regression coefficients for each value of rho.  If the design matrix is
+%   
 %
 %   [RHO_PATH, BETA_PATH] = LSQ_CLASSOPATH(X, y, A, b, Aeq, beq, ...
 %   'PARAM1', val1, 'PARAM2', val2, ...) allows you to specify optional
@@ -31,6 +32,8 @@ function [rhoPath, betaPath, dfPath, objValPath, stationarityConditionsPath, ...
 %       requires an installation of the Gurobi Optimizer (www.gurobi.com)
 %   'penidx': a logical vector indicating penalized coefficients
 %   'init_method': 'qp' (default) or 'qp' method to initialize
+%   'epsilon': 
+%   ridge parameter!
 %
 % OUTPUTS:
 %
@@ -45,11 +48,12 @@ function [rhoPath, betaPath, dfPath, objValPath, stationarityConditionsPath, ...
 %   See tutorial examples at https://github.com/Hua-Zhou/SparseReg
 %
 % REFERENCES
-%   Gaines, Brian and Zhou, Hua (2016) On Fitting the Constrained Lasso.  
+%   Gaines, Brian and Zhou, Hua (2016). On Fitting the Constrained Lasso.  
 %
 %
 % Copyright 2014-2016 North Carolina State University
 % Hua Zhou (hua_zhou@ncsu.edu) and Brian Gaines (brgaines@ncsu.edu)
+%
 
 % input parsing rule
 [n, p] = size(X);
@@ -60,7 +64,7 @@ argin.addRequired('A', @(x) size(x,2)==p || isempty(x));
 argin.addRequired('b', @(x) isnumeric(x) || isempty(x));
 argin.addRequired('Aeq', @(x) size(x,2)==p || isempty(x));
 argin.addRequired('beq', @(x) isnumeric(x) || isempty(x));
-% argin.addParamValue('direction', 'decrease', @ischar);
+argin.addParamValue('direction', 'decrease', @ischar);
 argin.addParamValue('qp_solver', 'matlab', @ischar);
 argin.addParamValue('init_method', 'qp', @ischar);
 argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
@@ -82,7 +86,6 @@ epsilon = argin.Results.epsilon;
 multCoeff = argin.Results.multCoeff;
 deltaRhoTol = argin.Results.deltaRhoTol;
 
-
 % check validity of qp_solver
 if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
     error('sparsereg:lsq_classopath:qp_solver', ...
@@ -91,8 +94,8 @@ end
 
 % check validity of initialization method
 
-
-n_orig = n; % for when ridge penalty isn't used
+% save original number of observations (for when ridge penalty is used)
+n_orig = n;
 
 % switch to decreasing direction if n < p
 if n < p && strcmpi(direction, 'increase')
@@ -105,7 +108,7 @@ if n < p
     warning('Adding a small ridge penalty (default is 1e-4) since n < p')
     if epsilon <= 0
         warning('epsilon must be positive, switching to default value (1e-4)')
-        epsilon = 1e-8;
+        epsilon = 1e-4;
     end
     % create augmented data
     y = [y; zeros(p, 1)];
@@ -117,9 +120,11 @@ else
     [~, R] = qr(X, 0);
     rankX = sum(abs(diag(R)) > abs(R(1))*max(n, p)*eps(class(R)));
     if (rankX ~= p)
-        warning('Adding a small ridge penalty (default is 1e-4) since X is rank deficient');
+        warning(['Adding a small ridge penalty (default is 1e-4) since X ' ...
+            'is rank deficient']);
         if epsilon <= 0
-            warning('epsilon must be positive, switching to default value (1e-4)')
+            warning(['epsilon must be positive, switching to default value' ...
+                ' (1e-4)'])
             epsilon = 1e-4;
         end
         % create augmented data
@@ -131,8 +136,6 @@ else
 end
     
 
-%%% start here for (manual) debugging %%%
-% allocate space for path solution
 m1 = size(Aeq, 1);  % # equality constraints
 if isempty(Aeq)
     Aeq = zeros(0,p);
@@ -143,6 +146,7 @@ if isempty(A)
     A = zeros(0,p);
     b = zeros(0,1);
 end
+
 maxiters = 5*(p+m2);    % max number of path segments to consider
 betaPath = zeros(p, maxiters);
 dualpathEq = zeros(m1, maxiters);
@@ -163,245 +167,157 @@ violationsPath = Inf(1, maxiters);
 
 % intialization
 H = X'*X;
-%%% end here %%%
-if strcmpi(direction, 'increase')
+
+
+% initialize beta
+if strcmpi(qp_solver, 'matlab')
     
-    % initialize beta by quadratic programming
-    if strcmpi(qp_solver, 'matlab')
+    if strcmpi(init_method, 'lp')
         % use Matlab lsqlin
-        options.Algorithm = 'interior-point-convex';
-        options.Display = 'off';
-        [x,~,~,~,~,lambda] = lsqlin(X,y,A,b,Aeq,beq,[],[],[],options);
-        betaPath(:,1) = x;
+        [x,~,~,~,lambda] = ...
+            linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
+            zeros(2*p,1), inf(2*p,1));
+        betaPath(:,1) = x(1:p) - x(p+1:end);
         dualpathEq(:,1) = lambda.eqlin;
         dualpathIneq(:,1) = lambda.ineqlin;
-    elseif strcmpi(qp_solver, 'GUROBI')
-        % use GUROBI solver if possible
-        gmodel.obj = - X'*y;
-        gmodel.A = sparse([Aeq; A]);
-        gmodel.sense = [repmat('=', m1, 1); repmat('<', m2, 1)];
-        gmodel.rhs = [beq; b];
-        gmodel.Q = sparse(H)/2;
-        gmodel.lb = - inf(p,1);
-        gmodel.ub = inf(p,1);
-        gmodel.objcon = norm(y)^2/2;
+    elseif strcmpi(init_method, 'qp')
+        %# use LP to find rho_max
+        % solve LP problem
+        [x,~,~,~,lambda] = ...
+            linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
+            zeros(2*p,1), inf(2*p,1));
+        betaPath(:,1) = x(1:p) - x(p+1:end);
+        dualpathEq(:,1) = lambda.eqlin;
+        dualpathIneq(:,1) = lambda.ineqlin;
+        % initialize sets
+        dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
+        setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
+        betaPath(~setActive,1) = 0;
+        %             setIneqBorder = dualpathIneq(:,1)>0;
+%         residIneq = A*betaPath(:,1) - b;
+%         setIneqBorder = residIneq == 0;
+        
+        
+        % find the maximum rho and initialize subgradient vector
+        resid = y - X*betaPath(:, 1);
+        subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
+        %     subgrad(setActive) = 0;
+        [rho_max, idx] = max(abs(subgrad));
+        %               rho_max = 1000;%1.74583016275794;
+        % use quadratic programming
+        [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
+            (rho_max*1),...
+            'method','qp','qp_solver','matlab','Aeq', Aeq,...
+            'beq', beq, 'A',A,'b',b);
+        dualpathEq(:,1) = stats.qp_dualEq;
+        dualpathIneq(:,1) = stats.qp_dualIneq;
+    end
+    
+ 
+    
+elseif strcmpi(qp_solver, 'GUROBI')
+    % use GUROBI solver if possible
+    
+    % linear programming
+    if strcmpi(init_method, 'lp')
+        gmodel.obj = ones(2*p,1);
+        gmodel.A = sparse([A -A; Aeq -Aeq]);
+        gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
+        gmodel.rhs = [b; beq];
+        gmodel.lb = zeros(2*p,1);
         gparam.OutputFlag = 0;
         gresult = gurobi(gmodel, gparam);
-        betaPath(:,1) = gresult.x;
-        dualpathEq(:,1) = gresult.pi(1:m1);
-        dualpathIneq(:,1) = reshape(gresult.pi(m1+1:end), m2, 1);
-    end
-    setActive = abs(betaPath(:,1))>1e-5 | ~penidx;
-    nActive = nnz(setActive);
-    betaPath(~setActive,1) = 0;
-    % fix sign of Gurobi's dual path ineq variables
-    dualpathIneq(dualpathIneq(:,1) < 0,1) = ...
-        dualpathIneq(dualpathIneq(:,1) < 0,1)*-1;
-    setIneqBorder = dualpathIneq(:,1)>0;
-    residIneq = A*betaPath(:,1) - b;
-    % determine number of active/binding inequality constraints
-    nIneqBorder = nnz(setIneqBorder);
-            
-    % intialize subgradient vector
-    rhoPath(1) = 0;
-    subgrad = zeros(p,1);
-    subgrad(setActive) = sign(betaPath(setActive,1));
-    subgrad(~penidx) = 0;
-
-    %%% store various things for debugging %%%
-    % calculate value for objective function
-    objValPath(1) = norm(y-X*betaPath(:,1))^2/2 + ...
-        rhoPath(1)*sum(abs(betaPath(:,1)));
-    
-    % calculate degrees of freedom (using two different methods, I believe
-    % method 1 is more correct).  %Also, df are thresholded at zero.  
-    rankAeq = rank(Aeq);
-    dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
-    dfPath(2, 1) = nActive - rankAeq - nIneqBorder;
-    %dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
-    %dfPath(2, 1) = max(nActive - rankAeq, 0);
-    
-    % calculate the stationarity condition value
-    stationarityConditionsPath.values(:, 1) = -X'*(y - X*betaPath(:, 1)) + ...
-        rhoPath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
-    % see if stationarity condition is satisified
-    stationarityConditionsPath.satisfied(1) = ...
-        sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
-     
-    % store subgradient
-    subgradientPath.values(:, 1) = subgrad;
-    % check that subgradient condition is satisfied
-    subgradientPath.satisfied(1) = ...
-        nnz(subgradientPath.values(:, 1) <= 1 & ...
-        subgradientPath.values(:, 1) >= -1) == p;
-    % indices for inactive coefficients (dirSubgrad entries)
-    subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
-        find(setActive == 0);
-    % calculate rho*subgrad
-    subgradientPath.rhoSubgrad(:, 1) = rhoPath(1)*subgrad;
-   
-    % set initial violations counter to 0
-    violationsPath(1) = 0;
-    
-    % sign in path direction
-    % dirsgn = -1;
-    dirsgn = 1;
-    % initialize k for manually looking at path following loop
-    k = 2;
-    
-elseif strcmpi(direction, 'decrease')
-    
-    % initialize beta
-    if strcmpi(qp_solver, 'matlab')
+        betaPath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
+        dualpathEq(:,1) = reshape(gresult.pi(m2+1:end), m1, 1);
+        dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
+    elseif strcmpi(init_method, 'qp')
         
-        if strcmpi(init_method, 'lp')
-            % use Matlab lsqlin
-            [x,~,~,~,lambda] = ...
-                linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
-                zeros(2*p,1), inf(2*p,1));
-            betaPath(:,1) = x(1:p) - x(p+1:end);
-            dualpathEq(:,1) = lambda.eqlin;
-            dualpathIneq(:,1) = lambda.ineqlin;
-        elseif strcmpi(init_method, 'qp')
-            %# use LP to find rho_max
-            % solve LP problem
-            [x,~,~,~,lambda] = ...
-                linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
-                zeros(2*p,1), inf(2*p,1));
-            betaPath(:,1) = x(1:p) - x(p+1:end);
-            dualpathEq(:,1) = lambda.eqlin;
-            dualpathIneq(:,1) = lambda.ineqlin;
-            % initialize sets
-            dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
-            setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
-            betaPath(~setActive,1) = 0;
-%             setIneqBorder = dualpathIneq(:,1)>0;
-            residIneq = A*betaPath(:,1) - b;
-            setIneqBorder = residIneq == 0;
-  
-            
-            % find the maximum rho and initialize subgradient vector
-            resid = y - X*betaPath(:, 1);
-            subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
-            %     subgrad(setActive) = 0;
-            [rho_max, idx] = max(abs(subgrad));
-%               rho_max = 1000;%1.74583016275794;
-            % use quadratic programming
-            [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
-                (rho_max*1),...
-                'method','qp','qp_solver','matlab','Aeq', Aeq,...
-                'beq', beq, 'A',A,'b',b);
-            dualpathEq(:,1) = stats.qp_dualEq;
-            dualpathIneq(:,1) = stats.qp_dualIneq;
-        end
-    
-        
-        
-    elseif strcmpi(qp_solver, 'GUROBI')
-        % use GUROBI solver if possible
-        
-        % linear programming
-        if strcmpi(init_method, 'lp')
-            gmodel.obj = ones(2*p,1);
-            gmodel.A = sparse([A -A; Aeq -Aeq]);
-            gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
-            gmodel.rhs = [b; beq];
-            gmodel.lb = zeros(2*p,1);
-            gparam.OutputFlag = 0;
-            gresult = gurobi(gmodel, gparam);
-            betaPath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
-            dualpathEq(:,1) = reshape(gresult.pi(m2+1:end), m1, 1);
-            dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
-        elseif strcmpi(init_method, 'qp')
-            
-            % quadratic programming
-            [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
-                5000,...
-                'method','qp','qp_solver','gurobi','Aeq', Aeq,...
-                'beq', beq, 'A',A,'b',b);
-            dualpathEq(:,1) = stats.qp_dualEq;
-            dualpathIneq(:,1) = stats.qp_dualIneq;
-
-        end
-        
-        
+        % quadratic programming
+        [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
+            5000,...
+            'method','qp','qp_solver','gurobi','Aeq', Aeq,...
+            'beq', beq, 'A',A,'b',b);
+        dualpathEq(:,1) = stats.qp_dualEq;
+        dualpathIneq(:,1) = stats.qp_dualIneq;
         
     end
-
-    % may wanna switch this so the first rho isn't re-calculated?
-    % initialize sets
-    dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
-    setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
-    betaPath(~setActive,1) = 0;
-%     setIneqBorder = dualpathIneq(:,1)>0;
-    residIneq = A*betaPath(:,1) - b;
-    setIneqBorder = residIneq == 0;
-    nIneqBorder = nnz(setIneqBorder);
-
-    % find the maximum rho and initialize subgradient vector
-    resid = y - X*betaPath(:, 1);
-    subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
-%     subgrad(setActive) = 0;
-    [rhoPath(1), idx] = max(abs(subgrad));
-    subgrad(setActive) = sign(betaPath(setActive,1));
-    subgrad(~setActive) = subgrad(~setActive)/rhoPath(1);
-    setActive(idx) = true;
-    nActive = nnz(setActive);
     
-    % calculate value for objective function
-    objValPath(1) = norm(y-X*betaPath(:,1))^2/2 + ...
-        rhoPath(1)*sum(abs(betaPath(:,1)));
-    % calculate degrees of freedom (using two different methods, I believe
-    % method 1 is more correct).  %Also, df are thresholded at zero.  
-    rankAeq = rank(Aeq);
-    dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
-    dfPath(2, 1) = nActive - rankAeq - nIneqBorder;
-    %dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
-    %dfPath(2, 1) = max(nActive - rankAeq, 0);
     
-    % calculate the stationarity condition value
-    stationarityConditionsPath.values(:, 1) = -X'*(y - X*betaPath(:, 1)) + ...
-        rhoPath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
-    % see if stationarity condition is satisified
-    stationarityConditionsPath.satisfied(1) = ...
-        sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
-    % check if constraints are violated or not
-    % equality
-    if m1==0
-        constraintsSatisfied.eq(1) = NaN;
-    else
-        constraintsSatisfied.eq(1) = ...
-            sum(abs(Aeq*betaPath(:, 1) - beq) < 1e-7) == m1;
-    end
-    % inequality
-    if m2==0
-        constraintsSatisfied.ineq(1) = NaN;
-    else
-        constraintsSatisfied.ineq(1) = ...
-            sum(A*betaPath(:, 1) - b < 1e-7) == m2;
-    end
     
-    % store subgradient
-    subgradientPath.values(:, 1) = subgrad;
-    % check that subgradient condition is satisfied
-    subgradientPath.satisfied(1) = ...
-        nnz(subgradientPath.values(:, 1) <= 1 & ...
-        subgradientPath.values(:, 1) >= -1) == p;
-    % indices for inactive coefficients (dirSubgrad entries)
-    subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
-        find(setActive == 0);
-    % calculate rho*subgrad
-    subgradientPath.rhoSubgrad(:, 1) = rhoPath(1)*subgrad;
-
-    % set initial violations counter to 0
-    violationsPath(1) = 0;
-    
-    % sign in path direction
-    % dirsgn = 1;
-    dirsgn = -1;
-    % initialize k for manually looking at path following loop
-    k = 2;
 end
+
+% may wanna switch this so the first rho isn't re-calculated?
+% initialize sets
+dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
+setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
+betaPath(~setActive,1) = 0;
+%     setIneqBorder = dualpathIneq(:,1)>0;
+residIneq = A*betaPath(:,1) - b;
+setIneqBorder = residIneq == 0;
+nIneqBorder = nnz(setIneqBorder);
+
+% find the maximum rho and initialize subgradient vector
+resid = y - X*betaPath(:, 1);
+subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
+%     subgrad(setActive) = 0;
+[rhoPath(1), idx] = max(abs(subgrad));
+subgrad(setActive) = sign(betaPath(setActive,1));
+subgrad(~setActive) = subgrad(~setActive)/rhoPath(1);
+setActive(idx) = true;
+nActive = nnz(setActive);
+
+% calculate value for objective function
+objValPath(1) = norm(y-X*betaPath(:,1))^2/2 + ...
+    rhoPath(1)*sum(abs(betaPath(:,1)));
+% calculate degrees of freedom (using two different methods, I believe
+% method 1 is more correct).  %Also, df are thresholded at zero.
+rankAeq = rank(Aeq);
+dfPath(1, 1) = rank(X(:,  setActive)) - rankAeq;
+dfPath(2, 1) = nActive - rankAeq - nIneqBorder;
+%dfPath(1, 1) = max(rank(X(:,  setActive)) - rankAeq, 0);
+%dfPath(2, 1) = max(nActive - rankAeq, 0);
+
+% calculate the stationarity condition value
+stationarityConditionsPath.values(:, 1) = -X'*(y - X*betaPath(:, 1)) + ...
+    rhoPath(1)*subgrad + Aeq'*dualpathEq(:, 1) + A'*dualpathIneq(:, 1);
+% see if stationarity condition is satisified
+stationarityConditionsPath.satisfied(1) = ...
+    sum(abs(stationarityConditionsPath.values(:, 1)) < 1e-8) == p;
+% check if constraints are violated or not
+% equality
+if m1==0
+    constraintsSatisfied.eq(1) = NaN;
+else
+    constraintsSatisfied.eq(1) = ...
+        sum(abs(Aeq*betaPath(:, 1) - beq) < 1e-7) == m1;
+end
+% inequality
+if m2==0
+    constraintsSatisfied.ineq(1) = NaN;
+else
+    constraintsSatisfied.ineq(1) = ...
+        sum(A*betaPath(:, 1) - b < 1e-7) == m2;
+end
+
+% store subgradient
+subgradientPath.values(:, 1) = subgrad;
+% check that subgradient condition is satisfied
+subgradientPath.satisfied(1) = ...
+    nnz(subgradientPath.values(:, 1) <= 1 & ...
+    subgradientPath.values(:, 1) >= -1) == p;
+% indices for inactive coefficients (dirSubgrad entries)
+subgradientPath.inactives(1:size(find(setActive == 0)), 1) = ...
+    find(setActive == 0);
+% calculate rho*subgrad
+subgradientPath.rhoSubgrad(:, 1) = rhoPath(1)*subgrad;
+
+% set initial violations counter to 0
+violationsPath(1) = 0;
+
+% sign for path direction (originally went both ways, but increasing was
+%   retired)
+dirsgn = -1;
+
 
 % main loop for path following
 s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
