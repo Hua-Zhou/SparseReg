@@ -203,7 +203,7 @@ if strcmpi(qp_solver, 'matlab')
         subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
         %     subgrad(setActive) = 0;
         [rho_max, idx] = max(abs(subgrad));
-        %               rho_max = 1000;%1.74583016275794;
+        
         % use quadratic programming
         [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
             (rho_max*1),...
@@ -248,7 +248,7 @@ end
 
 % may wanna switch this so the first rho isn't re-calculated?
 % initialize sets
-dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
+dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix Gurobi negative dual variables
 setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
 betaPath(~setActive,1) = 0;
 %     setIneqBorder = dualpathIneq(:,1)>0;
@@ -324,20 +324,15 @@ s = warning('error', 'MATLAB:nearlySingularMatrix'); %#ok<CTPCT>
 s2 = warning('error', 'MATLAB:singularMatrix');
 
 for k = 2:maxiters 
-%    tic; % timing for speed issues
 
-
-    if strcmpi(direction, 'decrease')
-        % threshold near-zero rhos to zero and stop algorithm
-        if rhoPath(k-1) <= (0 + 1e-3)
-            rhoPath(k-1) = 0;
-            break;
-        end
+    % threshold near-zero rhos to zero and stop algorithm
+    if rhoPath(k-1) <= (0 + 1e-4)
+        rhoPath(k-1) = 0;
+        break;
     end
     
-    %k
     
-    %# Calculate derivative for coefficients and multipliers (Eq. 8) #%
+    %# Calculate derivative for coefficients and multipliers #%
     % construct matrix
     M = [H(setActive, setActive) Aeq(:,setActive)' ...
         A(setIneqBorder,setActive)']; 
@@ -345,30 +340,15 @@ for k = 2:maxiters
         [Aeq(:,setActive); A(setIneqBorder,setActive)];
     % calculate derivative 
     try
-%         % original code (regular inverse of M):
-         dir = dirsgn ...
-               * (M \ [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%         % second code (pinv of M):
-%         dir = dirsgn ...
-%             * (pinv(M) * ...
-%             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-             
-%         % third code (derivative sign defined in terms of rho increasing)
-%         dir = -(pinv(M) * ...
-%             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
-%         % make sure values from both methods match
-%         if sum(abs(dir) ~= abs(dir)) ~= 0
-%             warning('dir values dont match')
-%             display(k)
-%             break
-%        end
+        % try using a regular inverse first
+        dir = dirsgn ...
+            * (M \ [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
+
     catch
+        % otherwise use the moore-penrose inverse
         dir = -(pinv(M) * ...
             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
     end
-%     % possible fix for numerical issues (thresholding small derivatives to
-%     % zero.  This did not work well.  
-%     dir(abs(dir) < 1e-12) = 0;
        
     %# calculate derivative for rho*subgradient (Eq. 10) #%
 %     % original code
@@ -387,21 +367,10 @@ for k = 2:maxiters
 %     end
     
     
-    %## check to see if any conditions are violated ##%
+    %## check additional events related to potential subgradient violations ##%
 
     %# Inactive coefficients moving too slowly #%
-%     % Negative subgradient (original code)
-%     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
-%         subgrad(~setActive) <= (-1 + 1e-8) & 0 < dirSubgrad & ...
-%         dirSubgrad < 1);
-%     % Negative subgradient (new code - original bounds)
-%     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
-%         subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad & ...
-%         dirSubgrad < 0);
-%     % Negative subgradient (new code - new bounds)
-%     inactSlowNegIdx = find((-1 - 1e-8) <= subgrad(~setActive) & ...
-%         subgrad(~setActive) <= (-1 + 1e-8) & -1 < dirSubgrad);
-     % Negative subgradient (new code, new bounds, both ways)
+    % Negative subgradient
     inactSlowNegIdx = find((1*dirsgn - 1e-8) <= subgrad(~setActive) & ...
         subgrad(~setActive) <= (1*dirsgn + 1e-8) & 1*dirsgn < dirSubgrad);   
 %      % make sure values from both methods match
@@ -435,74 +404,17 @@ for k = 2:maxiters
 %     end
     
     %# "Active" coeficients estimated as 0 with potential sign mismatch #%
-%     % Positive subgrad but negative derivative 
-%     signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-%         subgrad(setActive) <= (1 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
-%         betaPath(setActive, k-1) == 0);   
-%     % Positive subgrad but derivative mismatch (new code)
-%     signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-%         subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir(1:nActive) & ...
-%         betaPath(setActive, k-1) == 0);
-    % Positive subgrad but derivative mismatch (new code, both directions)
+    % Positive subgrad but negative derivative 
     signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (1 + 1e-8) & ...
         dirsgn*dir(1:nActive) <= (0 - 1e-8)  & ...
         betaPath(setActive, k-1) == 0);
-%     % make sure values from both methods match
-%     if sum(signMismatchPosIdx ~= signMismatchPosIdx2) ~= 0
-%         warning('signMismatchPosIdx values dont match')
-%         display(k)
-%         break
-%     end    
-    
-%     % Negative subgradient but positive derivative
-%     signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
-%         subgrad(setActive) <= (0 + 1e-8) & (0 + 1e-8) <=  dir(1:nActive) & ...
-%         betaPath(setActive, k-1) == 0);
-%     % Negative subgradient but derivative mismatch (new code)
-%     signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
-%         subgrad(setActive) <= (0 + 1e-8) & dir(1:nActive) <= (0 - 1e-8) & ...
-%         betaPath(setActive, k-1) == 0);
-    % Negative subgradient but derivative mismatch (new code, both directions)
+    % Negative subgradient but positive derivative
     signMismatchNegIdx = find((-1 - 1e-8) <= subgrad(setActive) & ...
         subgrad(setActive) <= (0 + 1e-8) & ...
         (0 + 1e-8) <= dirsgn*dir(1:nActive) & ...
         betaPath(setActive, k-1) == 0);
-%     % make sure values from both methods match
-%     if sum(signMismatchNegIdx ~= signMismatchNegIdx2) ~= 0
-%         warning('signMismatchNegIdx values dont match')
-%         display(k)
-%         break
-%     end
-    
-%     %# temp stuff for debugging #%
-%     % specify trouble coefficient
-%     troubleCoeff = 9;
-%     % check active status of coefficient 
-%     setActive(troubleCoeff);
-%     
-%     % value of subgradient
-%     subgrad(troubleCoeff); % I don't understand this error
-%     % betahat_{troubleCoeff}
-%     betaPath(troubleCoeff, k-1);
-%     
-%     % define which coefficients are inactive 
-%     inactives = find(setActive == 0);
-%     % define which coefficients are inactive 
-%     actives = find(setActive == 1);
-%     
-%     % find the index of the inactive set corresponding to the trouble
-%     % coefficient (if applicable) 
-%     troubleIdxInactive = find(inactives == troubleCoeff);
-%     % derivative of rho*subgrad for trouble coefficient 
-%     dirSubgrad(troubleIdxInactive); % I don't understand this error
-% 
-%     % find the index of the active set corresponding to the trouble
-%     % coefficient (if applicable)    
-%     troubleIdxActive = find(actives == troubleCoeff);
-%     % derivative 
-%     dir(troubleIdxActive);
-            
+             
     % reset violation counter (to avoid infinite loops)
     violateCounter = 0;
     
