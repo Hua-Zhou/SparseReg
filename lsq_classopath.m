@@ -28,10 +28,12 @@ function [rhoPath, betaPath, dfPath, objValPath, ...
 %
 % OPTIONAL NAME-VALUE PAIRS:      
 %
-%   'qp_solver': 'matlab' (default) or 'gurobi' (more efficient but
-%       requires an installation of the Gurobi Optimizer (www.gurobi.com)
+%   'qp_solver': 'matlab' (default), 'gurobi' currently is not working
 %   'penidx': a logical vector indicating penalized coefficients
-%   'init_method': 'qp' (default) or 'qp' method to initialize
+%   'init_method': 'qp' (default) or 'lp' method to initialize.  'lp is
+%       recommended only when it's reasonable to assume that all
+%       coefficient estimates initialize at zero.  **include warning for
+%       this
 %   'epsilon': 
 %   ridge parameter!
 %
@@ -78,7 +80,7 @@ penidx = reshape(argin.Results.penidx,p,1);
 epsilon = argin.Results.epsilon;
 
 % check validity of qp_solver
-if ~(strcmpi(qp_solver, 'matlab') || strcmpi(qp_solver, 'GUROBI'))
+if ~(strcmpi(qp_solver, 'matlab'))% || strcmpi(qp_solver, 'GUROBI'))
     error('sparsereg:lsq_classopath:qp_solver', ...
         'qp_solver not recognized');
 end
@@ -141,23 +143,21 @@ dfPath = Inf(1, maxiters);
 objValPath = zeros(1, maxiters);
 violationsPath = Inf(1, maxiters);
 
-% intialization
+
+%# intialization
 H = X'*X;
-
-
-% initialize beta
-if strcmpi(qp_solver, 'matlab')
-    
+% if strcmpi(qp_solver, 'matlab')
+    % using matlab
     if strcmpi(init_method, 'lp')
         % use Matlab lsqlin
         [x,~,~,~,lambda] = ...
-            linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
+            linprog(ones(2*p,1), [A -A], b, [Aeq -Aeq], beq, ...
             zeros(2*p,1), inf(2*p,1));
         betaPath(:,1) = x(1:p) - x(p+1:end);
         dualpathEq(:,1) = lambda.eqlin;
         dualpathIneq(:,1) = lambda.ineqlin;
     elseif strcmpi(init_method, 'qp')
-        %# use LP to find rho_max
+        %# First use LP to find rho_max
         % solve LP problem
         [x,~,~,~,lambda] = ...
             linprog(ones(2*p,1),[A -A],b,[Aeq -Aeq],beq, ...
@@ -169,51 +169,66 @@ if strcmpi(qp_solver, 'matlab')
         dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
         setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
         betaPath(~setActive,1) = 0;
-        %             setIneqBorder = dualpathIneq(:,1)>0;
-%         residIneq = A*betaPath(:,1) - b;
-%         setIneqBorder = residIneq == 0;
-        
-        
         % find the maximum rho and initialize subgradient vector
         resid = y - X*betaPath(:, 1);
         subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
         rho_max = max(abs(subgrad));
         
-        % use quadratic programming
+        %# Use QP at rho_max to initialize
         [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
-            (rho_max*1),...
-            'method','qp','qp_solver','matlab','Aeq', Aeq,...
-            'beq', beq, 'A',A,'b',b);
+            (rho_max*1), ...
+            'method', 'qp', 'qp_solver', 'matlab', 'Aeq', Aeq,...
+            'beq', beq, 'A', A, 'b', b);
         dualpathEq(:,1) = stats.qp_dualEq;
         dualpathIneq(:,1) = stats.qp_dualIneq;
     end
     
-elseif strcmpi(qp_solver, 'GUROBI')
-    % use GUROBI solver if possible
-    
-    % linear programming
-    if strcmpi(init_method, 'lp')
-        gmodel.obj = ones(2*p,1);
-        gmodel.A = sparse([A -A; Aeq -Aeq]);
-        gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
-        gmodel.rhs = [b; beq];
-        gmodel.lb = zeros(2*p,1);
-        gparam.OutputFlag = 0;
-        gresult = gurobi(gmodel, gparam);
-        betaPath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
-        dualpathEq(:,1) = reshape(gresult.pi(m2+1:end), m1, 1);
-        dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
-    elseif strcmpi(init_method, 'qp')
-        
-        % quadratic programming
-        [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
-            5000,...
-            'method','qp','qp_solver','gurobi','Aeq', Aeq,...
-            'beq', beq, 'A',A,'b',b);
-        dualpathEq(:,1) = stats.qp_dualEq;
-        dualpathIneq(:,1) = stats.qp_dualIneq;
-    end
-end
+% elseif strcmpi(qp_solver, 'GUROBI')
+%     % use GUROBI solver if possible
+%     if strcmpi(init_method, 'lp')
+%         % linear programming
+%         gmodel.obj = ones(2*p,1);
+%         gmodel.A = sparse([A -A; Aeq -Aeq]);
+%         gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
+%         gmodel.rhs = [b; beq];
+%         gmodel.lb = zeros(2*p,1);
+%         gparam.OutputFlag = 0;
+%         gresult = gurobi(gmodel, gparam);
+%         betaPath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
+%         dualpathEq(:,1) = reshape(gresult.pi(m2+1:end), m1, 1);
+%         dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
+%     elseif strcmpi(init_method, 'qp')
+%         %# First use LP to find rho_max
+%         % solve LP problem
+%         gmodel.obj = ones(2*p,1);
+%         gmodel.A = sparse([A -A; Aeq -Aeq]);
+%         gmodel.sense = [repmat('<', m2, 1); repmat('=', m1, 1)];
+%         gmodel.rhs = [b; beq];
+%         gmodel.lb = zeros(2*p,1);
+%         gparam.OutputFlag = 0;
+%         gresult = gurobi(gmodel, gparam);
+%         betaPath(:,1) = gresult.x(1:p) - gresult.x(p+1:end);
+%         dualpathEq(:,1) = reshape(gresult.pi(m2+1:end), m1, 1);
+%         dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);      
+%         % initialize sets
+%         dualpathIneq(dualpathIneq(:,1) < 0,1) = 0; % fix negative dual variables
+%         setActive = abs(betaPath(:,1))>1e-4 | ~penidx;
+%         betaPath(~setActive,1) = 0;
+%         % find the maximum rho and initialize subgradient vector
+%         resid = y - X*betaPath(:, 1);
+%         subgrad = X'*resid - Aeq'*dualpathEq(:,1) - A'*dualpathIneq(:,1);
+%         rho_max = max(abs(subgrad));
+%         
+%         
+%         % quadratic programming
+%         [betaPath(:,1), stats] = lsq_constrsparsereg(X, y, ...
+%             rho_max,...
+%             'method','qp','qp_solver','gurobi','Aeq', Aeq,...
+%             'beq', beq, 'A',A,'b',b);
+%         dualpathEq(:,1) = stats.qp_dualEq;
+%         dualpathIneq(:,1) = stats.qp_dualIneq;
+%     end
+% end
 
 % may wanna switch this so the first rho isn't re-calculated?
 % initialize sets
@@ -482,33 +497,13 @@ for k = 2:maxiters
             dirSubgrad = ...
                 - [H(~setActive, setActive) Aeq(:,~setActive)' ...
                 A(setIneqBorder,~setActive)'] * dir;
-%             % make sure values from both methods match
-%             if sum(abs(dirSubgrad) ~= abs(dirSubgrad)) ~= 0
-%                 warning('dirSubgrad values dont match')
-%                 display(k)
-%                 break
-%             end
             
             %# Misc. housekeeping #%
             % check for violations again
-%             signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-%                 subgrad(setActive) <= (1 + 1e-8) & ...
-%                 dir(1:nActive) <= (0 - 1e-8) & ...
-%                 betaPath(setActive, k-1) == 0);
-%             % Positive subgrad but positive derivative (new code)
-%             signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
-%                 subgrad(setActive) <= (1 + 1e-8) & (0 + 1e-8) <= dir(1:nActive) & ...
-%                 betaPath(setActive, k-1) == 0);
             % Positive subgrad but derivative mismatch
             signMismatchPosIdx = find((0 - 1e-8) <= subgrad(setActive) & ...
                 subgrad(setActive) <= (1 + 1e-8) & dirsgn*dir(1:nActive) <= (0 - 1e-8)  & ...
                 betaPath(setActive, k-1) == 0);
-%             % make sure values from both methods match
-%             if sum(signMismatchPosIdx ~= signMismatchPosIdx) ~= 0
-%                 warning('signMismatchPosIdx values dont match')
-%                 display(k)
-%                 break
-%             end
             % update violation counter
             violateCounter = violateCounter + 1;
             % break loop if needed
