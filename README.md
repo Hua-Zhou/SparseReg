@@ -56,9 +56,9 @@ H Zhou and K Lange (2013) A path algorithm for constrained estimation, [_Journal
 H Zhou and Y Wu (2012)  A generic path algorithm for regularized statistical estimation, [Journal of American Statistical Association](http://www.tandfonline.com/doi/full/10.1080/01621459.2013.864166#.Up5KiGRDt4A), 109(506):686-699. [[pdf](http://hua-zhou.github.io/media/pdf/ZhouWu14EPSODE.pdf)]
 * Default article to cite for path following in constrained convex programming  
 H Zhou and K Lange (2011) Path following in the exact penalty method of convex programming, [Computational Optimization and Applications](http://link.springer.com/article/10.1007/s10589-015-9732-x), 61(3):609-634. [[pdf](http://hua-zhou.github.io/media/pdf/XiaoWuZhou15ConvexLAR.pdf)]
-* Default article to cite for constrained lasso path following 
+* Default article to cite for constrained lasso path following  
 B Gaines and H Zhou (2016) On fitting the constrained lasso.
- 
+
 ### Contacts
 
-Hua Zhou <hua_zhou@ncsu.edu> | Brian Gaines <brgaines@ncsu.edu> | Artin Armagan <Artin.Armagan@sas.com> | David Dunson <dunson@stat.duke.edu>
+Hua Zhou <huazhou@ucla.edu> | Brian Gaines <brgaines@ncsu.edu> | Artin Armagan <Artin.Armagan@sas.com> | David Dunson <dunson@stat.duke.edu>
