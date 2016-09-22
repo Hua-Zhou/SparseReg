@@ -1,6 +1,5 @@
-function [rhoPath, betaPath, dfPath, objValPath, ...
-    violationsPath, dualpathEq, ...
-    dualpathIneq] = lsq_classopath(X, y, A, b, Aeq, beq, varargin)
+function [rhoPath, betaPath, dfPath, objValPath] = ...
+    lsq_classopath(X, y, A, b, Aeq, beq, varargin)
 % LSQ_CLASSOPATH Constrained lasso solution path
 %
 %   [RHO_PATH, BETA_PATH] = LSQ_CLASSOPATH(X, y, A, b, Aeq, beq) computes the 
@@ -32,10 +31,8 @@ function [rhoPath, betaPath, dfPath, objValPath, ...
 %   'penidx': a logical vector indicating penalized coefficients
 %   'init_method': 'qp' (default) or 'lp' method to initialize.  'lp is
 %       recommended only when it's reasonable to assume that all
-%       coefficient estimates initialize at zero.  **include warning for
-%       this
-%   'epsilon': 
-%   ridge parameter!
+%       coefficient estimates initialize at zero.
+%   'epsilon': tuning parameter for ridge penalty.  Default is 1e-4.
 %
 % OUTPUTS:
 %
@@ -86,6 +83,15 @@ if ~(strcmpi(qp_solver, 'matlab'))% || strcmpi(qp_solver, 'GUROBI'))
 end
 
 % check validity of initialization method
+if ~(strcmpi(init_method, 'qp') || strcmpi(init_method, 'lp'))
+    error('sparsereg:lsq_classopath:init_method', ...
+        'init_method not recognized');
+end
+
+% issue warning if LP is used for initialization
+if strcmpi(init_method, 'lp')
+    warning('LP used for initialization, assumes initial solution is unique')
+end
 
 % save original number of observations (for when ridge penalty is used)
 n_orig = n;
@@ -746,7 +752,9 @@ for k = 2:maxiters
     
     % determine new number of active coefficients
     nActive = nnz(setActive);
-            
+    % determine number of active/binding inequality constraints
+    nIneqBorder = nnz(setIneqBorder);
+    
     %# Calcuate and store values of interest along the path #%
     % calculate value of objective function
     objValPath(k) = norm(y - X*betaPath(:, k))^2/2 + ...
