@@ -161,6 +161,7 @@ if isempty(A) && isempty(b) && isempty(Aeq) && isempty(beq) && isempty(projC)
         Xwt = bsxfun(@times, X, sqrt(wt));
         ywt = sqrt(wt).*y;
         betahat = Xwt\ywt;
+        stats.qp_iters = 0;
         return;
     end
     
@@ -202,11 +203,13 @@ if isempty(A) && isempty(b) && isempty(Aeq) && isempty(beq) && isempty(projC)
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
             options.Display = 'off';
-            [x,fval,~,output] = quadprog(H, f, [], [], [], [], lb, ub, ...
+            [x,fval,~,output, dual_vars] = quadprog(H, f, [], [], [], [], lb, ub, ...
                 [max(x0,0);min(x0,0)], options);
             betahat = x(1:p) - x(p+1:end);
             stats.qp_iters=output.iterations; % store matlab QP iters
             stats.qp_objval=fval; % store QP objective value
+            stats.qp_dualEq = dual_vars.eqlin;
+            stats.qp_dualIneq = dual_vars.ineqlin;
         end
     end
     
@@ -246,17 +249,20 @@ else    % with linear constraints
             stats.qp_iters=gresult.baritercount; % store gurobi iters
             stats.qp_objval=gresult.objval; % store gurobi obj. value
             stats.qp_dualEq = gresult.pi(1:size(Aeq,1));
+            stats.qp_dualIneq = gresult.pi(size(Aeq,1)+1:end);
             %         dualpathEq(:,1) = gresult.pi(m2+1:end);
 %         dualpathIneq(:,1) = reshape(gresult.pi(1:m2), m2, 1);
         elseif strcmpi(qp_solver, 'matlab')
             % use matlab quadprog()
             options.Algorithm = 'interior-point-convex';
             options.Display = 'off';
-            [x,fval,~,output] = quadprog(H, f, [A, -A], b, [Aeq, -Aeq], beq, ...
+            [x,fval,~,output, dual_vars] = quadprog(H, f, [A, -A], b, [Aeq, -Aeq], beq, ...
                 lb, ub, [max(x0,0);min(x0,0)], options);
             betahat = x(1:p) - x(p+1:end);
             stats.qp_iters=output.iterations; % store matlab QP iters
             stats.qp_objval=fval; % store QP objective value
+            stats.qp_dualEq = dual_vars.eqlin;
+            stats.qp_dualIneq = dual_vars.ineqlin;
         end
         
     elseif strcmpi(method, 'ADMM')
