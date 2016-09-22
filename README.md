@@ -3,10 +3,6 @@ layout: default
 title: SparseReg
 ---
 
-## SparseReg Toolbox for Matlab - `lsq_classopath` debugging branch for genlasso issue
-
-`lsq_classopath` is not working for a sparse fused lasso example.  An example for debugging is given in `demo_genlasso_slim.m` in the `genlasso` repo on the NCSU GitHub.  
-
 
 ## SparseReg Toolbox for Matlab
 
