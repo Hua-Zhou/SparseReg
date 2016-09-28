@@ -16,7 +16,7 @@ The code is tested on Matlab R2014a, but should work on other versions of Matlab
 
 ### Download
 
-[SparseReg_toolbox_0.0.2.zip](http://hua-zhou.github.io/softwares/sparsereg/SparseReg_toolbox_0.0.1.zip) (1.2MB)
+[SparseReg_toolbox_0.0.2.zip](https://github.com/Hua-Zhou/SparseReg/archive/v0.0.2.zip) (1.2MB)
 
 ### Installation
 
