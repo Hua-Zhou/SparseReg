@@ -57,7 +57,7 @@ H Zhou and Y Wu (2012)  A generic path algorithm for regularized statistical est
 * Default article to cite for path following in constrained convex programming  
 H Zhou and K Lange (2011) Path following in the exact penalty method of convex programming, [Computational Optimization and Applications](http://link.springer.com/article/10.1007/s10589-015-9732-x), 61(3):609-634. [[pdf](http://hua-zhou.github.io/media/pdf/XiaoWuZhou15ConvexLAR.pdf)]
 * Default article to cite for constrained lasso path following  
-B Gaines and H Zhou (2016) On fitting the constrained lasso.
+B Gaines and H Zhou (2016) Algorithms for Fitting the Constrained Lasso.  [[arXiv:1611.01511](https://arxiv.org/abs/1611.01511)]
 
 ### Contacts
 
