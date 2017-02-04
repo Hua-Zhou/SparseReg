@@ -751,5 +751,6 @@ betaPath(:, k:end) = [];
 rhoPath(k:end) = [];
 objValPath(k:end) = [];
 dfPath(k:end) = [];
+dfPath(dfPath < 0) = 0; 
     
 end
