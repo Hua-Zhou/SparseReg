@@ -34,7 +34,7 @@ for j=1:size(X,2)
         glm_maxlambda(X(:,j),y,model,'penalty',penalty,'penparam',penparam));
     end
 end
-display(lambdastart);
+disp(lambdastart);
 
 lambda = 0.9*lambdastart;   % tuning parameter value
 betahat = ...               % sparse regression
@@ -146,7 +146,7 @@ end
 D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
 D(10:10:90) = 1;            
 D(19:10:99) = -1;
-display(D(1:9,1:11));
+disp(D(1:9,1:11));
 model = 'logistic';
 penalty = 'enet';           % set penalty function to lasso
 penparam = 1;
@@ -177,6 +177,7 @@ line([rho_path(ebidx), rho_path(ebidx)], ylim);
 penalty = {'enet' 'power' 'log' 'mcp'};
 penparam = [1.5 0.5 1 1];
 for i=1:length(penalty)
+    disp(penalty(i))
     tic;
     [rho_path, beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty{i},...
         'penparam',penparam(i));
@@ -288,7 +289,7 @@ for j=1:size(X,2)
         glm_maxlambda(X(:,j),y,model,'penalty',penalty,'penparam',penparam));
     end
 end
-display(lambdastart);
+disp(lambdastart);
 
 lambda = 0.9*lambdastart;   % tuning parameter value
 betahat = ...               % sparse regression
@@ -378,6 +379,7 @@ penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
 
 figure;
 for i=1:length(penalty)
+    disp(penalty(i));
     tic;
     [rho_path,beta_path,eb_path] = glm_sparsepath(X,y,model,'penidx',penidx, ...
         'penalty',penalty{i},'penparam',penparam(i));
@@ -401,7 +403,7 @@ end
 D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
 D(10:10:90) = 1;            
 D(19:10:99) = -1;
-display(D(1:9,1:11));
+disp(D(1:9,1:11));
 model = 'loglinear';
 penalty = 'enet';          % set penalty function to lasso
 penparam = 1;
@@ -428,10 +430,11 @@ title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
 %%
-% Same fusion problem, but with power, log, MCP, and SCAD penalty
-penalty = {'enet' 'power' 'log' 'mcp'};
-penparam = [1.5 0.5 1 1];
+% Same fusion problem, but with enet, power, MCP, and SCAD penalty
+penalty = {'enet' 'power' 'mcp' 'scad'};
+penparam = [1.5 0.5 1 3.7];
 for i=1:length(penalty)
+    disp(penalty(i));
     tic;
     [rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty{i}, ...
         'penparam',penparam(i));

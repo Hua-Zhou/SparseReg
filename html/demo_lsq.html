@@ -6,7 +6,7 @@
    <!--
 This HTML was auto-generated from MATLAB code.
 To make changes, update the MATLAB code and republish this document.
-      --><title>Sparse Linear Regression</title><meta name="generator" content="MATLAB 7.14"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2013-01-15"><meta name="DC.source" content="demo_lsq.m"><style type="text/css">
+      --><title>Sparse Linear Regression</title><meta name="generator" content="MATLAB 9.2"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-03-15"><meta name="DC.source" content="demo_lsq.m"><style type="text/css">
 html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
 
 html { min-height:100%; margin-bottom:1px; }
@@ -23,7 +23,7 @@ a:visited { color:#004aa0; text-decoration:none; }
 
 p { padding:0px; margin:0px 0px 20px; }
 img { padding:0px; margin:0px 0px 20px; border:none; }
-p img, pre img, tt img, li img { margin-bottom:0px; } 
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
 
 ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
 ul li { padding:0px; margin:0px 0px 7px 0px; }
@@ -38,11 +38,12 @@ ol li ul li { list-style:square; }
 
 .content { font-size:1.2em; line-height:140%; padding: 20px; }
 
-pre, tt, code { font-size:12px; }
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
 pre { margin:0px 0px 20px; }
-pre.error { color:red; }
 pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
 pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
 
 @media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
 
@@ -54,8 +55,18 @@ span.syscmd { color:#B28C00 }
 
 .footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
 .footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
 
-  </style></head><body><div class="content"><h1>Sparse Linear Regression</h1><!--introduction--><p>A demonstration of sparse linear regression using SparseReg toolbox. Sparsity is in the general sense: variable selection, total variation regularization, polynomial trend filtering, and others. Various penalties are implemented: elestic net (enet), power family (bridge regression), log penalty, SCAD, and MCP.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Sparse linear regression (n&gt;p)</a></li><li><a href="#6">Fused linear regression</a></li><li><a href="#8">Sparse linear regression (n&lt;p)</a></li></ul></div><h2>Sparse linear regression (n&gt;p)<a name="1"></a></h2><p>Simulate a sample data set (n=500, p=100)</p><pre class="codeinput">clear;
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h1>Sparse Linear Regression</h1><!--introduction--><p>A demonstration of sparse linear regression using SparseReg toolbox. Sparsity is in the general sense: variable selection, total variation regularization, polynomial trend filtering, and others. Various penalties are implemented: elestic net (enet), power family (bridge regression), log penalty, SCAD, and MCP.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Sparse linear regression (n&gt;p)</a></li><li><a href="#6">Fused linear regression</a></li><li><a href="#8">Sparse linear regression (n&lt;p)</a></li></ul></div><h2 id="1">Sparse linear regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=100)</p><pre class="codeinput">clear;
 s = RandStream(<span class="string">'mt19937ar'</span>,<span class="string">'Seed'</span>,1);
 RandStream.setGlobalStream(s);
 n = 500;
@@ -99,7 +110,7 @@ lambdastart =
 
     5.1621
 
-</pre><img vspace="5" hspace="5" src="demo_lsq_01.png" alt=""> <img vspace="5" hspace="5" src="demo_lsq_02.png" alt=""> <p>Solution path for lasso</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function</span>
+</pre><img vspace="5" hspace="5" src="demo_lsq_01.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_lsq_02.png" style="width:560px;height:420px;" alt=""> <p>Solution path for lasso</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function</span>
 penparam = 1;
 penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
 tic;
@@ -113,7 +124,7 @@ xlabel(<span class="string">'\rho'</span>);
 ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
-</pre><img vspace="5" hspace="5" src="demo_lsq_03.png" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+</pre><img vspace="5" hspace="5" src="demo_lsq_03.png" style="width:560px;height:420px;" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
 penparam = 0.5;
 tic;
 [rho_path,beta_path] = <span class="keyword">...</span>
@@ -126,7 +137,7 @@ xlabel(<span class="string">'\rho'</span>);
 ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
-</pre><img vspace="5" hspace="5" src="demo_lsq_04.png" alt=""> <p>Compare solution paths from different penalties</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'scad'</span>};
+</pre><img vspace="5" hspace="5" src="demo_lsq_04.png" style="width:560px;height:420px;" alt=""> <p>Compare solution paths from different penalties</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'scad'</span>};
 penparam = [1 1.5 2 0.5 1 0 1 5 3.7];
 penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
 
@@ -147,7 +158,7 @@ figure
     xlim([min(rho_path),max(rho_path)]);
     title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
 <span class="keyword">end</span>
-</pre><img vspace="5" hspace="5" src="demo_lsq_05.png" alt=""> <h2>Fused linear regression<a name="6"></a></h2><p>Fused lasso (fusing the first 10 predictors)</p><pre class="codeinput">D = zeros(9,size(X,2));     <span class="comment">% regularization matrix for fusing first 10 preds</span>
+</pre><img vspace="5" hspace="5" src="demo_lsq_05.png" style="width:560px;height:420px;" alt=""> <h2 id="6">Fused linear regression</h2><p>Fused lasso (fusing the first 10 predictors)</p><pre class="codeinput">D = zeros(9,size(X,2));     <span class="comment">% regularization matrix for fusing first 10 preds</span>
 D(10:10:90) = 1;
 D(19:10:99) = -1;
 display(D(1:9,1:11));
@@ -163,10 +174,7 @@ xlabel(<span class="string">'\rho'</span>);
 ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
-</pre><pre class="codeoutput">
-ans =
-
-     0     1    -1     0     0     0     0     0     0     0     0
+</pre><pre class="codeoutput">     0     1    -1     0     0     0     0     0     0     0     0
      0     0     1    -1     0     0     0     0     0     0     0
      0     0     0     1    -1     0     0     0     0     0     0
      0     0     0     0     1    -1     0     0     0     0     0
@@ -176,7 +184,7 @@ ans =
      0     0     0     0     0     0     0     0     1    -1     0
      0     0     0     0     0     0     0     0     0     1    -1
 
-</pre><img vspace="5" hspace="5" src="demo_lsq_06.png" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span>};
+</pre><img vspace="5" hspace="5" src="demo_lsq_06.png" style="width:560px;height:420px;" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span>};
 penparam = [1.5 0.5 1 1];
 <span class="keyword">for</span> i=1:length(penalty)
     tic;
@@ -188,7 +196,7 @@ penparam = [1.5 0.5 1 1];
     xlim([min(rho_path),max(rho_path)]);
     title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
 <span class="keyword">end</span>
-</pre><img vspace="5" hspace="5" src="demo_lsq_07.png" alt=""> <h2>Sparse linear regression (n&lt;p)<a name="8"></a></h2><p>Simulate another sample data set (n=100, p=1000)</p><pre class="codeinput">clear;
+</pre><img vspace="5" hspace="5" src="demo_lsq_07.png" style="width:560px;height:420px;" alt=""> <h2 id="8">Sparse linear regression (n&lt;p)</h2><p>Simulate another sample data set (n=100, p=1000)</p><pre class="codeinput">clear;
 n = 100;
 p = 1000;
 X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
@@ -223,7 +231,7 @@ ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
 line([rho_path(ebidx), rho_path(ebidx)], ylim);
-</pre><img vspace="5" hspace="5" src="demo_lsq_08.png" alt=""> <img vspace="5" hspace="5" src="demo_lsq_09.png" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+</pre><img vspace="5" hspace="5" src="demo_lsq_08.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_lsq_09.png" style="width:560px;height:420px;" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
 penparam = 0.5;
 tic;
 [rho_path,beta_path,eb_path] = lsq_sparsepath(X,y,<span class="string">'penidx'</span>,penidx, <span class="keyword">...</span>
@@ -246,8 +254,7 @@ ylabel(<span class="string">'\beta(\rho)'</span>);
 xlim([min(rho_path),max(rho_path)]);
 title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
 line([rho_path(ebidx), rho_path(ebidx)], ylim);
-</pre><img vspace="5" hspace="5" src="demo_lsq_10.png" alt=""> <img vspace="5" hspace="5" src="demo_lsq_11.png" alt=""> <p class="footer"><br>
-      Published with MATLAB&reg; 7.14<br></p></div><!--
+</pre><img vspace="5" hspace="5" src="demo_lsq_10.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_lsq_11.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2017a</a><br></p></div><!--
 ##### SOURCE BEGIN #####
 %% Sparse Linear Regression
 % A demonstration of sparse linear regression using SparseReg toolbox.
@@ -266,7 +273,7 @@ p = 100;
 X = randn(n,p);             % generate a random design matrix
 X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
 X = [ones(size(X,1),1) X];  % add intercept
-b = zeros(p+1,1);           % true signal: 
+b = zeros(p+1,1);           % true signal:
 b(2:6) = 3;                 % first 5 predictors are 3
 b(7:11) = -3;               % next 5 predictors are -3
 y = X*b+randn(n,1);         % response vector
@@ -276,7 +283,7 @@ y = X*b+randn(n,1);         % response vector
 penalty = 'enet';           % set penalty function to lasso
 penparam = 1;
 penidx = ...                % leave intercept unpenalized
-    [false; true(size(X,2)-1,1)];  
+    [false; true(size(X,2)-1,1)];
 lambdastart = ...           % find the maximum tuning parameter to start
     max(lsq_maxlambda(sum(X(:,penidx).^2),-y'*X(:,penidx),penalty,penparam));
 display(lambdastart);
@@ -301,7 +308,7 @@ ylabel('\beta_j');
 xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
-%% 
+%%
 % Solution path for lasso
 penalty = 'enet';           % set penalty function
 penparam = 1;
@@ -318,7 +325,7 @@ ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
-%% 
+%%
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
@@ -334,7 +341,7 @@ ylabel('\beta(\rho)');
 xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 
-%% 
+%%
 % Compare solution paths from different penalties
 penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'log' 'scad'};
 penparam = [1 1.5 2 0.5 1 0 1 5 3.7];
@@ -351,7 +358,7 @@ for i=1:length(penalty)
     if (i==8)
         xlabel('\rho');
     end
-    if (i==4) 
+    if (i==4)
         ylabel('\beta(\rho)');
     end
     xlim([min(rho_path),max(rho_path)]);
@@ -361,7 +368,7 @@ end
 %% Fused linear regression
 % Fused lasso (fusing the first 10 predictors)
 D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
-D(10:10:90) = 1;            
+D(10:10:90) = 1;
 D(19:10:99) = -1;
 display(D(1:9,1:11));
 penalty = 'enet';           % set penalty function to lasso
@@ -405,7 +412,7 @@ b(2:6) = 3;                 % first 5 predictors are 3
 b(7:11) = -3;               % next 5 predictors are -3
 y = X*b+randn(n,1);         % response vector
 
-%% 
+%%
 % Solution path for lasso
 maxpreds = 51;              % run solution path until 50 predictors are in
 penalty = 'enet';           % set penalty function
@@ -433,7 +440,7 @@ xlim([min(rho_path),max(rho_path)]);
 title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
 line([rho_path(ebidx), rho_path(ebidx)], ylim);
 
-%% 
+%%
 % Solution path for power (0.5)
 penalty = 'power';          % set penalty function to power
 penparam = 0.5;
