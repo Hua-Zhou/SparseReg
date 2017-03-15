@@ -1,4 +1,4 @@
-mex sparsereg.F90;
+%mex sparsereg.F90;
 mex penalty.F90 sparsereg.F90;
 mex lsqmaxlambda.F90 sparsereg.F90;
 mex lsqsparse.F90 sparsereg.F90;
