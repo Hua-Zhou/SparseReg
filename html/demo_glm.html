@@ -1,0 +1,1107 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>Sparse generalized linear model (GLM)</title><meta name="generator" content="MATLAB 9.2"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-03-15"><meta name="DC.source" content="demo_glm.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h1>Sparse generalized linear model (GLM)</h1><!--introduction--><p>A demonstration of sparse GLM regression using SparseReg toolbox. Sparsity is in the general sense: variable selection, total variation regularization, polynomial trend filtering, and others. Various penalties are implemented: elestic net (enet), power family (bridge regression), log penalty, SCAD, and MCP.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Sparse logistic regression (n&gt;p)</a></li><li><a href="#6">Fused logistic regression</a></li><li><a href="#8">Sparse logistic regression (n&lt;p)</a></li><li><a href="#11">Sparse loglinear (Poisson) regression (n&gt;p)</a></li><li><a href="#16">Fused loglinear (Poisson) regression</a></li><li><a href="#18">Sparse loglinear (Poisson) regression (n&lt;&lt;p)</a></li></ul></div><h2 id="1">Sparse logistic regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=50)</p><pre class="codeinput">clear;
+n = 500;
+p = 50;
+
+X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
+X = [ones(size(X,1),1) X];
+b = zeros(p+1,1);           <span class="comment">% true signalfirst ten predictors are 5</span>
+b(2:6) = 1;                 <span class="comment">% first 5 predictors are 1</span>
+b(7:11) = -1;               <span class="comment">% next 5 predictors are -1</span>
+inner = X*b;                <span class="comment">% linear parts</span>
+prob = 1./(1+exp(-inner));
+y = double(rand(n,1)&lt;prob);
+</pre><p>Sparse logistic regression at a fixed tuning parameter value</p><pre class="codeinput">model = <span class="string">'logistic'</span>;         <span class="comment">% set model to logistic</span>
+penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty to lasso</span>
+penparam = 1;
+lambdastart = 0;            <span class="comment">% find the maximum tuning parameter to start</span>
+<span class="keyword">for</span> j=1:size(X,2)
+    <span class="keyword">if</span> (penidx(j))
+    lambdastart = max(lambdastart, <span class="keyword">...</span>
+        glm_maxlambda(X(:,j),y,model,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam));
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+disp(lambdastart);
+
+lambda = 0.9*lambdastart;   <span class="comment">% tuning parameter value</span>
+betahat = <span class="keyword">...</span><span class="comment">               % sparse regression</span>
+    glm_sparsereg(X,y,lambda,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+
+lambda = 0.5*lambdastart;   <span class="comment">% tuning parameter value</span>
+betahat = <span class="keyword">...</span><span class="comment">               % sparse regression</span>
+    glm_sparsereg(X,y,lambda,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">    1.6094
+
+</pre><img vspace="5" hspace="5" src="demo_glm_01.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_02.png" style="width:560px;height:420px;" alt=""> <p>Solution path for lasso</p><pre class="codeinput">model = <span class="string">'logistic'</span>;         <span class="comment">% do logistic regression</span>
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty to lasso</span>
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; <span class="comment">% leave intercept unpenalized</span>
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);   <span class="comment">% locate the best model by empirical Bayes crit.</span>
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'Emp. Bayes. Criterion'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_glm_03.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_04.png" style="width:560px;height:420px;" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'Emp. Bayes. Criterion'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_glm_05.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_06.png" style="width:560px;height:420px;" alt=""> <p>Compare solution paths from different penalties</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'mcp'</span> <span class="string">'scad'</span>};
+penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
+
+figure;
+<span class="keyword">for</span> i=1:length(penalty)
+    tic;
+    [rho_path,beta_path] = <span class="keyword">...</span>
+        glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty{i}, <span class="keyword">...</span>
+        <span class="string">'penparam'</span>,penparam(i));
+    timing = toc;
+    subplot(3,3,i);
+    plot(rho_path,beta_path);
+    <span class="keyword">if</span> (i==8)
+        xlabel(<span class="string">'\rho'</span>);
+    <span class="keyword">end</span>
+    <span class="keyword">if</span> (i==4)
+        ylabel(<span class="string">'\beta(\rho)'</span>);
+    <span class="keyword">end</span>
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
+<span class="keyword">end</span>
+</pre><img vspace="5" hspace="5" src="demo_glm_07.png" style="width:560px;height:420px;" alt=""> <h2 id="6">Fused logistic regression</h2><p>Fused logistic regression (fusing the first 10 predictors)</p><pre class="codeinput">D = zeros(9,size(X,2));     <span class="comment">% regularization matrix for fusing first 10 preds</span>
+D(10:10:90) = 1;
+D(19:10:99) = -1;
+disp(D(1:9,1:11));
+model = <span class="string">'logistic'</span>;
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+tic;
+[rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path(2:11,:));
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><pre class="codeoutput">     0     1    -1     0     0     0     0     0     0     0     0
+     0     0     1    -1     0     0     0     0     0     0     0
+     0     0     0     1    -1     0     0     0     0     0     0
+     0     0     0     0     1    -1     0     0     0     0     0
+     0     0     0     0     0     1    -1     0     0     0     0
+     0     0     0     0     0     0     1    -1     0     0     0
+     0     0     0     0     0     0     0     1    -1     0     0
+     0     0     0     0     0     0     0     0     1    -1     0
+     0     0     0     0     0     0     0     0     0     1    -1
+
+</pre><img vspace="5" hspace="5" src="demo_glm_08.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_09.png" style="width:560px;height:420px;" alt=""> <p>Same fusion problem, but with power, log, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'mcp'</span>};
+penparam = [1.5 0.5 1 1];
+<span class="keyword">for</span> i=1:length(penalty)
+    disp(penalty(i))
+    tic;
+    [rho_path, beta_path,eb_path] = glm_regpath(X,y,D,model,<span class="string">'penalty'</span>,penalty{i},<span class="keyword">...</span>
+        <span class="string">'penparam'</span>,penparam(i));
+    timing = toc;
+    [~,ebidx] = min(eb_path);
+    subplot(2,2,i);
+    plot(rho_path,beta_path(2:11,:));
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
+    line([rho_path(ebidx), rho_path(ebidx)], ylim);
+<span class="keyword">end</span>
+</pre><pre class="codeoutput">    'enet'
+
+    'power'
+
+Warning: Matrix is close to singular or badly scaled. Results may be inaccurate.
+RCOND =  8.158071e-21. 
+    'log'
+
+    'mcp'
+
+</pre><img vspace="5" hspace="5" src="demo_glm_10.png" style="width:560px;height:420px;" alt=""> <h2 id="8">Sparse logistic regression (n&lt;p)</h2><p>Simulate another sample data set (n=100, p=1000)</p><pre class="codeinput">clear;
+n = 100;
+p = 1000;
+X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
+X = [ones(size(X,1),1),X];  <span class="comment">% add intercept</span>
+b = zeros(p+1,1);           <span class="comment">% true signal</span>
+b(2:6) = 5;                 <span class="comment">% first 5 predictors are 5</span>
+b(7:11) = -5;               <span class="comment">% next 5 predictors are -5</span>
+inner = X*b;                <span class="comment">% linear parts</span>
+prob = 1./(1+exp(-inner));
+y = binornd(1,prob);        <span class="comment">% generate binary response</span>
+</pre><p>Solution path for lasso</p><pre class="codeinput">maxpreds = 51;              <span class="comment">% request path to the first 51 predictors</span>
+model = <span class="string">'logistic'</span>;         <span class="comment">% do logistic regression</span>
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty to lasso</span>
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; <span class="comment">% leave intercept unpenalized</span>
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'maxpreds'</span>,maxpreds, <span class="keyword">...</span>
+    <span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'Emp. Bayes. Criterion'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><pre class="codeoutput">Warning: separation detected; perfect prediction achieved 
+</pre><img vspace="5" hspace="5" src="demo_glm_11.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_12.png" style="width:560px;height:420px;" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'maxpreds'</span>,maxpreds, <span class="keyword">...</span>
+    <span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><pre class="codeoutput">Warning: separation detected; perfect prediction achieved 
+</pre><img vspace="5" hspace="5" src="demo_glm_13.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_14.png" style="width:560px;height:420px;" alt=""> <h2 id="11">Sparse loglinear (Poisson) regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=50)</p><pre class="codeinput">clear;
+n = 500;
+p = 50;
+X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
+X = [ones(size(X,1),1) X];  <span class="comment">% add intercept</span>
+b = zeros(p+1,1);           <span class="comment">% true signal: first ten predictors are 3</span>
+b(2:6) = 1;                 <span class="comment">% first 5 predictors are 1</span>
+b(7:11) = -1;               <span class="comment">% next 5 predictors are -1</span>
+inner = X*b;                <span class="comment">% linear parts</span>
+y = poissrnd(exp(inner));   <span class="comment">% generate response from Poisson</span>
+</pre><p>Sparse loglinear regression at a fixed tuning parameter value</p><pre class="codeinput">model = <span class="string">'loglinear'</span>;        <span class="comment">% set model to logistic</span>
+penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty to lasso</span>
+penparam = 1;
+lambdastart = 0;            <span class="comment">% find the maximum tuning parameter to start</span>
+<span class="keyword">for</span> j=1:size(X,2)
+    <span class="keyword">if</span> (penidx(j))
+    lambdastart = max(lambdastart, <span class="keyword">...</span>
+        glm_maxlambda(X(:,j),y,model,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam));
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+disp(lambdastart);
+
+lambda = 0.9*lambdastart;   <span class="comment">% tuning parameter value</span>
+betahat = <span class="keyword">...</span><span class="comment">               % sparse regression</span>
+    glm_sparsereg(X,y,lambda,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(1:length(betahat),betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([0,length(betahat)+1]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+
+lambda = 0.5*lambdastart;   <span class="comment">% tuning parameter value</span>
+betahat = <span class="keyword">...</span><span class="comment">               % sparse regression</span>
+    glm_sparsereg(X,y,lambda,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(1:length(betahat),betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([0,length(betahat)+1]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">    2.6733
+
+</pre><img vspace="5" hspace="5" src="demo_glm_15.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_16.png" style="width:560px;height:420px;" alt=""> <p>Solution path for lasso</p><pre class="codeinput">model = <span class="string">'loglinear'</span>;        <span class="comment">% do logistic regression</span>
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty to lasso</span>
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; <span class="comment">% leave intercept unpenalized</span>
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_glm_17.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_18.png" style="width:560px;height:420px;" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_glm_19.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_20.png" style="width:560px;height:420px;" alt=""> <p>Compare solution paths from different penalties</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'power'</span> <span class="string">'log'</span> <span class="string">'log'</span> <span class="string">'mcp'</span> <span class="string">'scad'</span>};
+penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+penidx = [false; true(size(X,2)-1,1)];  <span class="comment">% leave intercept unpenalized</span>
+
+figure;
+<span class="keyword">for</span> i=1:length(penalty)
+    disp(penalty(i));
+    tic;
+    [rho_path,beta_path,eb_path] = glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx, <span class="keyword">...</span>
+        <span class="string">'penalty'</span>,penalty{i},<span class="string">'penparam'</span>,penparam(i));
+    timing = toc;
+    [~,ebidx] = min(eb_path);
+    subplot(3,3,i);
+    plot(rho_path,beta_path);
+    <span class="keyword">if</span> (i==8)
+        xlabel(<span class="string">'\rho'</span>);
+    <span class="keyword">end</span>
+    <span class="keyword">if</span> (i==4)
+        ylabel(<span class="string">'\beta(\rho)'</span>);
+    <span class="keyword">end</span>
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
+    line([rho_path(ebidx), rho_path(ebidx)], ylim);
+<span class="keyword">end</span>
+</pre><pre class="codeoutput">    'enet'
+
+    'enet'
+
+    'enet'
+
+    'power'
+
+    'power'
+
+    'log'
+
+    'log'
+
+    'mcp'
+
+    'scad'
+
+</pre><img vspace="5" hspace="5" src="demo_glm_21.png" style="width:560px;height:420px;" alt=""> <h2 id="16">Fused loglinear (Poisson) regression</h2><p>Fused loglinear regression (fusing the first 10 predictors)</p><pre class="codeinput">D = zeros(9,size(X,2));     <span class="comment">% regularization matrix for fusing first 10 preds</span>
+D(10:10:90) = 1;
+D(19:10:99) = -1;
+disp(D(1:9,1:11));
+model = <span class="string">'loglinear'</span>;
+penalty = <span class="string">'enet'</span>;          <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+tic;
+[rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path(2:11,:));
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><pre class="codeoutput">     0     1    -1     0     0     0     0     0     0     0     0
+     0     0     1    -1     0     0     0     0     0     0     0
+     0     0     0     1    -1     0     0     0     0     0     0
+     0     0     0     0     1    -1     0     0     0     0     0
+     0     0     0     0     0     1    -1     0     0     0     0
+     0     0     0     0     0     0     1    -1     0     0     0
+     0     0     0     0     0     0     0     1    -1     0     0
+     0     0     0     0     0     0     0     0     1    -1     0
+     0     0     0     0     0     0     0     0     0     1    -1
+
+</pre><img vspace="5" hspace="5" src="demo_glm_22.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_23.png" style="width:560px;height:420px;" alt=""> <p>Same fusion problem, but with enet, power, MCP, and SCAD penalty</p><pre class="codeinput">penalty = {<span class="string">'enet'</span> <span class="string">'power'</span> <span class="string">'mcp'</span> <span class="string">'scad'</span>};
+penparam = [1.5 0.5 1 3.7];
+<span class="keyword">for</span> i=1:length(penalty)
+    disp(penalty(i));
+    tic;
+    [rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,<span class="string">'penalty'</span>,penalty{i}, <span class="keyword">...</span>
+        <span class="string">'penparam'</span>,penparam(i));
+    timing = toc;
+    [~,ebidx] = min(eb_path);
+    subplot(2,2,i);
+    plot(rho_path,beta_path(2:11,:));
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} <span class="string">'('</span> num2str(penparam(i)) <span class="string">'), '</span> num2str(timing,1) <span class="string">'s'</span>]);
+    line([rho_path(ebidx), rho_path(ebidx)], ylim);
+<span class="keyword">end</span>
+</pre><pre class="codeoutput">    'enet'
+
+    'power'
+
+    'mcp'
+
+    'scad'
+
+</pre><img vspace="5" hspace="5" src="demo_glm_24.png" style="width:560px;height:420px;" alt=""> <h2 id="18">Sparse loglinear (Poisson) regression (n&lt;&lt;p)</h2><p>Simulate a sample data set (n=500, p=50)</p><pre class="codeinput">clear;
+n = 100;
+p = 1000;
+X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
+X = [ones(size(X,1),1) X];  <span class="comment">% add intercept</span>
+b = zeros(p+1,1);           <span class="comment">% true signal: first ten predictors are 3</span>
+b(2:6) = 3;                 <span class="comment">% first 5 predictors are 3</span>
+b(7:11) = -3;               <span class="comment">% next 5 predictors are -3</span>
+inner = X*b;                <span class="comment">% linear parts</span>
+y = poissrnd(exp(inner));   <span class="comment">% generate response from Poisson</span>
+</pre><p>Solution path for lasso</p><pre class="codeinput">maxpreds = 51;              <span class="comment">% obtain solution path to top 50 predictors</span>
+model = <span class="string">'loglinear'</span>;        <span class="comment">% do Poisson regression</span>
+penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty to lasso</span>
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; <span class="comment">% leave intercept unpenalized</span>
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam,<span class="string">'maxpreds'</span>,maxpreds);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_glm_25.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_26.png" style="width:560px;height:420px;" alt=""> <p>Solution path for power (0.5)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;          <span class="comment">% set penalty function to power</span>
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = <span class="keyword">...</span><span class="comment">  % compute solution path</span>
+    glm_sparsepath(X,y,model,<span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty, <span class="keyword">...</span>
+    <span class="string">'penparam'</span>,penparam,<span class="string">'maxpreds'</span>,maxpreds);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'EBC'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel(<span class="string">'\rho'</span>);
+ylabel(<span class="string">'\beta(\rho)'</span>);
+xlim([min(rho_path),max(rho_path)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), '</span> num2str(timing,2) <span class="string">' sec'</span>]);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+</pre><img vspace="5" hspace="5" src="demo_glm_27.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_glm_28.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2017a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% Sparse generalized linear model (GLM)
+% A demonstration of sparse GLM regression using SparseReg toolbox.
+% Sparsity is in the general sense: variable selection, total variation
+% regularization, polynomial trend filtering, and others. Various penalties
+% are implemented: elestic net (enet), power family (bridge regression),
+% log penalty, SCAD, and MCP.
+
+%% Sparse logistic regression (n>p)
+% Simulate a sample data set (n=500, p=50)
+clear;
+n = 500;
+p = 50;
+
+X = randn(n,p);             % generate a random design matrix
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
+X = [ones(size(X,1),1) X];
+b = zeros(p+1,1);           % true signalfirst ten predictors are 5
+b(2:6) = 1;                 % first 5 predictors are 1
+b(7:11) = -1;               % next 5 predictors are -1
+inner = X*b;                % linear parts
+prob = 1./(1+exp(-inner));
+y = double(rand(n,1)<prob);
+
+%%
+% Sparse logistic regression at a fixed tuning parameter value
+model = 'logistic';         % set model to logistic
+penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
+penalty = 'enet';           % set penalty to lasso
+penparam = 1;
+lambdastart = 0;            % find the maximum tuning parameter to start
+for j=1:size(X,2)
+    if (penidx(j))
+    lambdastart = max(lambdastart, ...
+        glm_maxlambda(X(:,j),y,model,'penalty',penalty,'penparam',penparam));
+    end
+end
+disp(lambdastart);
+
+lambda = 0.9*lambdastart;   % tuning parameter value
+betahat = ...               % sparse regression
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty,...
+    'penparam',penparam);
+
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+lambda = 0.5*lambdastart;   % tuning parameter value
+betahat = ...               % sparse regression
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty,...
+    'penparam',penparam);
+
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%% 
+% Solution path for lasso
+model = 'logistic';         % do logistic regression
+penalty = 'enet';           % set penalty to lasso
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);   % locate the best model by empirical Bayes crit.
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('Emp. Bayes. Criterion');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% 
+% Solution path for power (0.5)
+penalty = 'power';          % set penalty function to power
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('Emp. Bayes. Criterion');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% 
+% Compare solution paths from different penalties
+penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
+penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
+
+figure;
+for i=1:length(penalty)
+    tic;
+    [rho_path,beta_path] = ...
+        glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty{i}, ...
+        'penparam',penparam(i));
+    timing = toc;
+    subplot(3,3,i);
+    plot(rho_path,beta_path);
+    if (i==8)
+        xlabel('\rho');
+    end
+    if (i==4)
+        ylabel('\beta(\rho)');
+    end
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
+end
+
+%% Fused logistic regression
+% Fused logistic regression (fusing the first 10 predictors)
+D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
+D(10:10:90) = 1;            
+D(19:10:99) = -1;
+disp(D(1:9,1:11));
+model = 'logistic';
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+tic;
+[rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty, ...
+    'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path(2:11,:));
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%%
+% Same fusion problem, but with power, log, MCP, and SCAD penalty
+penalty = {'enet' 'power' 'log' 'mcp'};
+penparam = [1.5 0.5 1 1];
+for i=1:length(penalty)
+    disp(penalty(i))
+    tic;
+    [rho_path, beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty{i},...
+        'penparam',penparam(i));
+    timing = toc;
+    [~,ebidx] = min(eb_path);
+    subplot(2,2,i);
+    plot(rho_path,beta_path(2:11,:));
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
+    line([rho_path(ebidx), rho_path(ebidx)], ylim);
+end
+
+%% Sparse logistic regression (n<p)
+% Simulate another sample data set (n=100, p=1000)
+clear;
+n = 100;
+p = 1000;
+X = randn(n,p);             % generate a random design matrix
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
+X = [ones(size(X,1),1),X];  % add intercept
+b = zeros(p+1,1);           % true signal
+b(2:6) = 5;                 % first 5 predictors are 5
+b(7:11) = -5;               % next 5 predictors are -5
+inner = X*b;                % linear parts
+prob = 1./(1+exp(-inner));
+y = binornd(1,prob);        % generate binary response
+
+%% 
+% Solution path for lasso
+maxpreds = 51;              % request path to the first 51 predictors
+model = 'logistic';         % do logistic regression
+penalty = 'enet';           % set penalty to lasso
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'maxpreds',maxpreds, ...
+    'penalty',penalty,'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('Emp. Bayes. Criterion');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% 
+% Solution path for power (0.5)
+penalty = 'power';          % set penalty function to power
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'maxpreds',maxpreds, ...
+    'penalty',penalty,'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% Sparse loglinear (Poisson) regression (n>p)
+% Simulate a sample data set (n=500, p=50)
+clear;
+n = 500;
+p = 50;
+X = randn(n,p);             % generate a random design matrix
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
+X = [ones(size(X,1),1) X];  % add intercept
+b = zeros(p+1,1);           % true signal: first ten predictors are 3
+b(2:6) = 1;                 % first 5 predictors are 1
+b(7:11) = -1;               % next 5 predictors are -1
+inner = X*b;                % linear parts
+y = poissrnd(exp(inner));   % generate response from Poisson
+
+%%
+% Sparse loglinear regression at a fixed tuning parameter value
+model = 'loglinear';        % set model to logistic
+penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
+penalty = 'enet';           % set penalty to lasso
+penparam = 1;
+lambdastart = 0;            % find the maximum tuning parameter to start
+for j=1:size(X,2)
+    if (penidx(j))
+    lambdastart = max(lambdastart, ...
+        glm_maxlambda(X(:,j),y,model,'penalty',penalty,'penparam',penparam));
+    end
+end
+disp(lambdastart);
+
+lambda = 0.9*lambdastart;   % tuning parameter value
+betahat = ...               % sparse regression
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
+
+figure;                     % plot penalized estimate
+bar(1:length(betahat),betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([0,length(betahat)+1]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+lambda = 0.5*lambdastart;   % tuning parameter value
+betahat = ...               % sparse regression
+    glm_sparsereg(X,y,lambda,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
+
+figure;                     % plot penalized estimate
+bar(1:length(betahat),betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([0,length(betahat)+1]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%% 
+% Solution path for lasso
+model = 'loglinear';        % do logistic regression
+penalty = 'enet';           % set penalty to lasso
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% 
+% Solution path for power (0.5)
+penalty = 'power';          % set penalty function to power
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% 
+% Compare solution paths from different penalties
+penalty = {'enet' 'enet' 'enet' 'power' 'power' 'log' 'log' 'mcp' 'scad'};
+penparam = [1 1.5 2 0.5 1 0 1 1 3.7];
+penidx = [false; true(size(X,2)-1,1)];  % leave intercept unpenalized
+
+figure;
+for i=1:length(penalty)
+    disp(penalty(i));
+    tic;
+    [rho_path,beta_path,eb_path] = glm_sparsepath(X,y,model,'penidx',penidx, ...
+        'penalty',penalty{i},'penparam',penparam(i));
+    timing = toc;
+    [~,ebidx] = min(eb_path);
+    subplot(3,3,i);
+    plot(rho_path,beta_path);
+    if (i==8)
+        xlabel('\rho');
+    end
+    if (i==4)
+        ylabel('\beta(\rho)');
+    end
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
+    line([rho_path(ebidx), rho_path(ebidx)], ylim);
+end
+
+%% Fused loglinear (Poisson) regression
+% Fused loglinear regression (fusing the first 10 predictors)
+D = zeros(9,size(X,2));     % regularization matrix for fusing first 10 preds
+D(10:10:90) = 1;            
+D(19:10:99) = -1;
+disp(D(1:9,1:11));
+model = 'loglinear';
+penalty = 'enet';          % set penalty function to lasso
+penparam = 1;
+tic;
+[rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty, ...
+    'penparam',penparam);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path(2:11,:));
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%%
+% Same fusion problem, but with enet, power, MCP, and SCAD penalty
+penalty = {'enet' 'power' 'mcp' 'scad'};
+penparam = [1.5 0.5 1 3.7];
+for i=1:length(penalty)
+    disp(penalty(i));
+    tic;
+    [rho_path,beta_path,eb_path] = glm_regpath(X,y,D,model,'penalty',penalty{i}, ...
+        'penparam',penparam(i));
+    timing = toc;
+    [~,ebidx] = min(eb_path);
+    subplot(2,2,i);
+    plot(rho_path,beta_path(2:11,:));
+    xlim([min(rho_path),max(rho_path)]);
+    title([penalty{i} '(' num2str(penparam(i)) '), ' num2str(timing,1) 's']);
+    line([rho_path(ebidx), rho_path(ebidx)], ylim);
+end
+
+%% Sparse loglinear (Poisson) regression (n<<p)
+% Simulate a sample data set (n=500, p=50)
+clear;
+n = 100;
+p = 1000;
+X = randn(n,p);             % generate a random design matrix
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
+X = [ones(size(X,1),1) X];  % add intercept
+b = zeros(p+1,1);           % true signal: first ten predictors are 3
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
+inner = X*b;                % linear parts
+y = poissrnd(exp(inner));   % generate response from Poisson
+
+%% 
+% Solution path for lasso
+maxpreds = 51;              % obtain solution path to top 50 predictors
+model = 'loglinear';        % do Poisson regression
+penalty = 'enet';           % set penalty to lasso
+penparam = 1;
+penidx = [false; true(size(X,2)-1,1)]; % leave intercept unpenalized
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam,'maxpreds',maxpreds);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+%% 
+% Solution path for power (0.5)
+penalty = 'power';          % set penalty function to power
+penparam = 0.5;
+tic;
+[rho_path,beta_path,eb_path] = ...  % compute solution path
+    glm_sparsepath(X,y,model,'penidx',penidx,'penalty',penalty, ...
+    'penparam',penparam,'maxpreds',maxpreds);
+timing = toc;
+[~,ebidx] = min(eb_path);
+
+figure;
+plot(rho_path,eb_path);
+xlabel('\rho');
+ylabel('EBC');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+figure;
+plot(rho_path,beta_path);
+xlabel('\rho');
+ylabel('\beta(\rho)');
+xlim([min(rho_path),max(rho_path)]);
+title([penalty '(' num2str(penparam) '), ' num2str(timing,2) ' sec']);
+line([rho_path(ebidx), rho_path(ebidx)], ylim);
+
+##### SOURCE END #####
+--></body></html>
