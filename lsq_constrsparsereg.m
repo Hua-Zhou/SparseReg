@@ -51,8 +51,8 @@ function [betahat,stats] ...
 % References
 %
 
-% Copyright 2014 North Carolina State University
-% Hua Zhou (hua_zhou@ncsu.edu) and Brian Gaines
+% Copyright 2014-2017 University of California at Los Angeles and North Carolina State University
+% Hua Zhou (huazhou@ucla.edu) and Brian Gaines (brgaines@ncsu.edu)
 
 % input parsing rule
 [n,p] = size(X);

@@ -25,8 +25,8 @@ function [rho_path, beta_path, eb_path] = glm_regpath(X,y,D,model,varargin)
 %   References:
 %
 
-%   Copyright 2011-2012 North Carolina State University
-%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+% Copyright 2017 University of California at Los Angeles
+% Hua Zhou (huazhou@ucla.edu)
 
 % input parsing rule
 [n,p] = size(X);

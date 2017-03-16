@@ -26,8 +26,8 @@ function [maxlambda] = glm_maxlambda(x,y,model,varargin)
 %   References:
 %
 
-%   Copyright 2011-2012 North Carolina State University
-%   Hua Zhou (hua_zhou@ncsu.edu), Artin Armagan
+% Copyright 2017 University of California at Los Angeles
+% Hua Zhou (huazhou@ucla.edu)
 
 % input parsing rule
 if (size(x,1)>1 && size(x,2)>1)

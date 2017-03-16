@@ -50,8 +50,8 @@ function [rhoPath, betaPath, dfPath, objValPath] = ...
 %   Gaines, Brian and Zhou, Hua (2016). On Fitting the Constrained Lasso.  
 %
 %
-% Copyright 2014-2016 North Carolina State University
-% Hua Zhou (hua_zhou@ncsu.edu) and Brian Gaines (brgaines@ncsu.edu)
+% Copyright 2014-2017 University of California at Los Angeles and North Carolina State University
+% Hua Zhou (huazhou@ucla.edu) and Brian Gaines (brgaines@ncsu.edu)
 %
 
 % input parsing rule
