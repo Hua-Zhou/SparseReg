@@ -1,0 +1,8 @@
+title: SparseReg
+description: Matlab toolbox for sparse regression
+google_analytics: UA-42646483-1
+show_downloads: true
+theme: jekyll-theme-minimal
+
+gems:
+  - jekyll-mentions
