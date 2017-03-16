@@ -13,14 +13,14 @@ The toolbox is developed by [Hua Zhou](http://hua-zhou.github.io) and [Brian Gai
 
 The code is tested on Matlab R2017a, but should work on other versions of Matlab with no or little changes. Current version works on these platforms: Windows 64-bit, Linux 64-bit, and Mac (Intel 64-bit). Type `computer` in Matlab's command window to determine the platform.
 
-### Download
+### Installation (Matlab version >= 2017a)
 
-Download `ZIP File` or `TAR Ball` file using the links on the left.  
+Download the Matlab toolbox installation file [SparseReg.mltbx](./SparseReg.mltbx). Double click the downloaded file and you should be good to go.
 
-### Installation
 
-1. Download the zip package.
-2. Extract the zip file.  
+### Installation (Matlab version < 2017a)
+
+1. Download `ZIP File` file using the links on the left.  2. Extract the zip file.  
 ```
 unzip Hua-Zhou-SparseReg-xxxxxxx.zip
 ```
