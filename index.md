@@ -7,7 +7,7 @@ title: SparseReg
 
 SparseReg toolbox is a collection of Matlab functions for sparse regressions. 
 
-The toolbox is developed by [Hua Zhou](http://hua-zhou.github.io), with contributions from [Brian Gaines](http://brgaines.github.io/).  
+The toolbox is developed by [Hua Zhou](http://hua-zhou.github.io) and [Brian Gaines](http://brgaines.github.io/).  
 
 ### Compatibility
 
