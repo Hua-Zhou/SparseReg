@@ -7,14 +7,14 @@
     
     <!-- Supply the following six elements in the order specified -->
     <!-- (Required) element; matlabrelease content is not currently used -->
-    <matlabrelease>2012a</matlabrelease>
+    <matlabrelease>2017a</matlabrelease>
     <!-- (Required) The name element appears in the Contents pane -->
     <name>SparseReg</name>
     <!-- (Required) The type elementidentifies your package; pick one: -->
     <!-- matlab, toolbox, simulink, blockset, links_targets  -->
     <type>toolbox</type>
     <!-- (Optional) icon file to display in the Start button -->
-    <icon>wolfpack_icon.gif</icon>
+    <icon>uclabruin_icon.png</icon>
     <!-- (Required if you supply help) relative path to help (HTML) folder -->
     <help_location>./html</help_location>
     <!-- (Required if you supply help) icon used in the Help browser TOC -->
@@ -55,7 +55,7 @@
         <listitem>
             <!-- Include call to open your Web site, if any -->
             <label>SparseReg Toolbox Site</label>
-            <callback>web http://hua-zhou.github.io/softwares/sparsereg/ -browser</callback>
+            <callback>web http://hua-zhou.github.io/SparseReg/ -browser</callback>
             <icon>$docroot/techdoc/matlab_env/examples/webicon.gif</icon>
         </listitem>
         <!-- Add listitems for other features of your toolbox... -->

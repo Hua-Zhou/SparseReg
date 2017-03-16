@@ -1,0 +1,868 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>Sparse GEE</title><meta name="generator" content="MATLAB 9.2"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-03-15"><meta name="DC.source" content="demo_gee.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h1>Sparse GEE</h1><!--introduction--><p>A demonstration of sparse regression using generalized estimating equations (GEE). Sparsity is in the general sense: variable selection, total variation regularization, polynomial trend filtering, and others. Various penalties are implemenmted: elestic net (enet), power family (bridge regression), log penalty, SCAD, and MCP.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Sparse linear regression (n&gt;p)</a></li><li><a href="#9">Sparse linear regression (n&gt;p)</a></li></ul></div><h2 id="1">Sparse linear regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=100), with equicorrelation structure within clusters</p><pre class="codeinput">clear;
+s = RandStream(<span class="string">'mt19937ar'</span>,<span class="string">'Seed'</span>,123);
+RandStream.setGlobalStream(s);
+n = 500;
+p = 100;
+X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
+X = [ones(size(X,1),1) X];  <span class="comment">% add intercept</span>
+b = zeros(p+1,1);           <span class="comment">% true signal:</span>
+b(2:6) = 3;                 <span class="comment">% first 5 predictors are 3</span>
+b(7:11) = -3;               <span class="comment">% next 5 predictors are -3</span>
+<span class="comment">% set up cluster structure</span>
+clusterSize = 5;
+nCluster = n/clusterSize;
+id = kron((1:nCluster)', ones(clusterSize,1));
+time = kron(ones(nCluster,1), (1:clusterSize)');
+<span class="comment">% equi-correlation structure</span>
+alpha = 0.5;
+Vi = repmat(alpha, clusterSize, clusterSize);   <span class="comment">% equi-correlation struct.</span>
+Vi(1:size(Vi,1)+1:numel(Vi)) = 1;
+V = kron(eye(nCluster), Vi);
+<span class="comment">% simulate responses</span>
+y = X*b+chol(V)'*randn(n,1);
+</pre><p>Lasso sparse GEE at fixed tuning parameter values, using the correct correlation structure (equicorr)</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat,stats] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(stats);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a smaller tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat,stats] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(stats);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+stats = 
+
+  struct with fields:
+
+    iterations: 2
+
+
+alphahat =
+
+    0.3269
+
+
+stats = 
+
+  struct with fields:
+
+    iterations: 5
+
+
+alphahat =
+
+    0.3675
+
+</pre><img vspace="5" hspace="5" src="demo_gee_01.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_02.png" style="width:560px;height:420px;" alt=""> <p>SCAD sparse GEE at fixed tuning parameter values, using the correct correlation structure (equicorr)</p><pre class="codeinput">penalty = <span class="string">'scad'</span>;           <span class="comment">% set penalty function to SCAD</span>
+penparam = 3;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat] <span class="keyword">...</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+<span class="comment">% plot penalized estimate</span>
+figure;
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+    0.3269
+
+
+alphahat =
+
+    0.3675
+
+</pre><img vspace="5" hspace="5" src="demo_gee_03.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_04.png" style="width:560px;height:420px;" alt=""> <p>Power penalty GEE at fixed tuning parameter values, using the correct correlation structure (equicorr)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;           <span class="comment">% set penalty function to Power</span>
+penparam = 0.5;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat] <span class="keyword">...</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+<span class="comment">% plot penalized estimate</span>
+figure;
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+    0.3395
+
+
+alphahat =
+
+    0.3956
+
+</pre><img vspace="5" hspace="5" src="demo_gee_05.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_06.png" style="width:560px;height:420px;" alt=""> <p>Lasso GEE at fixed tuning parameter values, using a wrong correlation structure (AR1)</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'AR1'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'AR1'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+    0.2708
+
+
+alphahat =
+
+    0.3287
+
+</pre><img vspace="5" hspace="5" src="demo_gee_07.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_08.png" style="width:560px;height:420px;" alt=""> <p>Lasso GEE at fixed tuning parameter values, using a wrong correlation structure (indep)</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'indep'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'indep'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+     []
+
+
+alphahat =
+
+     []
+
+</pre><img vspace="5" hspace="5" src="demo_gee_09.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_10.png" style="width:560px;height:420px;" alt=""> <p>Lasso GEE at fixed tuning parameter values, using a wrong correlation structure (tridiag)</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'tridiag'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'tridiag'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+    0.2709
+
+
+alphahat =
+
+    0.3478
+
+</pre><img vspace="5" hspace="5" src="demo_gee_11.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_12.png" style="width:560px;height:420px;" alt=""> <p>Lasso GEE at fixed tuning parameter values, using a wrong correlation structure (unstructured)</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 6;
+[betahat,alphahat,stats] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'unstructured'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+display(stats);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 3;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'unstructured'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+    1.0521    0.3937    0.3305    0.1450    0.5019
+    0.3937    0.9893    0.3839    0.2915    0.4713
+    0.3305    0.3839    0.9716    0.1788    0.4819
+    0.1450    0.2915    0.1788    0.7457    0.1248
+    0.5019    0.4713    0.4819    0.1248    1.2817
+
+
+stats = 
+
+  struct with fields:
+
+    iterations: 3
+
+
+alphahat =
+
+    1.1360    0.4668    0.3917    0.1866    0.5937
+    0.4668    1.0841    0.4666    0.3679    0.5243
+    0.3917    0.4666    1.0255    0.2368    0.5626
+    0.1866    0.3679    0.2368    0.8075    0.1959
+    0.5937    0.5243    0.5626    0.1959    1.3913
+
+</pre><img vspace="5" hspace="5" src="demo_gee_13.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_14.png" style="width:560px;height:420px;" alt=""> <h2 id="9">Sparse linear regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=100), with equicorrelation structure within clusters</p><pre class="codeinput">clear;
+s = RandStream(<span class="string">'mt19937ar'</span>,<span class="string">'Seed'</span>,123);
+RandStream.setGlobalStream(s);
+n = 100;
+p = 1000;
+X = randn(n,p);             <span class="comment">% generate a random design matrix</span>
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); <span class="comment">% normalize predictors</span>
+X = [ones(size(X,1),1) X];  <span class="comment">% add intercept</span>
+b = zeros(p+1,1);           <span class="comment">% true signal:</span>
+b(2:6) = 3;                 <span class="comment">% first 5 predictors are 3</span>
+b(7:11) = -3;               <span class="comment">% next 5 predictors are -3</span>
+<span class="comment">% set up cluster structure</span>
+clusterSize = 5;
+nCluster = n/clusterSize;
+id = kron((1:nCluster)', ones(clusterSize,1));
+time = kron(ones(nCluster,1), (1:clusterSize)');
+<span class="comment">% equi-correlation structure</span>
+alpha = 0.5;
+Vi = repmat(alpha, clusterSize, clusterSize);   <span class="comment">% equi-correlation struct.</span>
+Vi(1:size(Vi,1)+1:numel(Vi)) = 1;
+V = kron(eye(nCluster), Vi);
+<span class="comment">% simulate responses</span>
+y = X*b+chol(V)'*randn(n,1);
+</pre><p>Lasso sparse GEE at fixed tuning parameter values, using the correct correlation structure (equicorr)</p><pre class="codeinput">penalty = <span class="string">'enet'</span>;           <span class="comment">% set penalty function to lasso</span>
+penparam = 1;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 10;
+[betahat,alphahat,stats] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(stats);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a smaller tuning parameter value</span>
+lambda = 5;
+[betahat,alphahat,stats] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(stats);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+stats = 
+
+  struct with fields:
+
+    iterations: 2
+
+
+alphahat =
+
+    0.2892
+
+
+stats = 
+
+  struct with fields:
+
+    iterations: 6
+
+
+alphahat =
+
+    0.2886
+
+</pre><img vspace="5" hspace="5" src="demo_gee_15.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_16.png" style="width:560px;height:420px;" alt=""> <p>Power sparse GEE at fixed tuning parameter values, using the correct correlation structure (equicorr)</p><pre class="codeinput">penalty = <span class="string">'power'</span>;           <span class="comment">% set penalty function to SCAD</span>
+penparam = 0.5;
+penidx = <span class="keyword">...</span><span class="comment">                % leave intercept unpenalized</span>
+    [false; true(size(X,2)-1,1)];
+<span class="comment">% a large tuning parameter value</span>
+lambda = 10;
+[betahat,alphahat] <span class="keyword">...</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+<span class="comment">% plot penalized estimate</span>
+figure;
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+<span class="comment">% a small tuning parameter value</span>
+lambda = 5;
+[betahat,alphahat] <span class="keyword">...</span><span class="comment">      % lasso GEE</span>
+    = gee_sparsereg(id,time,X,y,<span class="string">'normal'</span>,<span class="string">'equicorr'</span>,lambda, <span class="keyword">...</span>
+    <span class="string">'penidx'</span>,penidx,<span class="string">'penalty'</span>,penalty,<span class="string">'penparam'</span>,penparam);
+display(alphahat);
+figure;                     <span class="comment">% plot penalized estimate</span>
+bar(0:length(betahat)-1,betahat);
+xlabel(<span class="string">'j'</span>);
+ylabel(<span class="string">'\beta_j'</span>);
+xlim([-1,length(betahat)]);
+title([penalty <span class="string">'('</span> num2str(penparam) <span class="string">'), \lambda='</span> num2str(lambda,2)]);
+</pre><pre class="codeoutput">
+alphahat =
+
+    0.2892
+
+
+alphahat =
+
+    0.4849
+
+</pre><img vspace="5" hspace="5" src="demo_gee_17.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_18.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2017a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% Sparse GEE
+% A demonstration of sparse regression using generalized estimating equations (GEE).
+% Sparsity is in the general sense: variable selection, total variation
+% regularization, polynomial trend filtering, and others. Various penalties
+% are implemenmted: elestic net (enet), power family (bridge regression),
+% log penalty, SCAD, and MCP.
+
+%% Sparse linear regression (n>p)
+% Simulate a sample data set (n=500, p=100), with equicorrelation structure
+% within clusters
+clear;
+s = RandStream('mt19937ar','Seed',123);
+RandStream.setGlobalStream(s);
+n = 500;
+p = 100;
+X = randn(n,p);             % generate a random design matrix
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
+X = [ones(size(X,1),1) X];  % add intercept
+b = zeros(p+1,1);           % true signal:
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
+% set up cluster structure
+clusterSize = 5;            
+nCluster = n/clusterSize;
+id = kron((1:nCluster)', ones(clusterSize,1));
+time = kron(ones(nCluster,1), (1:clusterSize)');
+% equi-correlation structure
+alpha = 0.5;
+Vi = repmat(alpha, clusterSize, clusterSize);   % equi-correlation struct.
+Vi(1:size(Vi,1)+1:numel(Vi)) = 1;
+V = kron(eye(nCluster), Vi);
+% simulate responses
+y = X*b+chol(V)'*randn(n,1);
+
+%%
+% Lasso sparse GEE at fixed tuning parameter values, using the correct
+% correlation structure (equicorr)
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;
+[betahat,alphahat,stats] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(stats);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a smaller tuning parameter value
+lambda = 3;
+[betahat,alphahat,stats] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(stats);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% SCAD sparse GEE at fixed tuning parameter values, using the correct
+% correlation structure (equicorr)
+penalty = 'scad';           % set penalty function to SCAD
+penparam = 3;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;
+[betahat,alphahat] ...
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+% plot penalized estimate
+figure;                     
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 3;
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% Power penalty GEE at fixed tuning parameter values, using the correct
+% correlation structure (equicorr)
+penalty = 'power';           % set penalty function to Power
+penparam = 0.5;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;
+[betahat,alphahat] ...
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+% plot penalized estimate
+figure;                     
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 3;
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% Lasso GEE at fixed tuning parameter values, using a wrong
+% correlation structure (AR1)
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;               
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','AR1',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 3;                 
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','AR1',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% Lasso GEE at fixed tuning parameter values, using a wrong
+% correlation structure (indep)
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;             
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','indep',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 3;
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','indep',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% Lasso GEE at fixed tuning parameter values, using a wrong
+% correlation structure (tridiag)
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;             
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','tridiag',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 3;
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','tridiag',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% Lasso GEE at fixed tuning parameter values, using a wrong
+% correlation structure (unstructured)
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 6;             
+[betahat,alphahat,stats] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','unstructured',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+display(stats);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 3;
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','unstructured',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%% Sparse linear regression (n>p)
+% Simulate a sample data set (n=500, p=100), with equicorrelation structure
+% within clusters
+clear;
+s = RandStream('mt19937ar','Seed',123);
+RandStream.setGlobalStream(s);
+n = 100;
+p = 1000;
+X = randn(n,p);             % generate a random design matrix
+X = bsxfun(@rdivide, X, sqrt(sum(X.^2,1))); % normalize predictors
+X = [ones(size(X,1),1) X];  % add intercept
+b = zeros(p+1,1);           % true signal:
+b(2:6) = 3;                 % first 5 predictors are 3
+b(7:11) = -3;               % next 5 predictors are -3
+% set up cluster structure
+clusterSize = 5;            
+nCluster = n/clusterSize;
+id = kron((1:nCluster)', ones(clusterSize,1));
+time = kron(ones(nCluster,1), (1:clusterSize)');
+% equi-correlation structure
+alpha = 0.5;
+Vi = repmat(alpha, clusterSize, clusterSize);   % equi-correlation struct.
+Vi(1:size(Vi,1)+1:numel(Vi)) = 1;
+V = kron(eye(nCluster), Vi);
+% simulate responses
+y = X*b+chol(V)'*randn(n,1);
+
+%%
+% Lasso sparse GEE at fixed tuning parameter values, using the correct
+% correlation structure (equicorr)
+penalty = 'enet';           % set penalty function to lasso
+penparam = 1;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 10;
+[betahat,alphahat,stats] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(stats);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a smaller tuning parameter value
+lambda = 5;
+[betahat,alphahat,stats] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(stats);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+%%
+% Power sparse GEE at fixed tuning parameter values, using the correct
+% correlation structure (equicorr)
+penalty = 'power';           % set penalty function to SCAD
+penparam = 0.5;
+penidx = ...                % leave intercept unpenalized
+    [false; true(size(X,2)-1,1)];
+% a large tuning parameter value
+lambda = 10;
+[betahat,alphahat] ...
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+% plot penalized estimate
+figure;                     
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+% a small tuning parameter value
+lambda = 5;
+[betahat,alphahat] ...      % lasso GEE
+    = gee_sparsereg(id,time,X,y,'normal','equicorr',lambda, ...
+    'penidx',penidx,'penalty',penalty,'penparam',penparam);
+display(alphahat);
+figure;                     % plot penalized estimate
+bar(0:length(betahat)-1,betahat);
+xlabel('j');
+ylabel('\beta_j');
+xlim([-1,length(betahat)]);
+title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
+
+##### SOURCE END #####
+--></body></html>

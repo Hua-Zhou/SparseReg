@@ -40,11 +40,11 @@ argin = inputParser;
 argin.addRequired('X', @isnumeric);
 argin.addRequired('y', @(x) length(y)==n);
 argin.addRequired('model', @(x) strcmpi(x,'logistic')||strcmpi(x,'loglinear'));
-argin.addParamValue('maxpreds', rankX, @(x) isnumeric(x) && x>0);
-argin.addParamValue('penalty', 'enet', @ischar);
-argin.addParamValue('penparam', 1, @isnumeric);
-argin.addParamValue('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
-argin.addParamValue('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
+argin.addParameter('maxpreds', rankX, @(x) isnumeric(x) && x>0);
+argin.addParameter('penalty', 'enet', @ischar);
+argin.addParameter('penparam', 1, @isnumeric);
+argin.addParameter('penidx', true(p,1), @(x) islogical(x) && length(x)==p);
+argin.addParameter('weights', ones(n,1), @(x) isnumeric(x) && all(x>=0) && ...
     length(x)==n);
 
 % parse inputs
@@ -126,10 +126,11 @@ eb_path = nan;
 
 % set up ODE solver and unconstrained optimizer
 maxiters = 2*rankX;         % max iterations for path algorithm
-maxrounds = 3;              % max iterations for glm_sparsereg
+maxrounds = 1;              % max iterations for glm_sparsereg
 refine = 1;
 odeopt = odeset('Events',@events, 'Refine',refine);
-fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on');
+fminopt = optimset('GradObj','on', 'Display', 'off','Hessian','on', ...
+    'Algorithm','trust-region');
 tfinal = 0;
 
 % find MLE of unpenalized coefficients
@@ -197,9 +198,9 @@ for k=2:maxiters
     
     % update activeSet
     rho = max(rho_path(end)-tiny,0);
-    if (rho==0);
+    if (rho==0)
         break;
-    end;
+    end
     x0 = beta_path(:,end);
     if (~isconvex)
         x0(setPenZ) = coeff(setPenZ);
