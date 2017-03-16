@@ -1,0 +1,215 @@
+<deployment-project plugin="plugin.toolbox" plugin-version="1.0">
+  <configuration file="/Users/huazhou/Desktop/SparseReg/SparseReg.prj" location="/Users/huazhou/Desktop/SparseReg" name="SparseReg" target="target.toolbox" target-name="Package Toolbox">
+    <param.appname>SparseReg</param.appname>
+    <param.authnamewatermark>Hua Zhou; Brian Gaines</param.authnamewatermark>
+    <param.email>huazhou@ucla.edu; brgaines@ncsu.edu</param.email>
+    <param.company>UCLA; NCSU</param.company>
+    <param.summary>SparseReg Toolbox for Matlab</param.summary>
+    <param.description>SparseReg toolbox is a collection of Matlab functions for sparse regressions.</param.description>
+    <param.screenshot />
+    <param.version>1.0.0</param.version>
+    <param.output>${PROJECT_ROOT}/SparseReg.mltbx</param.output>
+    <param.products.name />
+    <param.products.id />
+    <param.products.version />
+    <param.platforms />
+    <param.guid>364a0e3f-dd69-4f37-ab89-679f3e5d2826</param.guid>
+    <param.exclude.filters>% List files contained in your toolbox folder that you would like to exclude
+% from packaging.  Excludes should be listed relative to the toolbox folder.
+% Some examples of how to specify excludes are provided below:
+%
+% A single file in the toolbox folder:
+% .svn
+%
+% A single file in a subfolder of the toolbox folder:
+% example/.svn
+%
+% All files in a subfolder of the toolbox folder:
+% example/*
+%
+% All files of a certain name in all subfolders of the toolbox folder:
+% **/.svn
+%
+% All files matching a pattern in all subfolders of the toolbox folder:
+% **/*.bak
+%
+
+.DS_Store
+.git/*</param.exclude.filters>
+    <param.examples>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;examples&gt;
+   &lt;exampleCategory name="SparseReg"&gt;
+      &lt;example name="demo_gee" type="html"&gt;
+         &lt;file type="source"&gt;/html/demo_gee.html&lt;/file&gt;
+         &lt;file type="main"&gt;/demo_gee.m&lt;/file&gt;
+         &lt;file type="thumbnail"&gt;/html/demo_gee.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_01.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_02.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_03.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_04.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_05.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_06.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_07.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_08.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_09.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_10.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_11.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_12.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_13.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_14.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_15.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_16.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_17.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_gee_18.png&lt;/file&gt;
+      &lt;/example&gt;
+      &lt;example name="demo_glm" type="html"&gt;
+         &lt;file type="source"&gt;/html/demo_glm.html&lt;/file&gt;
+         &lt;file type="main"&gt;/demo_glm.m&lt;/file&gt;
+         &lt;file type="thumbnail"&gt;/html/demo_glm.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_01.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_02.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_03.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_04.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_05.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_06.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_07.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_08.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_09.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_10.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_11.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_12.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_13.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_14.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_15.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_16.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_17.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_18.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_19.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_20.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_21.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_22.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_23.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_24.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_25.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_26.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_27.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_glm_28.png&lt;/file&gt;
+      &lt;/example&gt;
+      &lt;example name="demo_lsq" type="html"&gt;
+         &lt;file type="source"&gt;/html/demo_lsq.html&lt;/file&gt;
+         &lt;file type="main"&gt;/demo_lsq.m&lt;/file&gt;
+         &lt;file type="thumbnail"&gt;/html/demo_lsq.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_01.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_02.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_03.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_04.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_05.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_06.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_07.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_08.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_09.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_10.png&lt;/file&gt;
+         &lt;file type="image"&gt;/html/demo_lsq_11.png&lt;/file&gt;
+      &lt;/example&gt;
+   &lt;/exampleCategory&gt;
+&lt;/examples&gt;</param.examples>
+    <param.demosxml />
+    <param.apps />
+    <param.docs>${PROJECT_ROOT}/info.xml</param.docs>
+    <param.matlabpath.excludes />
+    <param.javaclasspath.excludes />
+    <unset>
+      <param.screenshot />
+      <param.output />
+      <param.products.name />
+      <param.products.id />
+      <param.products.version />
+      <param.platforms />
+      <param.demosxml />
+      <param.apps />
+      <param.matlabpath.excludes />
+      <param.javaclasspath.excludes />
+    </unset>
+    <fileset.rootdir>
+      <file>/Users/huazhou/Desktop/SparseReg</file>
+    </fileset.rootdir>
+    <fileset.rootfiles>
+      <file>${PROJECT_ROOT}/.git</file>
+      <file>${PROJECT_ROOT}/Contents.m</file>
+      <file>${PROJECT_ROOT}/README.md</file>
+      <file>${PROJECT_ROOT}/demo_classopath.m</file>
+      <file>${PROJECT_ROOT}/demo_constrlasso.m</file>
+      <file>${PROJECT_ROOT}/demo_gee.m</file>
+      <file>${PROJECT_ROOT}/demo_glm.m</file>
+      <file>${PROJECT_ROOT}/demo_lsq.m</file>
+      <file>${PROJECT_ROOT}/demos.xml</file>
+      <file>${PROJECT_ROOT}/gee_sparsereg.m</file>
+      <file>${PROJECT_ROOT}/glm_maxlambda.m</file>
+      <file>${PROJECT_ROOT}/glm_regpath.m</file>
+      <file>${PROJECT_ROOT}/glm_sparsepath.m</file>
+      <file>${PROJECT_ROOT}/glm_sparsereg.m</file>
+      <file>${PROJECT_ROOT}/html</file>
+      <file>${PROJECT_ROOT}/info.xml</file>
+      <file>${PROJECT_ROOT}/lsq_classopath.m</file>
+      <file>${PROJECT_ROOT}/lsq_constrsparsereg.m</file>
+      <file>${PROJECT_ROOT}/lsq_maxlambda.m</file>
+      <file>${PROJECT_ROOT}/lsq_regpath.m</file>
+      <file>${PROJECT_ROOT}/lsq_sparsepath.m</file>
+      <file>${PROJECT_ROOT}/lsq_sparsereg.m</file>
+      <file>${PROJECT_ROOT}/private</file>
+      <file>${PROJECT_ROOT}/uclabruin_icon.png</file>
+      <file>${PROJECT_ROOT}/uclabruin_logo.png</file>
+    </fileset.rootfiles>
+    <fileset.depfun.included />
+    <fileset.depfun.excluded />
+    <fileset.package />
+    <build-deliverables>
+      <file location="/Users/huazhou/Desktop/SparseReg" name="SparseReg.mltbx" optional="false">/Users/huazhou/Desktop/SparseReg/SparseReg.mltbx</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>/Applications/MATLAB_R2017a.app</root>
+      <toolboxes>
+        <toolbox name="fixedpoint" />
+        <toolbox name="matlabcoder" />
+        <toolbox name="matlabhdlcoder" />
+        <toolbox name="embeddedcoder" />
+      </toolboxes>
+      <toolbox>
+        <fixedpoint>
+          <enabled>true</enabled>
+        </fixedpoint>
+      </toolbox>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+      <toolbox>
+        <matlabhdlcoder>
+          <enabled>true</enabled>
+        </matlabhdlcoder>
+      </toolbox>
+      <toolbox>
+        <embeddedcoder>
+          <enabled>true</enabled>
+        </embeddedcoder>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>true</unix>
+      <mac>true</mac>
+      <windows>false</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>10.12.3</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>maci64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>
