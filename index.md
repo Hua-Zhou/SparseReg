@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 ## SparseReg Toolbox for Matlab
 
 SparseReg toolbox is a collection of Matlab functions for sparse regressions. 
@@ -54,3 +58,4 @@ B Gaines and H Zhou (2016) Algorithms for Fitting the Constrained Lasso.  [[arXi
 ### Contacts
 
 Hua Zhou <huazhou@ucla.edu> | Brian Gaines <brgaines@ncsu.edu>  
+
