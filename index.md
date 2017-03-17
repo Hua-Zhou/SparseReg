@@ -15,7 +15,7 @@ The code is tested on Matlab R2017a, but should work on other versions of Matlab
 
 ### Installation (Matlab version >= 2014b)
 
-Download the Matlab toolbox installation file [SparseReg.mltbx](./SparseReg.mltbx). Double click the downloaded file and you should be good to go.
+Download the Matlab toolbox installation file [SparseReg.mltbx](./SparseReg.mltbx). Double click the downloaded file and you should be good to go. If for some reasons, it does not work. Follow the below instructions for Matlab version < 2014b.
 
 
 ### Installation (Matlab version < 2014b)
