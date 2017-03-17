@@ -6,7 +6,7 @@
    <!--
 This HTML was auto-generated from MATLAB code.
 To make changes, update the MATLAB code and republish this document.
-      --><title>Sparse GEE</title><meta name="generator" content="MATLAB 9.2"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-03-15"><meta name="DC.source" content="demo_gee.m"><style type="text/css">
+      --><title>Sparse GEE</title><meta name="generator" content="MATLAB 9.2"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-03-17"><meta name="DC.source" content="demo_gee.m"><style type="text/css">
 html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
 
 html { min-height:100%; margin-bottom:1px; }
@@ -66,7 +66,7 @@ table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px soli
 
 
 
-  </style></head><body><div class="content"><h1>Sparse GEE</h1><!--introduction--><p>A demonstration of sparse regression using generalized estimating equations (GEE). Sparsity is in the general sense: variable selection, total variation regularization, polynomial trend filtering, and others. Various penalties are implemenmted: elestic net (enet), power family (bridge regression), log penalty, SCAD, and MCP.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Sparse linear regression (n&gt;p)</a></li><li><a href="#9">Sparse linear regression (n&gt;p)</a></li></ul></div><h2 id="1">Sparse linear regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=100), with equicorrelation structure within clusters</p><pre class="codeinput">clear;
+  </style></head><body><div class="content"><h1>Sparse GEE</h1><!--introduction--><p>A demonstration of sparse regression using generalized estimating equations (GEE). Sparsity is in the general sense: variable selection, total variation regularization, polynomial trend filtering, and others. Various penalties are implemenmted: elestic net (enet), power family (bridge regression), log penalty, SCAD, and MCP.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Sparse linear regression (n&gt;p)</a></li><li><a href="#9">Sparse linear regression (n&lt;p)</a></li></ul></div><h2 id="1">Sparse linear regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=100), with equicorrelation structure within clusters</p><pre class="codeinput">clear;
 s = RandStream(<span class="string">'mt19937ar'</span>,<span class="string">'Seed'</span>,123);
 RandStream.setGlobalStream(s);
 n = 500;
@@ -389,7 +389,7 @@ alphahat =
     0.1866    0.3679    0.2368    0.8075    0.1959
     0.5937    0.5243    0.5626    0.1959    1.3913
 
-</pre><img vspace="5" hspace="5" src="demo_gee_13.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_14.png" style="width:560px;height:420px;" alt=""> <h2 id="9">Sparse linear regression (n&gt;p)</h2><p>Simulate a sample data set (n=500, p=100), with equicorrelation structure within clusters</p><pre class="codeinput">clear;
+</pre><img vspace="5" hspace="5" src="demo_gee_13.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="demo_gee_14.png" style="width:560px;height:420px;" alt=""> <h2 id="9">Sparse linear regression (n&lt;p)</h2><p>Simulate a sample data set (n=500, p=100), with equicorrelation structure within clusters</p><pre class="codeinput">clear;
 s = RandStream(<span class="string">'mt19937ar'</span>,<span class="string">'Seed'</span>,123);
 RandStream.setGlobalStream(s);
 n = 100;
@@ -770,7 +770,7 @@ ylabel('\beta_j');
 xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
-%% Sparse linear regression (n>p)
+%% Sparse linear regression (n<p)
 % Simulate a sample data set (n=500, p=100), with equicorrelation structure
 % within clusters
 clear;
