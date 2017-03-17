@@ -261,7 +261,7 @@ ylabel('\beta_j');
 xlim([-1,length(betahat)]);
 title([penalty '(' num2str(penparam) '), \lambda=' num2str(lambda,2)]);
 
-%% Sparse linear regression (n>p)
+%% Sparse linear regression (n<p)
 % Simulate a sample data set (n=500, p=100), with equicorrelation structure
 % within clusters
 clear;
