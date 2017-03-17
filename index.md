@@ -32,6 +32,9 @@ mv Hua-Zhou-SparseReg-xxxxxxx SparseReg
 `addpath(pwd)	 %<-- Add the toolbox to the Matlab path`  
 `save path	 %<-- Save for future Matlab sessions`
 5. Go through following tutorials for the usage. For help of individual functions, type `?` followed by the function name in Matlab.
+6. (Occasionally) you need to re-compile the Fortran code for your specific platform. First make sure the [Matlab supported Fortran compiler](https://www.mathworks.com/support/compilers.html) is available on your system and type
+`mex -setup FORTRAN`
+to set up Matlab compilier utility. Within Matlab, enter the `/private` folder and type `make` to compile the Fortran source code.
 
 ### Tutorial
 
