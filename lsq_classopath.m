@@ -6,7 +6,7 @@ function [rhoPath, betaPath, dfPath, objValPath] = ...
 %   solution path for the constrained lasso problem using the predictor
 %   matrix X and response y.  The constrained lasso solves the standard
 %   lasso (Tibshirani, 1996) subject to the linear equality constraints
-%   Aeq*beta = beq and linear inequality constraints A*beta = b.  The
+%   Aeq*beta = beq and linear inequality constraints A*beta <= b.  The
 %   result RHO_PATH contains the values of the tuning parameter rho along
 %   the solution path.  The result BETA_PATH has a vector of the estimated
 %   regression coefficients for each value of rho.  If the design matrix is
