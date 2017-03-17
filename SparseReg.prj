@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.toolbox" plugin-version="1.0">
-  <configuration file="/Users/huazhou/Desktop/SparseReg/SparseReg.prj" location="/Users/huazhou/Desktop/SparseReg" name="SparseReg" target="target.toolbox" target-name="Package Toolbox">
+  <configuration file="/Users/huazhou/Documents/github.com/SparseReg/SparseReg.prj" location="/Users/huazhou/Documents/github.com/SparseReg" name="SparseReg" target="target.toolbox" target-name="Package Toolbox">
     <param.appname>SparseReg</param.appname>
     <param.authnamewatermark>Hua Zhou; Brian Gaines</param.authnamewatermark>
     <param.email>huazhou@ucla.edu; brgaines@ncsu.edu</param.email>
@@ -131,7 +131,7 @@
       <param.javaclasspath.excludes />
     </unset>
     <fileset.rootdir>
-      <file>/Users/huazhou/Desktop/SparseReg</file>
+      <file>/Users/huazhou/Documents/github.com/SparseReg</file>
     </fileset.rootdir>
     <fileset.rootfiles>
       <file>${PROJECT_ROOT}/.git</file>
@@ -164,7 +164,7 @@
     <fileset.depfun.excluded />
     <fileset.package />
     <build-deliverables>
-      <file location="/Users/huazhou/Desktop/SparseReg" name="SparseReg.mltbx" optional="false">/Users/huazhou/Desktop/SparseReg/SparseReg.mltbx</file>
+      <file location="/Users/huazhou/Documents/github.com/SparseReg" name="SparseReg.mltbx" optional="false">/Users/huazhou/Documents/github.com/SparseReg/SparseReg.mltbx</file>
     </build-deliverables>
     <workflow />
     <matlab>
