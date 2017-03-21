@@ -53,9 +53,9 @@ H Zhou and B Gaines. Matlab SparseReg Toolbox Version 1.0.0, Available online, M
 * Default article to cite for least squares + generalized lasso penalty  
 H Zhou and K Lange (2013) A path algorithm for constrained estimation, [_Journal of Computational and Graphical Statistics_](http://amstat.tandfonline.com/doi/full/10.1080/10618600.2012.681248), 22(2):261-283.
 * Default article to cite for convex loss + generalized lasso penalty  
-H Zhou and Y Wu (2014)  A generic path algorithm for regularized statistical estimation, [_Journal of American Statistical Association_](http://www.tandfonline.com/doi/full/10.1080/01621459.2013.864166#.Up5KiGRDt4A), 109(506):686-699. [[pdf](http://hua-zhou.github.io/media/pdf/ZhouWu14EPSODE.pdf)]
+H Zhou and Y Wu (2014)  A generic path algorithm for regularized statistical estimation, [_Journal of American Statistical Association_](http://www.tandfonline.com/doi/full/10.1080/01621459.2013.864166#.Up5KiGRDt4A), 109(506):686-699.  
 * Default article to cite for path following in constrained convex programming  
-H Zhou and K Lange (2015) Path following in the exact penalty method of convex programming, [_Computational Optimization and Applications_](http://link.springer.com/article/10.1007/s10589-015-9732-x), 61(3):609-634. [[pdf](http://hua-zhou.github.io/media/pdf/XiaoWuZhou15ConvexLAR.pdf)]
+H Zhou and K Lange (2015) Path following in the exact penalty method of convex programming, [_Computational Optimization and Applications_](http://link.springer.com/article/10.1007/s10589-015-9732-x), 61(3):609-634.  
 * Default article to cite for constrained lasso path following  
 B Gaines and H Zhou (2016) Algorithms for Fitting the Constrained Lasso.  [[arXiv:1611.01511](https://arxiv.org/abs/1611.01511)]
 
