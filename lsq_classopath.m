@@ -281,7 +281,7 @@ s2 = warning('error', 'MATLAB:singularMatrix'); %#ok<CTPCT>
 for k = 2:maxiters 
 
     % threshold near-zero rhos to zero and stop algorithm
-    if rhoPath(k-1) <= (0 + 1e-4)
+    if rhoPath(k-1) <= (0 + 1e-3)
         rhoPath(k-1) = 0;
         break;
     end
@@ -299,7 +299,7 @@ for k = 2:maxiters
             * (M \ [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
     catch
         % otherwise use the moore-penrose inverse
-        dir = -(pinv(M) * ...
+        dir = -(IMqrginv(M) * ...
             [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
     end
        
@@ -368,7 +368,7 @@ for k = 2:maxiters
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             catch
                 % otherwise use moore-penrose inverse 
-                dir = -(pinv(M) * ...
+                dir = -(IMqrginv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
             
@@ -440,7 +440,7 @@ for k = 2:maxiters
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             catch
-                dir = -(pinv(M) * ...
+                dir = -(IMqrginv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
             
@@ -504,7 +504,7 @@ for k = 2:maxiters
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             catch
-                dir = -(pinv(M) * ...
+                dir = -(IMqrginv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
             %# calculate derivative for rho*subgradient (Eq. 10) #%
@@ -560,7 +560,7 @@ for k = 2:maxiters
                     * (M \ ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             catch
-                dir = -(pinv(M) * ...
+                dir = -(IMqrginv(M) * ...
                     [subgrad(setActive); zeros(m1+nIneqBorder,1)]);
             end
             
@@ -753,4 +753,22 @@ objValPath(k:end) = [];
 dfPath(k:end) = [];
 dfPath(dfPath < 0) = 0; 
     
+end
+
+
+
+function [ IMqrginv ] = IMqrginv( A )
+%IMqrginv Fast computation of a Moore-Penrose inverse
+%   Source: Ataei (2014), "Improved Qrginv Algorithm for Computing 
+%           Moore-Penrose Inverse Matrices"
+
+% [m, n] = size(A);
+[Q, R, P] = qr(A);
+r = sum(any(abs(R) > 1e-05, 2));
+Q = Q(:, 1:r);
+R = R(1:r, :);
+
+IMqrginv = P*(R'/(R*R')*Q');
+
+
 end
