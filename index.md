@@ -20,7 +20,8 @@ Download the Matlab toolbox installation file [SparseReg.mltbx](./SparseReg.mltb
 
 ### Installation (Matlab version < 2014b)
 
-1. Download `ZIP File` file using the links on the left.  2. Extract the zip file.  
+1. Download `ZIP File` file using the links on the left.  
+2. Extract the zip file.  
 ```
 unzip Hua-Zhou-SparseReg-xxxxxxx.zip
 ```
@@ -57,7 +58,7 @@ H Zhou and Y Wu (2014)  A generic path algorithm for regularized statistical est
 * Default article to cite for path following in constrained convex programming  
 H Zhou and K Lange (2015) Path following in the exact penalty method of convex programming, [_Computational Optimization and Applications_](http://link.springer.com/article/10.1007/s10589-015-9732-x), 61(3):609-634.  
 * Default article to cite for constrained lasso path following  
-B Gaines and H Zhou (2016) Algorithms for Fitting the Constrained Lasso.  [[arXiv:1611.01511](https://arxiv.org/abs/1611.01511)]
+B Gaines and H Zhou (2018) Algorithms for Fitting the Constrained Lasso, [_Journal of Computational and Graphical Statistics_](https://doi.org/10.1080/10618600.2018.1473777), 27(4):861-871.
 
 ### Contacts
 
